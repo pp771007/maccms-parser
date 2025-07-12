@@ -43,6 +43,22 @@ body {
     margin-bottom: 5px;
     font-size: 14px;
     color: var(--text-secondary-color);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.find-sites-link {
+    font-size: 12px;
+    text-decoration: none;
+    color: var(--primary-color);
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.find-sites-link:hover {
+    opacity: 1;
+    text-decoration: underline;
 }
 
 .site-manager input,
