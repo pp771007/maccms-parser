@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資源站點管理器</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.css">
+</head>
+
+<body>
+    <div class="container">
+        <header class="site-manager">
+            <div class="form-group">
+                <label for="siteSelector">選擇站點</label>
+                <div class="site-selector-wrapper">
+                    <select id="siteSelector"></select>
+                    <button id="deleteSiteBtn" class="delete-btn" title="刪除選中站點">&times;</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="newSiteName">站點名稱 (可選)</label>
+                <input type="text" id="newSiteName" placeholder="留空將自動生成">
+            </div>
+            <div class="form-group">
+                <label for="newSiteUrl">站點URL</label>
+                <input type="text" id="newSiteUrl" placeholder="https://example.com" required>
+            </div>
+            <button id="addSiteBtn" class="btn">新增</button>
+        </header>
+
+        <div id="loader" class="loader" style="display: none;">載入中...</div>
+        <div id="error" class="error-message" style="display: none;"></div>
+
+        <main id="mainContent" class="main-content">
+            <header class="content-header">
+                <nav id="category-nav" class="category-nav"></nav>
+            </header>
+            <div class="search-bar-container">
+                <div class="search-bar">
+                    <button id="toSimpBtn" class="btn simp-btn" title="轉為簡體">簡</button>
+                    <input type="search" id="searchInput" placeholder="輸入關鍵字搜索..." autocomplete="off">
+                    <button id="searchBtn" class="btn">搜索</button>
+                </div>
+            </div>
+            <section class="content-area">
+                <div id="videoGrid"></div>
+                <div id="pagination" class="pagination"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <header class="modal-header">
+                <h3 id="modalTitle" class="modal-title"></h3>
+                <button class="close-btn">&times;</button>
+            </header>
+            <main class="modal-body">
+                <div id="dplayer"></div>
+                <div class="playlist-container">
+                    <div id="playlistSources" class="playlist-sources"></div>
+                    <div id="episodeList" class="episode-list"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js/dist/hls.min.js"></script>
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
