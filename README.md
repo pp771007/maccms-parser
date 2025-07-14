@@ -53,6 +53,28 @@
     docker-compose up -d
     ```
 
+### 3. 使用 Docker Hub Image 部署 (最快速)
+
+如果您不想自己建置 (build) 映像檔，可以直接從 Docker Hub 拉取並執行。
+
+1.  **拉取 Image**
+    ```bash
+    docker pull smp771007/maccms-parser:latest
+    ```
+
+2.  **執行容器**
+    請執行以下指令來啟動容器。這個指令會將容器的 5000 連接埠映射到主機，並將本地的 `data` 資料夾掛載到容器中，以確保資料持久化。
+
+    - **在 Linux 或 macOS 上:**
+      ```bash
+      docker run -d -p 5000:5000 -v $(pwd)/data:/app/data --name maccms-parser smp771007/maccms-parser:latest
+      ```
+
+    - **在 Windows (CMD) 上:**
+      ```bash
+      docker run -d -p 5000:5000 -v "%cd%/data":/app/data --name maccms-parser smp771007/maccms-parser:latest
+      ```
+
 ### 2. 本地執行
 
 適用於開發或不方便使用 Docker 的環境。
