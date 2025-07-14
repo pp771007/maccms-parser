@@ -11,8 +11,6 @@ from api_parser import process_api_request, get_details_from_api
 
 cli.show_server_banner = lambda *x: None
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
-
 logger = setup_logger()
 
 CONFIG_FILE = 'config.json'
@@ -26,6 +24,14 @@ def load_config():
 def save_config(config):
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=4)
+
+# --- Initialize Secret Key ---
+config = load_config()
+if 'secret_key' not in config:
+    config['secret_key'] = os.urandom(24).hex()
+    save_config(config)
+# Convert hex string back to bytes for Flask
+app.secret_key = bytes.fromhex(config['secret_key'])
 
 def is_password_set():
     config = load_config()
