@@ -1,16 +1,80 @@
-# web_app.py
-from flask import Flask, request, jsonify, render_template, cli
+import os
+import json
+from flask import Flask, request, jsonify, render_template, cli, session, redirect, url_for
 from urllib.parse import urlparse, urlunparse
 import time
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from logger_config import setup_logger
 from site_manager import get_sites, save_sites
 from api_parser import process_api_request, get_details_from_api
 
-
 cli.show_server_banner = lambda *x: None
 app = Flask(__name__)
+app.secret_key = os.urandom(24)
+
 logger = setup_logger()
+
+CONFIG_FILE = 'config.json'
+
+def load_config():
+    if not os.path.exists(CONFIG_FILE):
+        return {}
+    with open(CONFIG_FILE, 'r') as f:
+        return json.load(f)
+
+def save_config(config):
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f, indent=4)
+
+def is_password_set():
+    config = load_config()
+    return 'password_hash' in config
+
+def set_password(password):
+    config = load_config()
+    config['password_hash'] = generate_password_hash(password)
+    save_config(config)
+
+def check_password(password):
+    config = load_config()
+    return check_password_hash(config.get('password_hash', ''), password)
+
+@app.before_request
+def require_login():
+    if not is_password_set() and request.endpoint not in ['setup', 'static']:
+        return redirect(url_for('setup'))
+    
+    allowed_routes = ['login', 'setup', 'static']
+    if 'logged_in' not in session and request.endpoint not in allowed_routes:
+        return redirect(url_for('login'))
+
+@app.route('/setup', methods=['GET', 'POST'])
+def setup():
+    if is_password_set():
+        return redirect(url_for('login'))
+    if request.method == 'POST':
+        password = request.form['password']
+        set_password(password)
+        return redirect(url_for('login'))
+    return render_template('setup.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if 'logged_in' in session:
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        if check_password(request.form['password']):
+            session['logged_in'] = True
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error='密碼錯誤')
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
 
 def clean_base_url(raw_url):
     try:
@@ -19,11 +83,9 @@ def clean_base_url(raw_url):
     except Exception:
         return raw_url
 
-
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 @app.route('/api/sites', methods=['GET', 'POST'])
 def add_or_get_sites():
@@ -88,7 +150,6 @@ def delete_site(site_id):
     save_sites(updated_sites)
     return jsonify({'status': 'success', 'message': '站點已刪除'}), 200
 
-
 @app.route('/api/list', methods=['POST'])
 def api_get_list_route():
     data = request.json
@@ -106,7 +167,6 @@ def api_get_details_route():
     data = request.json
     result = get_details_from_api(data.get('url'), data.get('id'), logger)
     return jsonify(result)
-
 
 if __name__ == '__main__':
     logger.info("==============================================")

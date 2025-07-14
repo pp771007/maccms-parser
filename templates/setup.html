@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>設定初始密碼 - 資源站點管理器</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+</head>
+
+<body>
+    <div class="login-container">
+        <h1>設定初始密碼</h1>
+        <p style="color: var(--text-secondary-color); margin-bottom: 20px;">這是您第一次啟動，請設定一個管理密碼。</p>
+        <form method="post">
+            <input type="password" name="password" placeholder="請輸入新密碼" required>
+            <button type="submit" class="btn" style="width: 100%;">設定密碼</button>
+        </form>
+    </div>
+</body>
+
+</html>
