@@ -13,7 +13,8 @@ cli.show_server_banner = lambda *x: None
 app = Flask(__name__)
 logger = setup_logger()
 
-CONFIG_FILE = 'config.json'
+DATA_DIR = 'data'
+CONFIG_FILE = os.path.join(DATA_DIR, 'config.json')
 
 def load_config():
     if not os.path.exists(CONFIG_FILE):
@@ -22,6 +23,7 @@ def load_config():
         return json.load(f)
 
 def save_config(config):
+    os.makedirs(DATA_DIR, exist_ok=True)
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=4)
 

@@ -2,7 +2,8 @@
 import json
 import os
 
-SITES_DB_FILE = 'sites.json'
+DATA_DIR = 'data'
+SITES_DB_FILE = os.path.join(DATA_DIR, 'sites.json')
 
 def get_sites():
     if not os.path.exists(SITES_DB_FILE):
@@ -14,5 +15,6 @@ def get_sites():
         return []
 
 def save_sites(sites):
+    os.makedirs(DATA_DIR, exist_ok=True)
     with open(SITES_DB_FILE, 'w', encoding='utf-8') as f:
         json.dump(sites, f, ensure_ascii=False, indent=4)

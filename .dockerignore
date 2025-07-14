@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+
+# Ignore data directory
+data/
+
+# Docker specific
+.git
+.gitignore
+Dockerfile
+.dockerignore
