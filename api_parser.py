@@ -28,30 +28,31 @@ def process_api_request(base_url, params, logger):
         if not videos:
             return {'status': 'success', 'page': list_data.get('page'), 'pagecount': list_data.get('pagecount'), 'total': list_data.get('total'), 'list': [], 'class': list_data.get('class', [])}
 
-        if 'wd' not in params:
-            vod_ids = [str(video['vod_id']) for video in videos]
-            ids_string = ','.join(vod_ids)
-            detail_params = {'ac': 'videolist', 'ids': ids_string}
-            detail_response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=False)
-            detail_response.raise_for_status()
-            detail_data = detail_response.json()
-            
-            detail_videos_map = {}
-            if detail_data.get('code') == 1:
-                detail_videos_map = {str(v['vod_id']): v for v in detail_data.get('list', [])}
-
-            for video in videos:
-                vod_id_str = str(video['vod_id'])
-                if vod_id_str in detail_videos_map:
-                    detail_video = detail_videos_map[vod_id_str]
-                    pic_url = detail_video.get('vod_pic', '')
-                    if pic_url and not pic_url.startswith('http'):
-                        video['vod_pic'] = f"{clean_base_url}/{pic_url.lstrip('/')}"
-                    else:
-                        video['vod_pic'] = pic_url
-                else:
-                     video['vod_pic'] = ''
+        # 統一處理流程：無論是瀏覽還是搜尋，都透過第二次請求獲取最可靠的圖片路徑
+        vod_ids = [str(video['vod_id']) for video in videos]
+        ids_string = ','.join(vod_ids)
+        detail_params = {'ac': 'videolist', 'ids': ids_string}
+        detail_response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=False)
+        detail_response.raise_for_status()
+        detail_data = detail_response.json()
         
+        detail_videos_map = {}
+        if detail_data.get('code') == 1:
+            detail_videos_map = {str(v['vod_id']): v for v in detail_data.get('list', [])}
+
+        for video in videos:
+            vod_id_str = str(video['vod_id'])
+            if vod_id_str in detail_videos_map:
+                detail_video = detail_videos_map[vod_id_str]
+                # 優先使用詳細資訊中的圖片，因為它更可靠
+                pic_url = detail_video.get('vod_pic', '')
+                if pic_url and not pic_url.startswith('http'):
+                    video['vod_pic'] = f"{clean_base_url}/{pic_url.lstrip('/')}"
+                else:
+                    video['vod_pic'] = pic_url
+            else:
+                video['vod_pic'] = ''
+
         return {
             'status': 'success',
             'page': list_data.get('page'),
