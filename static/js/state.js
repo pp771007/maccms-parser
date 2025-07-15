@@ -9,4 +9,5 @@ export default {
     currentKeyword: null,
     dplayer: null,
     modalData: null,
+    searchSiteIds: [],
 };

@@ -7,6 +7,7 @@ export function renderSites(sites) {
     const selector = $('#siteSelector');
     const currentVal = selector.value;
     selector.innerHTML = '<option value="">-- 請選擇一個站點 --</option>';
+    // The 'sites' array is now pre-filtered and sorted by the backend.
     sites.forEach(site => {
         selector.innerHTML += `<option value="${site.id}">${site.name}</option>`;
     });
@@ -16,12 +17,20 @@ export function renderSites(sites) {
 }
 
 export function renderCategories(categories) {
-    const nav = $('#category-nav');
-    nav.innerHTML = `<span class="category-tag" data-id="">全部</span>`;
+    const selector = $('#categorySelector');
+    const currentVal = selector.value;
+    selector.innerHTML = '<option value="all">全部</option>';
     if (categories && categories.length > 0) {
         categories.forEach(cat => {
-            nav.innerHTML += `<span class="category-tag" data-id="${cat.type_id}">${cat.type_name}</span>`;
+            const option = document.createElement('option');
+            option.value = cat.type_id;
+            option.textContent = cat.type_name;
+            selector.appendChild(option);
         });
+    }
+    // Restore previous selection if possible
+    if (Array.from(selector.options).some(opt => opt.value == currentVal)) {
+        selector.value = currentVal;
     }
 }
 
@@ -38,9 +47,14 @@ export function renderVideos(videos) {
         const placeholderText = encodeURIComponent(video.vod_name.substring(0, 10));
         const placeholderUrl = `https://via.placeholder.com/300x400.png?text=${placeholderText}`;
         const finalImageUrl = video.vod_pic ? video.vod_pic : placeholderUrl;
+
+        // Add site name if it's a multi-site search result
+        const siteNameHtml = video.from_site ? `<div class="video-site-name">${video.from_site}</div>` : '';
+
         card.innerHTML = `
             <div class="video-pic-wrapper">
                 <img class="video-pic" src="${finalImageUrl}" alt="${video.vod_name}" loading="lazy" onerror="this.onerror=null;this.src='${placeholderUrl}';">
+                ${siteNameHtml}
             </div>
             <div class="video-info">
                 <div class="video-title" title="${video.vod_name}">${video.vod_name}</div>
@@ -97,12 +111,6 @@ export function renderPagination(currentPage, totalPages, onPageChange) {
     pag.appendChild(createBtn(currentPage + 1, '下一頁', currentPage === totalPages));
 }
 
-export function updateActiveCategory(currentTypeId) {
-    $$('.category-tag').forEach(tag => {
-        const id = tag.dataset.id === "" ? null : tag.dataset.id;
-        tag.classList.toggle('active', id == currentTypeId);
-    });
-}
 
 export function updateSearchBox(keyword) {
     const searchInput = $('#searchInput');
@@ -118,7 +126,24 @@ export async function openModal(video) {
     $('#episodeList').innerHTML = '正在加載播放列表...';
 
     try {
-        const result = await fetchVideoDetails(state.currentSite.url, video.vod_id);
+        let siteUrl;
+        // Check if it's from a multi-site search
+        if (video.from_site_id) {
+            const site = state.sites.find(s => s.id === video.from_site_id);
+            if (site) {
+                siteUrl = site.url;
+            } else {
+                // Fallback or error
+                throw new Error(`在站台列表中找不到 ID 為 ${video.from_site_id} 的站台。`);
+            }
+        } else if (state.currentSite) {
+            // Single site mode
+            siteUrl = state.currentSite.url;
+        } else {
+            throw new Error('無法確定要從哪個站台獲取詳細資訊。');
+        }
+
+        const result = await fetchVideoDetails(siteUrl, video.vod_id);
         state.modalData = result.data;
         renderPlaylist();
     } catch (err) {
@@ -169,6 +194,48 @@ export function closeModal() {
         state.dplayer = null;
     }
     state.modalData = null;
+}
+
+export function openSiteSelectionModal() {
+    const list = $('#siteCheckboxList');
+    list.innerHTML = '';
+    // The 'sites' in the state are now pre-filtered and sorted.
+    state.sites.forEach(site => {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = site.id;
+        checkbox.checked = state.searchSiteIds.includes(site.id);
+        label.appendChild(checkbox);
+        label.append(` ${site.name}`);
+        list.appendChild(label);
+    });
+    $('#siteSelectionModal').style.display = 'flex';
+}
+
+export function closeSiteSelectionModal() {
+    $('#siteSelectionModal').style.display = 'none';
+}
+
+export function getSelectedSiteIds() {
+    return Array.from($$('#siteCheckboxList input:checked')).map(cb => parseInt(cb.value, 10));
+}
+
+export function toggleAllSites(select) {
+    $$('#siteCheckboxList input').forEach(cb => cb.checked = select);
+}
+
+export function updateSelectedSitesDisplay() {
+    const display = $('#selectedSites');
+    if (state.searchSiteIds.length > 0) {
+        const selectedNames = state.sites
+            .filter(s => state.searchSiteIds.includes(s.id))
+            .map(s => s.name)
+            .join(', ');
+        display.textContent = `搜尋範圍: ${selectedNames}`;
+    } else {
+        display.textContent = '';
+    }
 }
 
 export function showLoader(show) { $('#loader').style.display = show ? 'block' : 'none'; }

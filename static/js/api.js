@@ -17,6 +17,56 @@ export async function postNewSite(name, url) {
     return await response.json();
 }
 
+export async function updateSite(siteId, data) {
+    const response = await fetch(`/api/sites/${siteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || '更新失敗');
+    }
+    return await response.json();
+}
+
+export async function deleteSite(siteId) {
+    const response = await fetch(`/api/sites/${siteId}`, {
+        method: 'DELETE'
+    });
+    if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || '刪除失敗');
+    }
+    return await response.json();
+}
+
+export async function moveSite(siteId, direction) {
+    const response = await fetch(`/api/sites/${siteId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction })
+    });
+    if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || '移動失敗');
+    }
+    return await response.json();
+}
+
+export async function fetchMultiSiteVideoList(siteIds, page, keyword) {
+    const response = await fetch('/api/multi_site_search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ site_ids: siteIds, page, keyword })
+    });
+    if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || '多站點搜尋失敗');
+    }
+    return await response.json();
+}
+
 export async function fetchVideoList(url, page, typeId, keyword) {
     const response = await fetch('/api/list', {
         method: 'POST',

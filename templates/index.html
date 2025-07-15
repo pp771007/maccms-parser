@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>資源站點管理器</title>
+    <meta name="theme-color" content="#000000" />
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta property="og:title" content="maccms_parser">
+    <meta property="og:description" content="一個強大的 maccms 影視站點解析器與播放器。">
+    <meta property="og:image" content="{{ url_for('static', filename='img/favicon.svg') }}">
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.css">
@@ -16,26 +21,13 @@
             <div class="form-group">
                 <label for="siteSelector">
                     選擇站點
+                    <a href="/setup" class="find-sites-link">(設定)</a>
                     <a href="/logout" class="find-sites-link">(登出)</a>
                 </label>
                 <div class="site-selector-wrapper">
                     <select id="siteSelector"></select>
-                    <button id="deleteSiteBtn" class="delete-btn" title="刪除選中站點">&times;</button>
                 </div>
             </div>
-            <div class="form-group">
-                <label for="newSiteName">站點名稱 (可選)</label>
-                <input type="text" id="newSiteName" placeholder="留空將自動生成">
-            </div>
-            <div class="form-group">
-                <label for="newSiteUrl">
-                    站點URL
-                    <a href="https://www.google.com/search?q=inurl%3A%22%2Fapi.php%2Fprovide%2Fvod%22" target="_blank"
-                        class="find-sites-link">(尋找站點)</a>
-                </label>
-                <input type="text" id="newSiteUrl" placeholder="https://example.com" required>
-            </div>
-            <button id="addSiteBtn" class="btn">新增</button>
         </header>
 
         <div id="loader" class="loader" style="display: none;">載入中...</div>
@@ -43,14 +35,19 @@
 
         <main id="mainContent" class="main-content">
             <header class="content-header">
-                <nav id="category-nav" class="category-nav"></nav>
+                <div class="category-selector-wrapper">
+                    <label for="categorySelector">分類</label>
+                    <select id="categorySelector"></select>
+                </div>
             </header>
             <div class="search-bar-container">
                 <div class="search-bar">
                     <button id="toSimpBtn" class="btn simp-btn" title="轉為簡體">簡</button>
                     <input type="search" id="searchInput" placeholder="輸入關鍵字搜索..." autocomplete="off">
+                    <button id="multiSiteSelectBtn" class="btn" title="選擇多個站台進行搜尋">站台</button>
                     <button id="searchBtn" class="btn">搜索</button>
                 </div>
+                <div id="selectedSites" class="selected-sites-display"></div>
             </div>
             <section class="content-area">
                 <div id="videoGrid"></div>
@@ -78,6 +75,25 @@
     <script src="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js/dist/hls.min.js"></script>
     <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <div id="siteSelectionModal" class="modal">
+        <div class="modal-content">
+            <header class="modal-header">
+                <h3 class="modal-title">選擇搜尋站台</h3>
+                <button class="close-btn">&times;</button>
+            </header>
+            <main class="modal-body" style="flex-direction: column;">
+                <div id="siteCheckboxList" class="site-checkbox-list">
+                    <!-- Site checkboxes will be rendered here by JS -->
+                </div>
+                <footer class="modal-footer">
+                    <button id="selectAllSitesBtn" class="btn">全選</button>
+                    <button id="deselectAllSitesBtn" class="btn">取消全選</button>
+                    <button id="confirmSiteSelectionBtn" class="btn">確定</button>
+                </footer>
+            </main>
+        </div>
+    </div>
 </body>
 
 </html>

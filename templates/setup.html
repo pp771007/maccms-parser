@@ -4,20 +4,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>設定初始密碼 - 資源站點管理器</title>
+    <title>站點設定</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
 </head>
 
 <body>
-    <div class="login-container">
-        <h1>設定初始密碼</h1>
-        <p style="color: var(--text-secondary-color); margin-bottom: 20px;">這是您第一次啟動，請設定一個管理密碼。</p>
-        <form method="post">
-            <input type="password" name="password" placeholder="請輸入新密碼" required>
-            <button type="submit" class="btn" style="width: 100%;">設定密碼</button>
-        </form>
+    <div class="container">
+        <header>
+            <h1>站點設定</h1>
+            <a href="/" class="find-sites-link">(返回主頁)</a>
+        </header>
+
+        <div class="site-manager">
+            <h2>新增站點</h2>
+            <div class="form-group">
+                <label for="newSiteName">站點名稱 (可選)</label>
+                <input type="text" id="newSiteName" placeholder="留空將自動生成">
+            </div>
+            <div class="form-group">
+                <label for="newSiteUrl">站點URL</label>
+                <input type="text" id="newSiteUrl" placeholder="https://example.com" required>
+            </div>
+            <button id="addSiteBtn" class="btn">新增</button>
+        </div>
+
+        <div class="site-list-manager">
+            <h2>管理現有站點</h2>
+            <ul id="siteList">
+                <!-- 站點列表將由 JavaScript 動態生成 -->
+            </ul>
+        </div>
     </div>
+
+    <script type="module" src="{{ url_for('static', filename='js/setup.js') }}"></script>
 </body>
 
 </html>

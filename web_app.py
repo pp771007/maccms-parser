@@ -3,6 +3,7 @@ import json
 from flask import Flask, request, jsonify, render_template, cli, session, redirect, url_for
 from urllib.parse import urlparse, urlunparse
 import time
+import concurrent.futures
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from logger_config import setup_logger
@@ -50,21 +51,30 @@ def check_password(password):
 
 @app.before_request
 def require_login():
-    if not is_password_set() and request.endpoint not in ['setup', 'static']:
-        return redirect(url_for('setup'))
+    if not is_password_set() and request.endpoint not in ['setup_password', 'static']:
+        return redirect(url_for('setup_password'))
     
-    allowed_routes = ['login', 'setup', 'static']
+    allowed_routes = ['login', 'setup_password', 'site_setup', 'static']
     if 'logged_in' not in session and request.endpoint not in allowed_routes:
         return redirect(url_for('login'))
 
-@app.route('/setup', methods=['GET', 'POST'])
-def setup():
+@app.route('/setup-password', methods=['GET', 'POST'])
+def setup_password():
     if is_password_set():
+        # If password is set, redirect to login or index
+        if 'logged_in' in session:
+            return redirect(url_for('index'))
         return redirect(url_for('login'))
+    
     if request.method == 'POST':
         password = request.form['password']
         set_password(password)
-        return redirect(url_for('login'))
+        session['logged_in'] = True # Log in immediately after setting password
+        return redirect(url_for('index'))
+    return render_template('setup.html') # This template is for password setup
+
+@app.route('/setup', methods=['GET'])
+def site_setup():
     return render_template('setup.html')
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -99,8 +109,11 @@ def index():
 def add_or_get_sites():
     sites = get_sites()
     if request.method == 'GET':
-        logger.info("GET /api/sites - 請求站點列表")
-        return jsonify(sites)
+        logger.info("GET /api/sites - 請求已啟用且排序的站點列表")
+        # Filter for enabled sites and sort by the 'order' key
+        enabled_sites = [s for s in sites if s.get('enabled', True)]
+        sorted_sites = sorted(enabled_sites, key=lambda s: s.get('order', float('inf')))
+        return jsonify(sorted_sites)
     
     if request.method == 'POST':
         new_site_data = request.json
@@ -140,7 +153,11 @@ def add_or_get_sites():
         new_site = {
             'id': int(time.time() * 1000),
             'name': name.capitalize(),
-            'url': cleaned_url
+            'url': cleaned_url,
+            'enabled': True,
+            'ssl_verify': True,
+            'note': '',
+            'order': len(sites)
         }
         
         sites.append(new_site)
@@ -148,33 +165,139 @@ def add_or_get_sites():
         logger.info(f"POST /api/sites - 201 Created (新增站點: {new_site['name']}, URL: {new_site['url']})")
         return jsonify({'status': 'success', 'site': new_site}), 201
 
-@app.route('/api/sites/<int:site_id>', methods=['DELETE'])
-def delete_site(site_id):
+@app.route('/api/sites/<int:site_id>', methods=['PUT', 'DELETE'])
+def manage_site(site_id):
     sites = get_sites()
-    site_to_delete = next((s for s in sites if s['id'] == site_id), None)
-    if not site_to_delete:
+    site_index, site_to_manage = next(((i, s) for i, s in enumerate(sites) if s['id'] == site_id), (None, None))
+
+    if not site_to_manage:
         return jsonify({'status': 'error', 'message': '未找到該站點'}), 404
-    updated_sites = [s for s in sites if s['id'] != site_id]
-    save_sites(updated_sites)
-    return jsonify({'status': 'success', 'message': '站點已刪除'}), 200
+
+    if request.method == 'PUT':
+        data = request.json
+        # Safely update fields, providing defaults for old data that might be missing keys.
+        site_to_manage['name'] = data.get('name', site_to_manage.get('name'))
+        site_to_manage['url'] = data.get('url', site_to_manage.get('url'))
+        site_to_manage['enabled'] = data.get('enabled', site_to_manage.get('enabled', True))
+        site_to_manage['ssl_verify'] = data.get('ssl_verify', site_to_manage.get('ssl_verify', True))
+        site_to_manage['note'] = data.get('note', site_to_manage.get('note', ''))
+        sites[site_index] = site_to_manage
+        save_sites(sites)
+        return jsonify({'status': 'success', 'site': site_to_manage})
+
+    if request.method == 'DELETE':
+        sites.pop(site_index)
+        save_sites(sites)
+        return jsonify({'status': 'success', 'message': '站點已刪除'})
+
+@app.route('/api/sites/<int:site_id>/move', methods=['POST'])
+def move_site(site_id):
+    sites = get_sites()
+    direction = request.json.get('direction')
+    
+    try:
+        idx = next(i for i, s in enumerate(sites) if s['id'] == site_id)
+    except StopIteration:
+        return jsonify({'status': 'error', 'message': '未找到該站點'}), 404
+
+    if direction == 'up' and idx > 0:
+        sites.insert(idx - 1, sites.pop(idx))
+    elif direction == 'down' and idx < len(sites) - 1:
+        sites.insert(idx + 1, sites.pop(idx))
+    else:
+        return jsonify({'status': 'error', 'message': '無法移動'}), 400
+        
+    # Re-assign order
+    for i, site in enumerate(sites):
+        site['order'] = i
+        
+    save_sites(sites)
+    return jsonify({'status': 'success', 'sites': sites})
 
 @app.route('/api/list', methods=['POST'])
 def api_get_list_route():
     data = request.json
+    url = data.get('url')
+    sites = get_sites()
+    site = next((s for s in sites if s['url'] == url), None)
+    ssl_verify = site.get('ssl_verify', True) if site else True
+
     params = {
         'pg': data.get('page', 1),
         't': data.get('type_id'),
         'wd': data.get('keyword')
     }
     params = {k: v for k, v in params.items() if v}
-    result = process_api_request(data.get('url'), params, logger)
+    result = process_api_request(url, params, logger, ssl_verify=ssl_verify)
     return jsonify(result)
 
 @app.route('/api/details', methods=['POST'])
 def api_get_details_route():
     data = request.json
-    result = get_details_from_api(data.get('url'), data.get('id'), logger)
+    url = data.get('url')
+    sites = get_sites()
+    site = next((s for s in sites if s['url'] == url), None)
+    ssl_verify = site.get('ssl_verify', True) if site else True
+
+    result = get_details_from_api(url, data.get('id'), logger, ssl_verify=ssl_verify)
     return jsonify(result)
+
+@app.route('/api/multi_site_search', methods=['POST'])
+def multi_site_search():
+    data = request.json
+    site_ids = data.get('site_ids', [])
+    keyword = data.get('keyword')
+    page = data.get('page', 1)
+
+    if not keyword or not site_ids:
+        return jsonify({'status': 'error', 'message': '缺少關鍵字或站台資訊'}), 400
+
+    all_sites = get_sites()
+    sites_to_search = [s for s in all_sites if s['id'] in site_ids and s.get('enabled', True)]
+    
+    all_results = []
+    max_page_count = 0
+    
+    def search_site(site):
+        params = {'wd': keyword, 'pg': page}
+        ssl_verify = site.get('ssl_verify', True)
+        try:
+            result = process_api_request(site['url'], params, logger, ssl_verify=ssl_verify)
+            if result.get('status') == 'success' and result.get('list'):
+                for video in result['list']:
+                    video['from_site'] = site['name']
+                    video['from_site_id'] = site['id']
+                
+                page_count = int(result.get('pagecount', 0))
+                return result['list'], page_count
+        except Exception as e:
+            logger.error(f"多站台搜尋失敗 - 站台: {site['name']}, 錯誤: {e}")
+        return [], 0
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(sites_to_search)) as executor:
+        future_to_site = {executor.submit(search_site, site): site for site in sites_to_search}
+        for future in concurrent.futures.as_completed(future_to_site):
+            try:
+                results, page_count = future.result()
+                all_results.extend(results)
+                if page_count > max_page_count:
+                    max_page_count = page_count
+            except Exception as exc:
+                site_name = future_to_site[future]['name']
+                logger.error(f'{site_name} generated an exception: {exc}')
+
+    # If no results were found on any site for the current page, max_page_count might be 0.
+    # In this case, we can assume the total page count is the current page number.
+    if max_page_count == 0 and len(all_results) == 0:
+        max_page_count = page
+
+    return jsonify({
+        'status': 'success',
+        'list': all_results,
+        'page': page,
+        'pagecount': max_page_count,
+        'total': len(all_results)
+    })
 
 if __name__ == '__main__':
     logger.info("==============================================")

@@ -9,13 +9,24 @@ import { $ } from './utils.js';
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     loadSitesAndAutoLoadLast();
+    registerServiceWorker();
 });
+
+function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/static/sw.js').then(registration => {
+                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            }, err => {
+                console.log('ServiceWorker registration failed: ', err);
+            });
+        });
+    }
+}
 
 function setupEventListeners() {
     $('#siteSelector').addEventListener('change', handleSiteSelection);
-    $('#addSiteBtn').addEventListener('click', handleAddNewSite);
-    $('#category-nav').addEventListener('click', handleCategoryClick);
-    $('#deleteSiteBtn').addEventListener('click', handleDeleteSite);
+    $('#categorySelector').addEventListener('change', handleCategorySelection);
     $('#searchBtn').addEventListener('click', handleSearch);
     $('#toSimpBtn').addEventListener('click', handleToSimp);
     $('#searchInput').addEventListener('keyup', (e) => {
@@ -23,10 +34,22 @@ function setupEventListeners() {
             handleSearch();
         }
     });
-    $('.close-btn').addEventListener('click', ui.closeModal);
+
+    // Video Modal
+    $('#videoModal .close-btn').addEventListener('click', ui.closeModal);
     $('#videoModal').addEventListener('click', (e) => {
         if (e.target === $('#videoModal')) ui.closeModal();
     });
+
+    // Site Selection Modal
+    $('#multiSiteSelectBtn').addEventListener('click', ui.openSiteSelectionModal);
+    $('#siteSelectionModal .close-btn').addEventListener('click', ui.closeSiteSelectionModal);
+    $('#siteSelectionModal').addEventListener('click', (e) => {
+        if (e.target === $('#siteSelectionModal')) ui.closeSiteSelectionModal();
+    });
+    $('#selectAllSitesBtn').addEventListener('click', () => ui.toggleAllSites(true));
+    $('#deselectAllSitesBtn').addEventListener('click', () => ui.toggleAllSites(false));
+    $('#confirmSiteSelectionBtn').addEventListener('click', handleConfirmSiteSelection);
 }
 
 let t2s; // 儲存轉換函數
@@ -60,51 +83,13 @@ async function loadSitesAndAutoLoadLast() {
     }
 }
 
-async function handleAddNewSite() {
-    const name = $('#newSiteName').value.trim();
-    const url = $('#newSiteUrl').value.trim();
-    if (!url) {
-        alert('站點URL不能為空');
-        return;
-    }
-    try {
-        $('#addSiteBtn').disabled = true;
-        await api.postNewSite(name, url);
-        $('#newSiteName').value = '';
-        $('#newSiteUrl').value = '';
-        state.sites = await api.fetchSites();
-        ui.renderSites(state.sites);
-        alert('站點新增成功！請從下拉選單中選擇它來加載。');
-    } catch (err) {
-        alert(`新增失敗: ${err.message}`);
-    } finally {
-        $('#addSiteBtn').disabled = false;
-    }
-}
-
-async function handleDeleteSite() {
-    const siteId = $('#siteSelector').value;
-    if (!siteId) {
-        alert('請先選擇一個要刪除的站點');
-        return;
-    }
-    const selectedSite = state.sites.find(s => s.id == siteId);
-    if (confirm(`確定要刪除站點 "${selectedSite.name}" 嗎？此操作不可恢復。`)) {
-        try {
-            await fetch(`/api/sites/${Number(siteId)}`, { method: 'DELETE' });
-            localStorage.removeItem('lastSelectedSiteId');
-            $('#mainContent').style.display = 'none';
-            state.currentSite = null;
-            await loadSitesAndAutoLoadLast();
-            alert('站點已刪除。');
-        } catch (err) {
-            alert('刪除失敗: ' + err.message);
-        }
-    }
-}
 
 function handleSiteSelection() {
     const siteId = $('#siteSelector').value;
+    // Reset multi-site search state when single site is selected
+    state.searchSiteIds = [];
+    ui.updateSelectedSitesDisplay();
+
     if (siteId) {
         localStorage.setItem('lastSelectedSiteId', siteId);
         state.currentSite = state.sites.find(s => s.id == siteId);
@@ -123,28 +108,59 @@ function handleSiteSelection() {
     }
 }
 
+function handleConfirmSiteSelection() {
+    const selectedIds = ui.getSelectedSiteIds();
+    if (selectedIds.length === 0) {
+        alert('請至少選擇一個站台。');
+        return;
+    }
+    state.searchSiteIds = selectedIds;
+    // Set currentSite to null to indicate multi-site search mode
+    state.currentSite = null;
+    $('#siteSelector').value = ''; // Deselect single site selector
+    ui.updateSelectedSitesDisplay();
+    ui.closeSiteSelectionModal();
+    // Optional: trigger a search immediately after confirming
+    // handleSearch(); 
+}
+
 function handleSearch() {
     const keyword = $('#searchInput').value.trim();
+    if (!keyword) {
+        alert('請輸入關鍵字');
+        return;
+    }
+
     state.currentTypeId = null;
     state.currentPage = 1;
     state.currentKeyword = keyword;
+
+    // If no multi-selection is active, use the currently selected single site
+    if (state.searchSiteIds.length === 0 && state.currentSite) {
+        state.searchSiteIds = [state.currentSite.id];
+    } else if (state.searchSiteIds.length === 0 && !state.currentSite) {
+        alert('請先選擇一個或多個站台進行搜尋。');
+        return;
+    }
+
+    $('#mainContent').style.display = 'flex';
     fetchAndRender();
 }
 
-function handleCategoryClick(e) {
-    if (e.target.classList.contains('category-tag')) {
-        const newTypeId = e.target.dataset.id === "" ? null : e.target.dataset.id;
-        if (newTypeId !== state.currentTypeId || state.currentKeyword) {
-            state.currentKeyword = null;
-            state.currentTypeId = newTypeId;
-            state.currentPage = 1;
-            fetchAndRender();
-        }
+function handleCategorySelection() {
+    const newTypeId = $('#categorySelector').value;
+    if (newTypeId !== state.currentTypeId || state.currentKeyword) {
+        state.currentKeyword = null;
+        state.currentTypeId = newTypeId === "all" ? null : newTypeId;
+        state.currentPage = 1;
+        fetchAndRender();
     }
 }
 
 async function fetchAndRender() {
-    if (!state.currentSite) return;
+    const isMultiSiteSearch = state.searchSiteIds.length > 0 && state.currentKeyword;
+
+    if (!state.currentSite && !isMultiSiteSearch) return;
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -154,36 +170,48 @@ async function fetchAndRender() {
     $('#pagination').innerHTML = '';
 
     if (state.categories.length === 0) {
-        $('#category-nav').innerHTML = '正在加載分類...';
+        // You might want to show a loading state in the select dropdown
+        ui.renderCategories([]);
     }
 
     $('#siteSelector').disabled = true;
 
     try {
-        const result = await api.fetchVideoList(
-            state.currentSite.url,
-            state.currentPage,
-            state.currentKeyword ? null : state.currentTypeId,
-            state.currentKeyword
-        );
+        let result;
+        if (isMultiSiteSearch) {
+            result = await api.fetchMultiSiteVideoList(
+                state.searchSiteIds,
+                state.currentPage,
+                state.currentKeyword
+            );
+            // In multi-site search, categories are disabled.
+            state.categories = [];
+            ui.renderCategories([]);
+        } else {
+            result = await api.fetchVideoList(
+                state.currentSite.url,
+                state.currentPage,
+                state.currentKeyword ? null : state.currentTypeId,
+                state.currentKeyword
+            );
+        }
 
         state.videos = result.list;
         state.currentPage = Number(result.page);
         state.totalPages = Number(result.pagecount);
 
-        if (result.class && result.class.length > 0) {
+        if (!isMultiSiteSearch && result.class && result.class.length > 0) {
             state.categories = result.class;
             ui.renderCategories(state.categories);
-        } else if (state.categories.length === 0) {
+        } else if (!isMultiSiteSearch && state.categories.length === 0) {
             ui.renderCategories([]);
         }
 
         ui.renderVideos(state.videos);
         ui.renderPagination(state.currentPage, state.totalPages, (newPage) => {
             state.currentPage = newPage;
-            fetchAndRender();
+            fetchAndRender(); // Now this will correctly re-trigger the same search type
         });
-        ui.updateActiveCategory(state.currentTypeId);
         ui.updateSearchBox(state.currentKeyword);
 
     } catch (err) {

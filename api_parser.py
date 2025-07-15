@@ -2,8 +2,8 @@
 import requests
 import json
 
-def process_api_request(base_url, params, logger):
-    logger.info(f"開始處理請求: {base_url} (Params: {params})")
+def process_api_request(base_url, params, logger, ssl_verify=True):
+    logger.info(f"開始處理請求: {base_url} (Params: {params}, SSL Verify: {ssl_verify})")
     if not base_url.startswith('http'):
         base_url = 'http://' + base_url
     
@@ -13,7 +13,7 @@ def process_api_request(base_url, params, logger):
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         timeout_seconds = 30
-        list_response = requests.get(api_url, headers=headers, params=params, timeout=timeout_seconds, verify=False)
+        list_response = requests.get(api_url, headers=headers, params=params, timeout=timeout_seconds, verify=ssl_verify)
         list_response.raise_for_status()
         list_data = list_response.json()
 
@@ -32,7 +32,7 @@ def process_api_request(base_url, params, logger):
         vod_ids = [str(video['vod_id']) for video in videos]
         ids_string = ','.join(vod_ids)
         detail_params = {'ac': 'videolist', 'ids': ids_string}
-        detail_response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=False)
+        detail_response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=ssl_verify)
         detail_response.raise_for_status()
         detail_data = detail_response.json()
         
@@ -76,8 +76,8 @@ def process_api_request(base_url, params, logger):
         return {'status': 'error', 'message': f"發生未知錯誤: {e}"}
 
 
-def get_details_from_api(base_url, vod_id, logger):
-    logger.info(f"準備獲取影片ID {vod_id} 的詳細播放列表...")
+def get_details_from_api(base_url, vod_id, logger, ssl_verify=True):
+    logger.info(f"準備獲取影片ID {vod_id} 的詳細播放列表... (SSL Verify: {ssl_verify})")
     
     if not base_url.startswith('http'):
         base_url = 'http://' + base_url
@@ -88,7 +88,7 @@ def get_details_from_api(base_url, vod_id, logger):
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         timeout_seconds = 30
-        response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=False)
+        response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=ssl_verify)
         response.raise_for_status()
         result_data = response.json()
 

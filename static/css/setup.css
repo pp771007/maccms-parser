@@ -1,0 +1,112 @@
+/* --- Site Setup Page Styles --- */
+.site-list-manager {
+    margin-top: 30px;
+}
+
+#siteList {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.site-item {
+    background: #fdfdfd;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: center;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.site-item:hover {
+    border-color: #c0dfff;
+    box-shadow: 0 4px 12px rgba(0, 109, 255, 0.08);
+}
+
+.site-item .site-info {
+    flex-grow: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.site-item .site-info input {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+}
+
+.site-item .site-info input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+
+.site-item .site-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.site-item .site-controls label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.site-item .site-controls .btn,
+.site-item .site-controls button {
+    padding: 5px 12px;
+    font-size: 14px;
+    height: auto;
+    border: 1px solid var(--border-color);
+    background-color: #fff;
+    color: var(--text-color);
+}
+
+.site-item .site-controls .btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    opacity: 1;
+}
+
+.site-item .btn-update {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.site-item .btn-update:hover {
+    border-color: var(--primary-color);
+    background-color: var(--primary-color);
+    color: white;
+    opacity: 0.85;
+}
+
+.site-item .btn-delete {
+    border-color: #ffccc7;
+    color: var(--danger-color);
+}
+
+.site-item .btn-delete:hover {
+    background-color: var(--danger-color);
+    color: white;
+    border-color: var(--danger-color);
+}
+
+.site-item .btn-move-up,
+.site-item .btn-move-down {
+    font-weight: bold;
+    padding: 5px 10px;
+}
