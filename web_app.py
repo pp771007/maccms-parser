@@ -35,6 +35,11 @@ if 'secret_key' not in config:
 # Convert hex string back to bytes for Flask
 app.secret_key = bytes.fromhex(config['secret_key'])
 
+# --- Constants for login security ---
+MAX_LOGIN_ATTEMPTS = 10
+LOGIN_LOCKOUT_MINUTES = 15
+LOGIN_LOCKOUT_TIME = LOGIN_LOCKOUT_MINUTES * 60  # seconds
+
 def is_password_set():
     config = load_config()
     return 'password_hash' in config
@@ -71,12 +76,39 @@ def setup():
 def login():
     if 'logged_in' in session:
         return redirect(url_for('index'))
+
+    # Check for lockout
+    if session.get('login_attempts', 0) >= MAX_LOGIN_ATTEMPTS:
+        last_attempt_time = session.get('last_attempt_time', 0)
+        if time.time() - last_attempt_time < LOGIN_LOCKOUT_TIME:
+            remaining_time = int(LOGIN_LOCKOUT_TIME - (time.time() - last_attempt_time))
+            minutes, seconds = divmod(remaining_time, 60)
+            error_msg = f'嘗試次數過多，請在 {minutes} 分 {seconds} 秒後再試。'
+            return render_template('login.html', error=error_msg)
+        else:
+            # If lockout time has passed, reset the counter
+            session.pop('login_attempts', None)
+            session.pop('last_attempt_time', None)
+
     if request.method == 'POST':
         if check_password(request.form['password']):
             session['logged_in'] = True
+            # Reset attempts on successful login
+            session.pop('login_attempts', None)
+            session.pop('last_attempt_time', None)
             return redirect(url_for('index'))
         else:
-            return render_template('login.html', error='密碼錯誤')
+            # Increment failed attempts
+            session['login_attempts'] = session.get('login_attempts', 0) + 1
+            session['last_attempt_time'] = time.time()
+            
+            attempts_left = MAX_LOGIN_ATTEMPTS - session.get('login_attempts', 0)
+            if attempts_left > 0:
+                error_msg = f'密碼錯誤，還剩下 {attempts_left} 次嘗試機會。'
+            else:
+                error_msg = f'嘗試次數過多，帳戶已鎖定 {LOGIN_LOCKOUT_MINUTES} 分鐘。'
+            return render_template('login.html', error=error_msg)
+            
     return render_template('login.html')
 
 @app.route('/logout')
