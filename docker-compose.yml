@@ -1,6 +1,7 @@
 services:
   maccms_parser:
     build: .
+    image: maccms-parser
     container_name: maccms_parser
     ports:
       - "5000:5000"
