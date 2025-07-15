@@ -14,6 +14,10 @@ cli.show_server_banner = lambda *x: None
 app = Flask(__name__)
 logger = setup_logger()
 
+logger.info("==============================================")
+logger.info("   資源站點管理器 v5.8 啟動！")
+logger.info("==============================================")
+
 DATA_DIR = 'data'
 CONFIG_FILE = os.path.join(DATA_DIR, 'config.json')
 
@@ -159,8 +163,16 @@ def index():
 def add_or_get_sites():
     sites = get_sites()
     if request.method == 'GET':
+        context = request.args.get('context')
+        
+        # For the setup page, we want to show all sites
+        if context == 'setup':
+            logger.info("GET /api/sites?context=setup - 請求所有站點列表（用於設定頁面）")
+            sorted_sites = sorted(sites, key=lambda s: s.get('order', float('inf')))
+            return jsonify(sorted_sites)
+        
+        # For the main page, only show enabled sites
         logger.info("GET /api/sites - 請求已啟用且排序的站點列表")
-        # Filter for enabled sites and sort by the 'order' key
         enabled_sites = [s for s in sites if s.get('enabled', True)]
         sorted_sites = sorted(enabled_sites, key=lambda s: s.get('order', float('inf')))
         return jsonify(sorted_sites)
@@ -350,8 +362,5 @@ def multi_site_search():
     })
 
 if __name__ == '__main__':
-    logger.info("==============================================")
-    logger.info("   資源站點管理器 v5.8 啟動！")
-    logger.info("==============================================")
     logger.info(f"請用瀏覽器訪問: http://127.0.0.1:5000")
     app.run(host='127.0.0.1', port=5000, debug=True)

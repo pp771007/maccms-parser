@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadSites() {
     try {
-        const sites = await api.fetchSites();
+        const sites = await api.fetchSites('setup');
         renderSiteList(sites);
     } catch (err) {
         console.error("無法載入站點列表:", err);

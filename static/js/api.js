@@ -1,5 +1,6 @@
-export async function fetchSites() {
-    const response = await fetch('/api/sites');
+export async function fetchSites(context = '') {
+    const url = context ? `/api/sites?context=${context}` : '/api/sites';
+    const response = await fetch(url);
     if (!response.ok) {
         try {
             const errData = await response.json();
