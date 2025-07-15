@@ -79,7 +79,13 @@ async function loadSitesAndAutoLoadLast() {
             handleSiteSelection();
         }
     } catch (err) {
-        ui.showError(err.message);
+        if (err.action === 'setup_password') {
+            window.location.href = '/setup-password';
+        } else if (err.action === 'login') {
+            window.location.href = '/login';
+        } else {
+            ui.showError(err.message || '發生未知錯誤');
+        }
     }
 }
 
@@ -215,7 +221,13 @@ async function fetchAndRender() {
         ui.updateSearchBox(state.currentKeyword);
 
     } catch (err) {
-        ui.showError(err.message);
+        if (err.action === 'setup_password') {
+            window.location.href = '/setup-password';
+        } else if (err.action === 'login') {
+            window.location.href = '/login';
+        } else {
+            ui.showError(err.message || '發生未知錯誤');
+        }
     } finally {
         ui.showLoader(false);
         $('#siteSelector').disabled = false;

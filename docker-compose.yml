@@ -1,4 +1,3 @@
-version: '3.8'
 services:
   maccms_parser:
     build: .

@@ -1,6 +1,15 @@
 export async function fetchSites() {
     const response = await fetch('/api/sites');
-    if (!response.ok) throw new Error('無法獲取站點列表');
+    if (!response.ok) {
+        try {
+            const errData = await response.json();
+            // 將後端傳來的整個錯誤物件拋出，以便上層處理
+            throw errData;
+        } catch (e) {
+            // 如果解析 JSON 失敗，或後端未回傳 JSON，則拋出通用錯誤
+            throw new Error(`無法載入站點列表: ${response.statusText}`);
+        }
+    }
     return await response.json();
 }
 
@@ -61,8 +70,9 @@ export async function fetchMultiSiteVideoList(siteIds, page, keyword) {
         body: JSON.stringify({ site_ids: siteIds, page, keyword })
     });
     if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || '多站點搜尋失敗');
+        const errData = await response.json().catch(() => ({ message: '多站點搜尋失敗' }));
+        if (errData.action) throw errData; // 拋出整個物件以進行重定向
+        throw new Error(errData.message);
     }
     return await response.json();
 }
@@ -73,8 +83,13 @@ export async function fetchVideoList(url, page, typeId, keyword) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, page, type_id: typeId, keyword: keyword })
     });
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({ message: '獲取影片列表失敗' }));
+        if (errData.action) throw errData; // 拋出整個物件以進行重定向
+        throw new Error(errData.message);
+    }
     const result = await response.json();
-    if (result.status !== 'success') {
+    if (result.status && result.status !== 'success') {
         throw new Error(result.message);
     }
     return result;

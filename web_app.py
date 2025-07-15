@@ -56,11 +56,27 @@ def check_password(password):
 
 @app.before_request
 def require_login():
-    if not is_password_set() and request.endpoint not in ['setup_password', 'static']:
-        return redirect(url_for('setup_password'))
-    
-    allowed_routes = ['login', 'setup_password', 'site_setup', 'static']
-    if 'logged_in' not in session and request.endpoint not in allowed_routes:
+    # Define routes that don't require any checks
+    public_endpoints = ['setup_password', 'static']
+
+    # If password is not set, only allow access to setup and static files
+    if not is_password_set():
+        if request.endpoint not in public_endpoints:
+            # For API requests, return a JSON error
+            if request.path.startswith('/api/'):
+                return jsonify({'status': 'error', 'message': '密碼尚未設定', 'action': 'setup_password'}), 401
+            # For other requests, redirect to the setup page
+            return redirect(url_for('setup_password'))
+        return
+
+    # If password is set, check for login status
+    # Routes allowed without being logged in
+    allowed_when_logged_out = ['login', 'static']
+    if 'logged_in' not in session and request.endpoint not in allowed_when_logged_out:
+        # For API requests, return a JSON error
+        if request.path.startswith('/api/'):
+            return jsonify({'status': 'error', 'message': '需要登入', 'action': 'login'}), 401
+        # For other requests, redirect to login page
         return redirect(url_for('login'))
 
 @app.route('/setup-password', methods=['GET', 'POST'])
@@ -76,11 +92,13 @@ def setup_password():
         set_password(password)
         session['logged_in'] = True # Log in immediately after setting password
         return redirect(url_for('index'))
-    return render_template('setup.html') # This template is for password setup
+    return render_template('password_setup.html') # This template is for password setup
+
 
 @app.route('/setup', methods=['GET'])
 def site_setup():
     return render_template('setup.html')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
