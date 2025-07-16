@@ -1,99 +1,90 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>資源站點管理器</title>
-    <meta name="theme-color" content="#000000" />
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <meta property="og:title" content="maccms_parser">
-    <meta property="og:description" content="一個強大的 maccms 影視站點解析器與播放器。">
-    <meta property="og:image" content="{{ url_for('static', filename='img/favicon.svg') }}">
-    <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.css">
-</head>
+{% block title %}資源站點管理器{% endblock %}
 
-<body>
-    <div class="container">
-        <header class="site-manager">
-            <div class="form-group">
-                <label for="siteSelector">
-                    選擇站點
-                    <a href="/setup" class="find-sites-link">(設定)</a>
-                    <a href="/logout" class="find-sites-link">(登出)</a>
-                </label>
-                <div class="site-selector-wrapper">
-                    <select id="siteSelector"></select>
-                </div>
+{% block styles %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <header class="site-manager">
+        <div class="form-group">
+            <label for="siteSelector">
+                選擇站點
+                <a href="/setup" class="find-sites-link">(設定)</a>
+                <a href="/logout" class="find-sites-link">(登出)</a>
+            </label>
+            <div class="site-selector-wrapper">
+                <select id="siteSelector"></select>
+            </div>
+        </div>
+    </header>
+
+    <div id="loader" class="loader" style="display: none;">載入中...</div>
+    <div id="error" class="error-message" style="display: none;"></div>
+
+    <main id="mainContent" class="main-content">
+        <header class="content-header">
+            <div class="category-selector-wrapper">
+                <label for="categorySelector">分類</label>
+                <select id="categorySelector"></select>
             </div>
         </header>
-
-        <div id="loader" class="loader" style="display: none;">載入中...</div>
-        <div id="error" class="error-message" style="display: none;"></div>
-
-        <main id="mainContent" class="main-content">
-            <header class="content-header">
-                <div class="category-selector-wrapper">
-                    <label for="categorySelector">分類</label>
-                    <select id="categorySelector"></select>
-                </div>
-            </header>
-            <div class="search-bar-container">
-                <div class="search-bar">
-                    <button id="toSimpBtn" class="btn simp-btn" title="轉為簡體">簡</button>
-                    <input type="search" id="searchInput" placeholder="輸入關鍵字搜索..." autocomplete="off">
-                    <button id="multiSiteSelectBtn" class="btn" title="選擇多個站台進行搜尋">站台</button>
-                    <button id="searchBtn" class="btn">搜索</button>
-                </div>
-                <div id="selectedSites" class="selected-sites-display"></div>
+        <div class="search-bar-container">
+            <div class="search-bar">
+                <button id="toSimpBtn" class="btn simp-btn" title="轉為簡體">簡</button>
+                <input type="search" id="searchInput" placeholder="輸入關鍵字搜索..." autocomplete="off">
+                <button id="multiSiteSelectBtn" class="btn" title="選擇多個站台進行搜尋">站台</button>
+                <button id="searchBtn" class="btn">搜索</button>
             </div>
-            <section class="content-area">
-                <div id="videoGrid"></div>
-                <div id="pagination" class="pagination"></div>
-            </section>
+            <div id="selectedSites" class="selected-sites-display"></div>
+        </div>
+        <section class="content-area">
+            <div id="videoGrid"></div>
+            <div id="pagination" class="pagination"></div>
+        </section>
+    </main>
+</div>
+
+<div id="videoModal" class="modal">
+    <div class="modal-content">
+        <header class="modal-header">
+            <h3 id="modalTitle" class="modal-title"></h3>
+            <button class="close-btn">&times;</button>
+        </header>
+        <main class="modal-body">
+            <div id="dplayer"></div>
+            <div class="playlist-container">
+                <div id="playlistSources" class="playlist-sources"></div>
+                <div id="episodeList" class="episode-list"></div>
+            </div>
         </main>
     </div>
+</div>
 
-    <div id="videoModal" class="modal">
-        <div class="modal-content">
-            <header class="modal-header">
-                <h3 id="modalTitle" class="modal-title"></h3>
-                <button class="close-btn">&times;</button>
-            </header>
-            <main class="modal-body">
-                <div id="dplayer"></div>
-                <div class="playlist-container">
-                    <div id="playlistSources" class="playlist-sources"></div>
-                    <div id="episodeList" class="episode-list"></div>
-                </div>
-            </main>
-        </div>
+<div id="siteSelectionModal" class="modal">
+    <div class="modal-content">
+        <header class="modal-header">
+            <h3 class="modal-title">選擇搜尋站台</h3>
+            <button class="close-btn">&times;</button>
+        </header>
+        <main class="modal-body" style="flex-direction: column;">
+            <div id="siteCheckboxList" class="site-checkbox-list">
+                <!-- Site checkboxes will be rendered here by JS -->
+            </div>
+            <footer class="modal-footer">
+                <button id="selectAllSitesBtn" class="btn">全選</button>
+                <button id="deselectAllSitesBtn" class="btn">取消全選</button>
+                <button id="confirmSiteSelectionBtn" class="btn">確定</button>
+            </footer>
+        </main>
     </div>
+</div>
+{% endblock %}
 
-    <script src="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js/dist/hls.min.js"></script>
-    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
-
-    <div id="siteSelectionModal" class="modal">
-        <div class="modal-content">
-            <header class="modal-header">
-                <h3 class="modal-title">選擇搜尋站台</h3>
-                <button class="close-btn">&times;</button>
-            </header>
-            <main class="modal-body" style="flex-direction: column;">
-                <div id="siteCheckboxList" class="site-checkbox-list">
-                    <!-- Site checkboxes will be rendered here by JS -->
-                </div>
-                <footer class="modal-footer">
-                    <button id="selectAllSitesBtn" class="btn">全選</button>
-                    <button id="deselectAllSitesBtn" class="btn">取消全選</button>
-                    <button id="confirmSiteSelectionBtn" class="btn">確定</button>
-                </footer>
-            </main>
-        </div>
-    </div>
-</body>
-
-</html>
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js/dist/hls.min.js"></script>
+<script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% endblock %}
