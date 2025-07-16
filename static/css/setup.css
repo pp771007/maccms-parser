@@ -1,6 +1,35 @@
-/* --- Site Setup Page Styles --- */
+.card {
+    background: #fdfdfd;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 25px;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.card:hover {
+    border-color: #c0dfff;
+    box-shadow: 0 4px 12px rgba(0, 109, 255, 0.08);
+}
+
+.card h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.add-site-card .form-group {
+    margin-bottom: 15px;
+}
+
+.add-site-card .form-group:last-of-type {
+    margin-bottom: 20px;
+}
+
+#addSiteBtn {
+    width: 100%;
+}
+
 .site-list-manager {
-    margin-top: 30px;
+    margin-top: 40px;
 }
 
 #siteList {
@@ -8,17 +37,17 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
 }
 
 .site-item {
     background: #fdfdfd;
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 15px 20px;
+    padding: 12px 15px;
     display: flex;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 10px;
     align-items: center;
     transition: box-shadow 0.2s, border-color 0.2s;
 }
@@ -31,48 +60,72 @@
 .site-item .site-info {
     flex-grow: 1;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
 }
 
 .site-item .site-info input {
     width: 100%;
-    padding: 8px 10px;
-    border-radius: 4px;
+    padding: 8px 12px;
+    border-radius: 6px;
     border: 1px solid #e0e0e0;
     font-size: 14px;
     box-sizing: border-box;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .site-item .site-info input:focus {
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 109, 255, 0.2);
     outline: none;
 }
 
 .site-item .site-controls {
+    width: 100%;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 }
 
 .site-item .site-controls label {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     cursor: pointer;
     font-size: 14px;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+.site-item .site-controls label:hover {
+    background-color: #f0f0f0;
+}
+
+.site-item .site-controls label span {
+    line-height: 1;
+}
+
+.site-item .site-controls input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
 }
 
 .site-item .site-controls .btn,
 .site-item .site-controls button {
-    padding: 5px 12px;
-    font-size: 14px;
+    padding: 6px 12px;
+    font-size: 13px;
     height: auto;
     border: 1px solid var(--border-color);
     background-color: #fff;
     color: var(--text-color);
+    border-radius: 6px;
 }
 
 .site-item .site-controls .btn:hover {
@@ -108,5 +161,5 @@
 .site-item .btn-move-up,
 .site-item .btn-move-down {
     font-weight: bold;
-    padding: 5px 10px;
+    padding: 6px 10px;
 }

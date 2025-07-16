@@ -20,7 +20,7 @@ async function loadSites() {
 
 function renderSiteList(sites) {
     const siteList = $('#siteList');
-    siteList.innerHTML = ''; // 清空現有列表
+    siteList.innerHTML = '';
 
     if (!sites || sites.length === 0) {
         siteList.innerHTML = '<li>沒有找到任何站點。</li>';
@@ -39,8 +39,8 @@ function renderSiteList(sites) {
                 <input type="text" class="site-note-input" value="${site.note || ''}" placeholder="備註">
             </div>
             <div class="site-controls">
-                <label><input type="checkbox" class="site-enabled-toggle" ${site.enabled ? 'checked' : ''}> 啟用</label>
-                <label><input type="checkbox" class="site-ssl-toggle" ${site.ssl_verify ? 'checked' : ''}> SSL</label>
+                <label><input type="checkbox" class="site-enabled-toggle" ${site.enabled ? 'checked' : ''}><span>啟用</span></label>
+                <label><input type="checkbox" class="site-ssl-toggle" ${site.ssl_verify ? 'checked' : ''}><span>SSL</span></label>
                 <button class="btn-update">更新</button>
                 <button class="btn-delete">刪除</button>
                 <button class="btn-move-up">↑</button>
@@ -48,7 +48,6 @@ function renderSiteList(sites) {
             </div>
         `;
 
-        // Event Listeners for site actions
         li.querySelector('.btn-update').addEventListener('click', () => handleUpdateSite(site.id, li));
         li.querySelector('.btn-delete').addEventListener('click', () => handleDeleteSite(site.id, site.name));
         li.querySelector('.btn-move-up').addEventListener('click', () => handleMoveSite(site.id, 'up'));
@@ -70,7 +69,7 @@ async function handleAddNewSite() {
         await api.postNewSite(name, url);
         $('#newSiteName').value = '';
         $('#newSiteUrl').value = '';
-        loadSites(); // 重新載入列表
+        loadSites();
         alert('站點新增成功！');
     } catch (err) {
         alert(`新增失敗: ${err.message}`);
@@ -94,7 +93,7 @@ async function handleUpdateSite(siteId, listItem) {
     try {
         await api.updateSite(siteId, { name, url, note, enabled, ssl_verify });
         alert('站點更新成功！');
-        loadSites(); // 重新載入以反映變更
+        loadSites();
     } catch (err) {
         alert(`更新失敗: ${err.message}`);
     }
@@ -105,7 +104,7 @@ async function handleDeleteSite(siteId, siteName) {
         try {
             await api.deleteSite(siteId);
             alert('站點已刪除。');
-            loadSites(); // 重新載入列表
+            loadSites();
         } catch (err) {
             alert('刪除失敗: ' + err.message);
         }
@@ -115,7 +114,7 @@ async function handleDeleteSite(siteId, siteName) {
 async function handleMoveSite(siteId, direction) {
     try {
         await api.moveSite(siteId, direction);
-        loadSites(); // 重新載入以反映新的排序
+        loadSites();
     } catch (err) {
         alert(`移動失敗: ${err.message}`);
     }
