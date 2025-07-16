@@ -45,7 +45,7 @@ export function renderVideos(videos) {
         const card = document.createElement('div');
         card.className = 'video-card';
         const placeholderText = encodeURIComponent(video.vod_name.substring(0, 10));
-        const placeholderUrl = `https://via.placeholder.com/300x400.png?text=${placeholderText}`;
+        const placeholderUrl = `https://placehold.co/300x400.png?text=${placeholderText}`;
         const finalImageUrl = video.vod_pic ? video.vod_pic : placeholderUrl;
 
         // Add site name if it's a multi-site search result
