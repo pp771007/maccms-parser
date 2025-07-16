@@ -1,6 +1,6 @@
 {
-    "name": "Maccms 解析器",
-    "short_name": "Maccms 解析器",
+    "name": "資源站點管理器",
+    "short_name": "資源站點管理器",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",
