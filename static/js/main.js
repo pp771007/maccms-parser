@@ -25,6 +25,7 @@ function registerServiceWorker() {
 }
 
 function setupEventListeners() {
+    initScrollButtons();
     $('#siteSelector').addEventListener('change', handleSiteSelection);
     $('#categorySelector').addEventListener('change', handleCategorySelection);
     $('#searchBtn').addEventListener('click', handleSearch);
@@ -50,6 +51,39 @@ function setupEventListeners() {
     $('#selectAllSitesBtn').addEventListener('click', () => ui.toggleAllSites(true));
     $('#deselectAllSitesBtn').addEventListener('click', () => ui.toggleAllSites(false));
     $('#confirmSiteSelectionBtn').addEventListener('click', handleConfirmSiteSelection);
+}
+
+function initScrollButtons() {
+    const toTopBtn = $('#scrollToTopBtn');
+    const toBottomBtn = $('#scrollToBottomBtn');
+
+    toTopBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    toBottomBtn.addEventListener('click', () => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    });
+
+    window.addEventListener('scroll', () => {
+        const scrollHeight = document.documentElement.scrollHeight;
+        const clientHeight = document.documentElement.clientHeight;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+        // Show/hide "scroll to top" button
+        if (scrollTop > 300) {
+            toTopBtn.style.display = 'flex';
+        } else {
+            toTopBtn.style.display = 'none';
+        }
+
+        // Show/hide "scroll to bottom" button
+        if (scrollTop + clientHeight >= scrollHeight - 50) { // 50px buffer
+            toBottomBtn.style.display = 'none';
+        } else {
+            toBottomBtn.style.display = 'flex';
+        }
+    });
 }
 
 let t2s; // 儲存轉換函數

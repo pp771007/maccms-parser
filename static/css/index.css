@@ -449,3 +449,35 @@
         align-items: center;
     }
 }
+
+/* Scroll Buttons */
+.scroll-btn {
+    position: fixed;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 1001;
+    display: none;
+    /* Initially hidden */
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    transition: background-color 0.2s, opacity 0.3s;
+}
+
+.scroll-btn:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+.scroll-btn.top {
+    bottom: 70px;
+}
+
+.scroll-btn.bottom {
+    bottom: 20px;
+}
