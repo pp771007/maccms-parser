@@ -132,10 +132,6 @@ function handleConfirmSiteSelection() {
 
 function handleSearch() {
     const keyword = $('#searchInput').value.trim();
-    if (!keyword) {
-        alert('請輸入關鍵字');
-        return;
-    }
 
     state.currentTypeId = null;
     state.currentPage = 1;
@@ -164,7 +160,7 @@ function handleCategorySelection() {
 }
 
 async function fetchAndRender() {
-    const isMultiSiteSearch = state.searchSiteIds.length > 0 && state.currentKeyword;
+    const isMultiSiteSearch = state.searchSiteIds.length > 0;
 
     if (!state.currentSite && !isMultiSiteSearch) return;
 

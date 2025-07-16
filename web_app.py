@@ -311,8 +311,8 @@ def multi_site_search():
     keyword = data.get('keyword')
     page = data.get('page', 1)
 
-    if not keyword or not site_ids:
-        return jsonify({'status': 'error', 'message': '缺少關鍵字或站台資訊'}), 400
+    if not site_ids:
+        return jsonify({'status': 'error', 'message': '缺少站台資訊'}), 400
 
     all_sites = get_sites()
     sites_to_search = [s for s in all_sites if s['id'] in site_ids and s.get('enabled', True)]
