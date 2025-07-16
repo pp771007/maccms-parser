@@ -32,6 +32,21 @@
     border-bottom-right-radius: 0;
 }
 
+.loader,
+.error-message {
+    text-align: center;
+    padding: 40px;
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.error-message {
+    background: #fff1f0;
+    border: 1px solid #ffccc7;
+    color: var(--danger-color);
+    border-radius: 6px;
+}
+
 .delete-btn {
     padding: 10px;
     height: 44px;

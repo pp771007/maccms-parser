@@ -38,14 +38,12 @@ label {
     gap: 5px;
 }
 
-input:not([type="checkbox"]):not([type="radio"]),
+input,
 select {
     padding: 10px;
     border-radius: 6px;
     border: 1px solid var(--border-color);
     font-size: 16px;
-    min-width: 200px;
-    height: 44px;
     box-sizing: border-box;
 }
 
@@ -82,20 +80,6 @@ select {
 .find-sites-link:hover {
     opacity: 1;
     text-decoration: underline;
-}
-
-.loader,
-.error-message {
-    text-align: center;
-    padding: 40px;
-    font-size: 16px;
-}
-
-.error-message {
-    background: #fff1f0;
-    border: 1px solid #ffccc7;
-    color: var(--danger-color);
-    border-radius: 6px;
 }
 
 @media (max-width: 768px) {
