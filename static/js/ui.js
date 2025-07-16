@@ -9,7 +9,8 @@ export function renderSites(sites) {
     selector.innerHTML = '<option value="">-- 請選擇一個站點 --</option>';
     // The 'sites' array is now pre-filtered and sorted by the backend.
     sites.forEach(site => {
-        selector.innerHTML += `<option value="${site.id}">${site.name}</option>`;
+        const displayName = site.note ? `${site.name} (${site.note})` : site.name;
+        selector.innerHTML += `<option value="${site.id}">${displayName}</option>`;
     });
     if (sites.some(s => s.id == currentVal)) {
         selector.value = currentVal;
@@ -207,7 +208,8 @@ export function openSiteSelectionModal() {
         checkbox.value = site.id;
         checkbox.checked = state.searchSiteIds.includes(site.id);
         label.appendChild(checkbox);
-        label.append(` ${site.name}`);
+        const displayName = site.note ? `${site.name} (${site.note})` : site.name;
+        label.append(` ${displayName}`);
         list.appendChild(label);
     });
     $('#siteSelectionModal').style.display = 'flex';
@@ -230,7 +232,7 @@ export function updateSelectedSitesDisplay() {
     if (state.searchSiteIds.length > 0) {
         const selectedNames = state.sites
             .filter(s => state.searchSiteIds.includes(s.id))
-            .map(s => s.name)
+            .map(s => s.note ? `${s.name} (${s.note})` : s.name)
             .join(', ');
         display.textContent = `搜尋範圍: ${selectedNames}`;
     } else {
