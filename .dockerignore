@@ -1,11 +1,26 @@
-# Python cache
-__pycache__/
-
-# Ignore data directory
-data/
-
-# Docker specific
+# Git and Docker files
 .git
 .gitignore
 Dockerfile
 .dockerignore
+docker-compose.yml
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Custom data folder
+data/
+
+# Other
+.pytest_cache
+.coverage
