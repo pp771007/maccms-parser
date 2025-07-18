@@ -2,6 +2,7 @@ import os
 from flask import Flask, cli
 from config import get_config_value, set_config_value
 from logger_config import setup_logger
+from site_manager import start_site_checker
 
 # --- Blueprints ---
 from blueprints.auth import auth_bp, init_auth_check
@@ -31,6 +32,9 @@ app.register_blueprint(main_bp)
 
 # --- Initialize Request Hooks ---
 init_auth_check(app)
+
+# --- Start Site Checker ---
+start_site_checker()
 
 # --- Main Execution ---
 if __name__ == '__main__':

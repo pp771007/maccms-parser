@@ -212,3 +212,33 @@ def multi_site_search():
         'pagecount': max_page_count,
         'total': len(all_results)
     })
+
+@api_bp.route('/sites/check_now', methods=['POST'])
+def check_sites_now():
+    """立即檢查所有站點並返回結果"""
+    from site_manager import check_sites_immediately
+    try:
+        data = request.json or {}
+        include_disabled = data.get('include_disabled', False)
+        results = check_sites_immediately(include_disabled=include_disabled)
+        return jsonify({
+            'status': 'success',
+            'results': results
+        })
+    except Exception as e:
+        logger.error(f"立即檢查站點失敗: {e}")
+        return jsonify({'status': 'error', 'message': f'檢查失敗: {e}'}), 500
+
+@api_bp.route('/sites/<int:site_id>/check', methods=['POST'])
+def check_single_site(site_id):
+    """檢查單一站點"""
+    from site_manager import check_single_site_health
+    try:
+        result = check_single_site_health(site_id)
+        return jsonify({
+            'status': 'success',
+            'result': result
+        })
+    except Exception as e:
+        logger.error(f"檢查站點 {site_id} 失敗: {e}")
+        return jsonify({'status': 'error', 'message': f'檢查失敗: {e}'}), 500

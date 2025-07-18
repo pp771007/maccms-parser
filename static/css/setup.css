@@ -102,6 +102,7 @@
     -ms-user-select: none;
     user-select: none;
 }
+
 .site-item .site-controls label:hover {
     background-color: #f0f0f0;
 }
@@ -158,8 +159,250 @@
     border-color: var(--danger-color);
 }
 
+.site-item .btn-check-site {
+    border-color: #17a2b8;
+    color: #17a2b8;
+    background-color: #fff;
+}
+
+.site-item .btn-check-site:hover {
+    background-color: #17a2b8;
+    color: white;
+    border-color: #17a2b8;
+}
+
+.site-item .btn-check-site:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .site-item .btn-move-up,
 .site-item .btn-move-down {
     font-weight: bold;
     padding: 6px 10px;
+}
+
+/* 站點控制區域 */
+.site-controls {
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+    border: 1px solid #6c757d;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+}
+
+.check-status {
+    font-size: 14px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    min-height: 20px;
+}
+
+.check-status .checking {
+    color: #856404;
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+}
+
+.check-status .check-success {
+    color: #155724;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+.check-status .check-failed {
+    color: #721c24;
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+/* 站點狀態顯示 */
+.site-status {
+    width: 100%;
+    margin: 10px 0;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.check-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.check-time {
+    color: #6c757d;
+}
+
+.check-result {
+    font-weight: 500;
+}
+
+.check-success {
+    color: #28a745;
+}
+
+.check-failed {
+    color: #dc3545;
+}
+
+/* 檢查結果清單樣式 */
+.check-results {
+    margin-top: 10px;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.check-summary {
+    background-color: #f8f9fa;
+    padding: 12px;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.check-summary span {
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.check-details {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.check-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f1f3f4;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.check-item:last-child {
+    border-bottom: none;
+}
+
+.check-icon {
+    font-weight: bold;
+    min-width: 16px;
+}
+
+.check-name {
+    font-weight: 500;
+    min-width: 120px;
+}
+
+.check-message {
+    color: #6c757d;
+    flex-grow: 1;
+}
+
+.check-error {
+    color: #dc3545;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.checkbox-label:hover {
+    background-color: #f0f0f0;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    .site-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .site-item .site-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .site-item .site-controls>* {
+        width: 100%;
+    }
+
+    .check-info {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .check-summary {
+        flex-direction: row;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .check-summary span {
+        font-size: 12px;
+        padding: 2px 6px;
+    }
+
+    .check-item {
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+
+    .check-icon {
+        min-width: 12px;
+    }
+
+    .check-name {
+        min-width: 80px;
+        font-weight: 500;
+    }
+
+    .check-message {
+        flex-grow: 1;
+        font-size: 11px;
+    }
+
+    .check-details {
+        max-height: 200px;
+    }
 }

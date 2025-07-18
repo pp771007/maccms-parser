@@ -28,6 +28,14 @@
 
     <div class="site-list-manager">
         <h2>管理現有站點</h2>
+        <div class="site-controls">
+            <button id="checkAllSitesBtn" class="btn btn-secondary">檢查所有站點</button>
+            <label class="checkbox-label">
+                <input type="checkbox" id="includeDisabledCheckbox">
+                <span>包含未啟用站點</span>
+            </label>
+            <div id="checkStatus" class="check-status"></div>
+        </div>
         <ul id="siteList">
             <!-- 站點列表將由 JavaScript 動態生成 -->
         </ul>

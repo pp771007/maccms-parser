@@ -12,7 +12,7 @@ def process_api_request(base_url, params, logger, ssl_verify=True):
     
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
-        timeout_seconds = 30
+        timeout_seconds = 10
         list_response = requests.get(api_url, headers=headers, params=params, timeout=timeout_seconds, verify=ssl_verify)
         list_response.raise_for_status()
         list_data = list_response.json()
@@ -87,7 +87,7 @@ def get_details_from_api(base_url, vod_id, logger, ssl_verify=True):
     
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
-        timeout_seconds = 30
+        timeout_seconds = 10
         response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=ssl_verify)
         response.raise_for_status()
         result_data = response.json()

@@ -107,10 +107,21 @@ async function loadSitesAndAutoLoadLast() {
         state.sites = await api.fetchSites();
         ui.renderSites(state.sites);
 
-        const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
-        if (lastSelectedId && state.sites.some(s => s.id == lastSelectedId)) {
-            $('#siteSelector').value = lastSelectedId;
-            handleSiteSelection();
+        // 載入多選站台設定
+        state.loadMultiSiteSelection();
+
+        // 如果有多選站台設定，優先使用多選模式
+        if (state.searchSiteIds.length > 0) {
+            // 更新UI顯示已選擇的站台
+            ui.updateSelectedSitesDisplay();
+            $('#mainContent').style.display = 'flex';
+        } else {
+            // 否則載入單選站台設定
+            const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
+            if (lastSelectedId && state.sites.some(s => s.id == lastSelectedId)) {
+                $('#siteSelector').value = lastSelectedId;
+                handleSiteSelection();
+            }
         }
     } catch (err) {
         if (err.action === 'setup_password') {
@@ -126,11 +137,13 @@ async function loadSitesAndAutoLoadLast() {
 
 function handleSiteSelection() {
     const siteId = $('#siteSelector').value;
-    // Reset multi-site search state when single site is selected
-    state.searchSiteIds = [];
-    ui.updateSelectedSitesDisplay();
 
     if (siteId) {
+        // 清掉多選站台設定
+        state.searchSiteIds = [];
+        state.saveMultiSiteSelection();
+        ui.updateSelectedSitesDisplay();
+
         localStorage.setItem('lastSelectedSiteId', siteId);
         state.currentSite = state.sites.find(s => s.id == siteId);
         if (state.currentSite) {
@@ -155,6 +168,9 @@ function handleConfirmSiteSelection() {
         return;
     }
     state.searchSiteIds = selectedIds;
+    // 儲存多選站台設定
+    state.saveMultiSiteSelection();
+
     // Set currentSite to null to indicate multi-site search mode
     state.currentSite = null;
     $('#siteSelector').value = ''; // Deselect single site selector

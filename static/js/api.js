@@ -108,3 +108,30 @@ export async function fetchVideoDetails(url, videoId) {
     }
     return result;
 }
+
+export async function checkSitesNow(includeDisabled = false) {
+    const response = await fetch('/api/sites/check_now', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ include_disabled: includeDisabled })
+    });
+    if (!response.ok) {
+        throw new Error('檢查站點失敗');
+    }
+    return response.json();
+}
+
+export async function checkSingleSite(siteId) {
+    const response = await fetch(`/api/sites/${siteId}/check`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    });
+    if (!response.ok) {
+        throw new Error('檢查站點失敗');
+    }
+    return response.json();
+}

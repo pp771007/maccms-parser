@@ -42,27 +42,71 @@ export function renderVideos(videos) {
         grid.innerHTML = '<p style="text-align: center; grid-column: 1 / -1; padding: 20px;">沒有找到相關內容。</p>';
         return;
     }
-    videos.forEach((video) => {
+
+    // 聚合相同名字的影片
+    const groupedVideos = {};
+    videos.forEach(video => {
+        const key = video.vod_name;
+        if (!groupedVideos[key]) {
+            groupedVideos[key] = [];
+        }
+        groupedVideos[key].push(video);
+    });
+
+    // 渲染聚合後的影片
+    Object.entries(groupedVideos).forEach(([videoName, videoList]) => {
         const card = document.createElement('div');
         card.className = 'video-card';
-        const placeholderText = encodeURIComponent(video.vod_name.substring(0, 10));
-        const placeholderUrl = `https://placehold.co/300x400.png?text=${placeholderText}`;
-        const finalImageUrl = video.vod_pic ? video.vod_pic : placeholderUrl;
 
-        // Add site name if it's a multi-site search result
-        const siteNameHtml = video.from_site ? `<div class="video-site-name">${video.from_site}</div>` : '';
+        // 使用第一個影片的圖片作為代表
+        const firstVideo = videoList[0];
+
+        // 改善圖片URL處理，避免中文編碼問題
+        let finalImageUrl;
+        if (firstVideo.vod_pic && firstVideo.vod_pic.trim()) {
+            finalImageUrl = firstVideo.vod_pic;
+        } else {
+            // 使用英文名稱生成佔位圖片，避免中文編碼問題
+            const englishName = videoName.replace(/[^\w\s]/g, '').substring(0, 10);
+            const placeholderText = encodeURIComponent(englishName || 'No Image');
+            finalImageUrl = `https://placehold.co/300x400.png?text=${placeholderText}`;
+        }
+
+        // 聚合顯示站台名稱
+        let siteNamesHtml = '';
+        if (videoList.length > 1) {
+            const uniqueSites = [...new Set(videoList.map(v => v.from_site).filter(Boolean))];
+            if (uniqueSites.length > 0) {
+                siteNamesHtml = `<div class="video-site-name">${uniqueSites.join(', ')}</div>`;
+            }
+        } else if (firstVideo.from_site) {
+            siteNamesHtml = `<div class="video-site-name">${firstVideo.from_site}</div>`;
+        }
+
+        // 顯示聚合數量
+        const countBadge = videoList.length > 1 ? `<div class="video-count-badge">${videoList.length}</div>` : '';
 
         card.innerHTML = `
             <div class="video-pic-wrapper">
-                <img class="video-pic" src="${finalImageUrl}" alt="${video.vod_name}" loading="lazy" onerror="this.onerror=null;this.src='${placeholderUrl}';">
-                ${siteNameHtml}
+                <img class="video-pic" src="${finalImageUrl}" alt="${videoName}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x400.png?text=No+Image';">
+                ${siteNamesHtml}
+                ${countBadge}
             </div>
             <div class="video-info">
-                <div class="video-title" title="${video.vod_name}">${video.vod_name}</div>
-                <div class="video-note">${video.vod_remarks || ''}</div>
+                <div class="video-title" title="${videoName}">${videoName}</div>
+                <div class="video-note">${firstVideo.vod_remarks || ''}</div>
             </div>
         `;
-        card.addEventListener('click', () => openModal(video));
+
+        // 點擊時顯示所有來源的詳細資訊
+        card.addEventListener('click', () => {
+            if (videoList.length > 1) {
+                openMultiSourceModal(videoName, videoList);
+            } else {
+                openModal(firstVideo);
+            }
+        });
+
         grid.appendChild(card);
     });
 }
@@ -152,22 +196,115 @@ export async function openModal(video) {
     }
 }
 
+// 新增多來源影片的modal
+export async function openMultiSourceModal(videoName, videoList) {
+    $('#modalTitle').textContent = `${videoName} (${videoList.length} 個來源)`;
+    $('#videoModal').style.display = 'flex';
+    $('#playlistSources').innerHTML = '';
+    $('#episodeList').innerHTML = '請選擇來源...';
+
+    // 創建來源選擇按鈕
+    const playlistSources = $('#playlistSources');
+    playlistSources.innerHTML = '';
+
+    // 儲存影片列表到state中，方便切換
+    state.multiSourceVideos = videoList;
+
+    videoList.forEach((video, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'source-btn';
+        btn.textContent = video.from_site || `來源 ${index + 1}`;
+        btn.dataset.index = index;
+        btn.onclick = async () => {
+            try {
+                // 更新按鈕狀態
+                $$('.source-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                let siteUrl;
+                if (video.from_site_id) {
+                    const site = state.sites.find(s => s.id === video.from_site_id);
+                    if (site) {
+                        siteUrl = site.url;
+                    } else {
+                        throw new Error(`找不到站台 ID ${video.from_site_id}`);
+                    }
+                } else if (state.currentSite) {
+                    siteUrl = state.currentSite.url;
+                } else {
+                    throw new Error('無法確定站台來源');
+                }
+
+                const result = await fetchVideoDetails(siteUrl, video.vod_id);
+                state.modalData = result.data;
+                state.currentSourceIndex = index;
+                // 使用renderPlaylist來顯示播放列表
+                renderPlaylist();
+            } catch (err) {
+                $('#episodeList').innerHTML = `<p style="color:red;">獲取播放列表失敗: ${err.message}</p>`;
+            }
+        };
+        playlistSources.appendChild(btn);
+    });
+
+    // 自動選擇第一個來源
+    if (videoList.length > 0) {
+        playlistSources.firstElementChild.click();
+    }
+}
+
+// 新增只渲染劇集的函數，不清空來源按鈕
+function renderEpisodesOnly() {
+    if (!state.modalData || state.modalData.length === 0) {
+        $('#episodeList').innerHTML = '<p>沒有可用的播放源。</p>';
+        return;
+    }
+
+    const episodeList = $('#episodeList');
+    episodeList.innerHTML = '';
+
+    // 使用當前選擇的來源索引
+    const sourceIndex = state.currentSourceIndex || 0;
+    const currentSource = state.modalData[sourceIndex];
+
+    if (currentSource && currentSource.episodes.length > 0) {
+        currentSource.episodes.forEach(epi => {
+            const item = document.createElement('div');
+            item.className = 'episode-item';
+            item.textContent = epi.name;
+            item.onclick = () => playVideo(epi.url, item);
+            episodeList.appendChild(item);
+        });
+        playVideo(currentSource.episodes[0].url, $('.episode-item'));
+    } else {
+        episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
+        if (state.dplayer) { state.dplayer.destroy(); state.dplayer = null; }
+        $('#dplayer').innerHTML = '';
+    }
+}
+
 function renderPlaylist(sourceIndex = 0) {
     if (!state.modalData || state.modalData.length === 0) {
         $('#episodeList').innerHTML = '<p>沒有可用的播放源。</p>';
         return;
     }
 
-    const playlistSources = $('#playlistSources');
-    playlistSources.innerHTML = '';
-    state.modalData.forEach((source, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'source-btn';
-        btn.textContent = source.flag;
-        if (index === sourceIndex) btn.classList.add('active');
-        btn.onclick = () => renderPlaylist(index);
-        playlistSources.appendChild(btn);
-    });
+    // 檢查是否為多來源模式
+    const isMultiSourceMode = state.multiSourceVideos && state.multiSourceVideos.length > 0;
+
+    // 只有在非多來源模式下才清空並重新創建播放源按鈕
+    if (!isMultiSourceMode) {
+        const playlistSources = $('#playlistSources');
+        playlistSources.innerHTML = '';
+        state.modalData.forEach((source, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'source-btn';
+            btn.textContent = source.flag;
+            if (index === sourceIndex) btn.classList.add('active');
+            btn.onclick = () => renderPlaylist(index);
+            playlistSources.appendChild(btn);
+        });
+    }
 
     const episodeList = $('#episodeList');
     episodeList.innerHTML = '';
@@ -195,6 +332,8 @@ export function closeModal() {
         state.dplayer = null;
     }
     state.modalData = null;
+    state.multiSourceVideos = []; // 清空多來源影片列表
+    state.currentSourceIndex = 0; // 重置來源索引
 }
 
 export function openSiteSelectionModal() {

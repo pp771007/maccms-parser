@@ -34,6 +34,7 @@ def setup_password():
         password = request.form['password']
         set_password(password)
         session['logged_in'] = True
+        session.permanent = True  # 設定session為永久性
         return redirect(url_for('main.index'))
     return render_template('password_setup.html')
 
@@ -56,6 +57,7 @@ def login():
     if request.method == 'POST':
         if check_password(request.form['password']):
             session['logged_in'] = True
+            session.permanent = True  # 設定session為永久性
             session.pop('login_attempts', None)
             session.pop('last_attempt_time', None)
             return redirect(url_for('main.index'))
@@ -78,6 +80,9 @@ def logout():
     return redirect(url_for('auth.login'))
 
 def init_auth_check(app):
+    # 設定session過期時間為30天
+    app.config['PERMANENT_SESSION_LIFETIME'] = 30 * 24 * 60 * 60  # 30 days in seconds
+    
     @app.before_request
     def require_login():
         # Public endpoints that don't require any checks

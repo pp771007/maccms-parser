@@ -6,6 +6,7 @@ import { $ } from './utils.js';
 document.addEventListener('DOMContentLoaded', () => {
     loadSites();
     $('#addSiteBtn').addEventListener('click', handleAddNewSite);
+    $('#checkAllSitesBtn').addEventListener('click', handleCheckAllSites);
 });
 
 async function loadSites() {
@@ -32,15 +33,36 @@ function renderSiteList(sites) {
         li.className = 'site-item';
         li.dataset.siteId = site.id;
 
+        // 格式化檢查時間
+        let checkTimeDisplay = '';
+        let checkStatusDisplay = '';
+        if (site.last_check) {
+            const checkTime = new Date(site.last_check);
+            checkTimeDisplay = checkTime.toLocaleString('zh-TW');
+
+            if (site.check_status === 'success') {
+                checkStatusDisplay = '<span class="check-success">✓ 正常</span>';
+            } else if (site.check_status === 'failed') {
+                checkStatusDisplay = '<span class="check-failed">✗ 失敗</span>';
+            }
+        }
+
         li.innerHTML = `
             <div class="site-info">
                 <input type="text" class="site-name-input" value="${site.name}" placeholder="站點名稱">
                 <input type="text" class="site-url-input" value="${site.url}" placeholder="站點URL">
                 <input type="text" class="site-note-input" value="${site.note || ''}" placeholder="備註">
             </div>
+            <div class="site-status">
+                <div class="check-info">
+                    <span class="check-time">${checkTimeDisplay ? `檢查時間: ${checkTimeDisplay}` : '尚未檢查'}</span>
+                    <span class="check-result">${checkStatusDisplay}</span>
+                </div>
+            </div>
             <div class="site-controls">
                 <label><input type="checkbox" class="site-enabled-toggle" ${site.enabled ? 'checked' : ''}><span>啟用</span></label>
                 <label><input type="checkbox" class="site-ssl-toggle" ${site.ssl_verify ? 'checked' : ''}><span>SSL</span></label>
+                <button class="btn-check-site" data-site-id="${site.id}">檢查</button>
                 <button class="btn-update">更新</button>
                 <button class="btn-delete">刪除</button>
                 <button class="btn-move-up">↑</button>
@@ -52,9 +74,140 @@ function renderSiteList(sites) {
         li.querySelector('.btn-delete').addEventListener('click', () => handleDeleteSite(site.id, site.name));
         li.querySelector('.btn-move-up').addEventListener('click', () => handleMoveSite(site.id, 'up'));
         li.querySelector('.btn-move-down').addEventListener('click', () => handleMoveSite(site.id, 'down'));
+        li.querySelector('.btn-check-site').addEventListener('click', () => handleCheckSingleSite(site.id, li));
 
         siteList.appendChild(li);
     });
+}
+
+async function handleCheckAllSites() {
+    const checkBtn = $('#checkAllSitesBtn');
+    const statusDiv = $('#checkStatus');
+    const includeDisabled = $('#includeDisabledCheckbox').checked;
+
+    try {
+        checkBtn.disabled = true;
+        checkBtn.textContent = '檢查中...';
+        statusDiv.innerHTML = '<span class="checking">正在檢查站點...</span>';
+
+        // 呼叫立即檢查API
+        const result = await api.checkSitesNow(includeDisabled);
+
+        if (result.status === 'success') {
+            // 顯示檢查結果清單
+            displayCheckResults(result.results);
+        } else {
+            statusDiv.innerHTML = `<span class="check-failed">檢查失敗: ${result.message}</span>`;
+        }
+
+        // 重新載入站點列表以顯示最新狀態
+        loadSites();
+
+    } catch (err) {
+        statusDiv.innerHTML = `<span class="check-failed">檢查失敗: ${err.message}</span>`;
+    } finally {
+        checkBtn.disabled = false;
+        checkBtn.textContent = '檢查所有站點';
+    }
+}
+
+async function handleCheckSingleSite(siteId, listItem) {
+    const checkBtn = listItem.querySelector('.btn-check-site');
+    const originalText = checkBtn.textContent;
+
+    try {
+        checkBtn.disabled = true;
+        checkBtn.textContent = '檢查中...';
+
+        const result = await api.checkSingleSite(siteId);
+
+        if (result.status === 'success') {
+            const checkResult = result.result;
+            const statusClass = checkResult.status === 'success' ? 'check-success' :
+                checkResult.status === 'failed' ? 'check-failed' : 'check-error';
+            const statusIcon = checkResult.status === 'success' ? '✓' :
+                checkResult.status === 'failed' ? '✗' : '⚠';
+
+            // 顯示檢查結果
+            const statusDiv = listItem.querySelector('.check-result');
+            statusDiv.innerHTML = `<span class="${statusClass}">${statusIcon} ${checkResult.message}</span>`;
+
+            // 更新檢查時間
+            const timeDiv = listItem.querySelector('.check-time');
+            const now = new Date().toLocaleString('zh-TW');
+            timeDiv.textContent = `檢查時間: ${now}`;
+
+            // 顯示臨時提示
+            showTemporaryMessage(`站點 ${checkResult.name} 檢查完成: ${checkResult.message}`, statusClass);
+        } else {
+            showTemporaryMessage(`檢查失敗: ${result.message}`, 'check-failed');
+        }
+
+        // 重新載入站點列表以顯示最新狀態
+        loadSites();
+
+    } catch (err) {
+        showTemporaryMessage(`檢查失敗: ${err.message}`, 'check-failed');
+    } finally {
+        checkBtn.disabled = false;
+        checkBtn.textContent = originalText;
+    }
+}
+
+function showTemporaryMessage(message, className) {
+    const statusDiv = $('#checkStatus');
+    statusDiv.innerHTML = `<span class="${className}">${message}</span>`;
+
+    // 3秒後清除訊息
+    setTimeout(() => {
+        statusDiv.innerHTML = '';
+    }, 3000);
+}
+
+function displayCheckResults(results) {
+    const statusDiv = $('#checkStatus');
+
+    if (!results || results.length === 0) {
+        statusDiv.innerHTML = '<span class="check-success">沒有站點需要檢查</span>';
+        return;
+    }
+
+    // 統計結果
+    const successCount = results.filter(r => r.status === 'success').length;
+    const failedCount = results.filter(r => r.status === 'failed').length;
+    const errorCount = results.filter(r => r.status === 'error').length;
+
+    let resultHtml = `
+        <div class="check-results">
+            <div class="check-summary">
+                <span class="check-success">✓ 成功: ${successCount}</span>
+                <span class="check-failed">✗ 失敗: ${failedCount}</span>
+                <span class="check-error">⚠ 錯誤: ${errorCount}</span>
+            </div>
+            <div class="check-details">
+    `;
+
+    results.forEach(result => {
+        const statusClass = result.status === 'success' ? 'check-success' :
+            result.status === 'failed' ? 'check-failed' : 'check-error';
+        const statusIcon = result.status === 'success' ? '✓' :
+            result.status === 'failed' ? '✗' : '⚠';
+
+        resultHtml += `
+            <div class="check-item ${statusClass}">
+                <span class="check-icon">${statusIcon}</span>
+                <span class="check-name">${result.name}</span>
+                <span class="check-message">${result.message}</span>
+            </div>
+        `;
+    });
+
+    resultHtml += `
+            </div>
+        </div>
+    `;
+
+    statusDiv.innerHTML = resultHtml;
 }
 
 async function handleAddNewSite() {
