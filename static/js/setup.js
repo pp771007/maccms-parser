@@ -38,7 +38,16 @@ function renderSiteList(sites) {
         let checkStatusDisplay = '';
         if (site.last_check) {
             const checkTime = new Date(site.last_check);
-            checkTimeDisplay = checkTime.toLocaleString('zh-TW');
+            // 轉換UTC時間為本地時區顯示
+            checkTimeDisplay = checkTime.toLocaleString('zh-TW', {
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
 
             if (site.check_status === 'success') {
                 checkStatusDisplay = '<span class="check-success">✓ 正常</span>';
@@ -134,7 +143,15 @@ async function handleCheckSingleSite(siteId, listItem) {
 
             // 更新檢查時間
             const timeDiv = listItem.querySelector('.check-time');
-            const now = new Date().toLocaleString('zh-TW');
+            const now = new Date().toLocaleString('zh-TW', {
+                timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
             timeDiv.textContent = `檢查時間: ${now}`;
 
             // 顯示臨時提示

@@ -4,7 +4,7 @@ import os
 import threading
 import time
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from logger_config import setup_logger
 
 DATA_DIR = 'data'
@@ -92,9 +92,12 @@ def check_all_sites():
                     if last_check_time:
                         try:
                             last_check = datetime.fromisoformat(last_check_time)
-                            time_diff = datetime.now() - last_check
+                            # 如果last_check沒有時區資訊，假設為UTC（向後相容性）
+                            if last_check.tzinfo is None:
+                                last_check = last_check.replace(tzinfo=timezone.utc)
+                            time_diff = datetime.now(timezone.utc) - last_check
                             if time_diff.total_seconds() < 3600:  # 1小時 = 3600秒
-                                logger.info(f"站點 {site['name']} 上次檢查時間為 {last_check.strftime('%Y-%m-%d %H:%M:%S')}，距離現在 {int(time_diff.total_seconds()/60)} 分鐘，跳過檢查")
+                                logger.info(f"站點 {site['name']} 上次檢查時間為 {last_check.strftime('%Y-%m-%d %H:%M:%S')} UTC，距離現在 {int(time_diff.total_seconds()/60)} 分鐘，跳過檢查")
                                 continue
                         except Exception as e:
                             logger.warning(f"解析站點 {site['name']} 的檢查時間失敗: {e}")
@@ -104,11 +107,11 @@ def check_all_sites():
                     if not is_healthy:
                         # 更新站點狀態為停用
                         site['enabled'] = False
-                        site['last_check'] = datetime.now().isoformat()
+                        site['last_check'] = datetime.now(timezone.utc).isoformat()
                         site['check_status'] = 'failed'
                         logger.warning(f"站點 {site['name']} 檢查失敗，已設為停用")
                     else:
-                        site['last_check'] = datetime.now().isoformat()
+                        site['last_check'] = datetime.now(timezone.utc).isoformat()
                         site['check_status'] = 'success'
                 
                 # 儲存更新後的站點資料
@@ -180,7 +183,7 @@ def check_sites_immediately(include_disabled=False):
             if not is_healthy:
                 # 更新站點狀態為停用
                 site['enabled'] = False
-                site['last_check'] = datetime.now().isoformat()
+                site['last_check'] = datetime.now(timezone.utc).isoformat()
                 site['check_status'] = 'failed'
                 logger.warning(f"站點 {site['name']} 檢查失敗，已設為停用")
                 results.append({
@@ -190,7 +193,7 @@ def check_sites_immediately(include_disabled=False):
                     'message': '檢查失敗，已設為停用'
                 })
             else:
-                site['last_check'] = datetime.now().isoformat()
+                site['last_check'] = datetime.now(timezone.utc).isoformat()
                 site['check_status'] = 'success'
                 results.append({
                     'name': site['name'],
@@ -228,7 +231,7 @@ def check_single_site_health(site_id):
         if not is_healthy:
             # 更新站點狀態為停用
             site['enabled'] = False
-            site['last_check'] = datetime.now().isoformat()
+            site['last_check'] = datetime.now(timezone.utc).isoformat()
             site['check_status'] = 'failed'
             logger.warning(f"站點 {site['name']} 檢查失敗，已設為停用")
             result = {
@@ -238,7 +241,7 @@ def check_single_site_health(site_id):
                 'message': '檢查失敗，已設為停用'
             }
         else:
-            site['last_check'] = datetime.now().isoformat()
+            site['last_check'] = datetime.now(timezone.utc).isoformat()
             site['check_status'] = 'success'
             result = {
                 'name': site['name'],
