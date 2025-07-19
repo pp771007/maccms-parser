@@ -25,6 +25,19 @@
     margin-bottom: 20px;
 }
 
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.card-header h2 {
+    margin: 0;
+}
+
 #addSiteBtn {
     width: 100%;
 }
@@ -366,6 +379,12 @@
 }
 
 @media (max-width: 768px) {
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
     .site-controls {
         flex-direction: column;
         align-items: stretch;
