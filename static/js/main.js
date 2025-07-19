@@ -20,6 +20,17 @@ function setupPWAExitHandler() {
     // 阻止index頁面的返回行為
     window.history.pushState(null, null, window.location.href);
 
+    // 檢查是否從其他頁面返回
+    const isFromOtherPage = sessionStorage.getItem('fromOtherPage');
+    if (isFromOtherPage) {
+        // 如果從其他頁面返回，重置返回計數器
+        backPressCount = 0;
+        if (backPressTimer) {
+            clearTimeout(backPressTimer);
+        }
+        sessionStorage.removeItem('fromOtherPage');
+    }
+
     // 監聽瀏覽器的返回按鈕事件
     window.addEventListener('popstate', (e) => {
         // 如果是videoModal開啟狀態，關閉modal而不是返回
@@ -177,17 +188,39 @@ async function loadSitesAndAutoLoadLast() {
         // 載入多選站台設定
         state.loadMultiSiteSelection();
 
-        // 如果有多選站台設定，優先使用多選模式
-        if (state.searchSiteIds.length > 0) {
-            // 更新UI顯示已選擇的站台
-            ui.updateSelectedSitesDisplay();
-            $('#mainContent').style.display = 'flex';
+        // 檢查是否從其他頁面返回
+        const isFromOtherPage = sessionStorage.getItem('fromOtherPage');
+        if (isFromOtherPage) {
+            // 如果從其他頁面返回，確保UI狀態正確
+            sessionStorage.removeItem('fromOtherPage');
+
+            // 重新載入站台選擇器
+            if (state.searchSiteIds.length > 0) {
+                // 更新UI顯示已選擇的站台
+                ui.updateSelectedSitesDisplay();
+                $('#mainContent').style.display = 'flex';
+            } else {
+                // 否則載入單選站台設定
+                const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
+                if (lastSelectedId && state.sites.some(s => s.id == lastSelectedId)) {
+                    $('#siteSelector').value = lastSelectedId;
+                    handleSiteSelection();
+                }
+            }
         } else {
-            // 否則載入單選站台設定
-            const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
-            if (lastSelectedId && state.sites.some(s => s.id == lastSelectedId)) {
-                $('#siteSelector').value = lastSelectedId;
-                handleSiteSelection();
+            // 正常載入流程
+            // 如果有多選站台設定，優先使用多選模式
+            if (state.searchSiteIds.length > 0) {
+                // 更新UI顯示已選擇的站台
+                ui.updateSelectedSitesDisplay();
+                $('#mainContent').style.display = 'flex';
+            } else {
+                // 否則載入單選站台設定
+                const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
+                if (lastSelectedId && state.sites.some(s => s.id == lastSelectedId)) {
+                    $('#siteSelector').value = lastSelectedId;
+                    handleSiteSelection();
+                }
             }
         }
     } catch (err) {
