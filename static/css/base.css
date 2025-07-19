@@ -10,6 +10,20 @@
     --card-background: #1e1e1e;
     --input-background: #2a2a2a;
     --hover-background: #2a2a2a;
+
+    /* 新增按鈕顏色變體 */
+    --success-color: #52c41a;
+    --success-hover: #73d13d;
+    --warning-color: #faad14;
+    --warning-hover: #ffc53d;
+    --info-color: #13c2c2;
+    --info-hover: #36cfc9;
+    --secondary-color: #6c757d;
+    --secondary-hover: #5a6268;
+    --purple-color: #722ed1;
+    --purple-hover: #9254de;
+    --orange-color: #fa8c16;
+    --orange-hover: #ffa940;
 }
 
 body {
@@ -83,6 +97,171 @@ select:focus {
 
 .btn:hover:not(:disabled) {
     background-color: var(--primary-hover);
+}
+
+/* 新增按鈕樣式變體 */
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: var(--primary-hover);
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    background-color: var(--success-hover);
+}
+
+.btn-warning {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.btn-warning:hover:not(:disabled) {
+    background-color: var(--warning-hover);
+}
+
+.btn-info {
+    background-color: var(--info-color);
+    color: white;
+}
+
+.btn-info:hover:not(:disabled) {
+    background-color: var(--info-hover);
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: var(--secondary-hover);
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background-color: #ff7875;
+}
+
+.btn-purple {
+    background-color: var(--purple-color);
+    color: white;
+}
+
+.btn-purple:hover:not(:disabled) {
+    background-color: var(--purple-hover);
+}
+
+.btn-orange {
+    background-color: var(--orange-color);
+    color: white;
+}
+
+.btn-orange:hover:not(:disabled) {
+    background-color: var(--orange-hover);
+}
+
+/* 輪廓按鈕樣式 */
+.btn-outline {
+    background-color: transparent;
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-outline:hover:not(:disabled) {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn-outline-success {
+    background-color: transparent;
+    border: 2px solid var(--success-color);
+    color: var(--success-color);
+}
+
+.btn-outline-success:hover:not(:disabled) {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.btn-outline-warning {
+    background-color: transparent;
+    border: 2px solid var(--warning-color);
+    color: var(--warning-color);
+}
+
+.btn-outline-warning:hover:not(:disabled) {
+    background-color: var(--warning-color);
+    color: white;
+}
+
+.btn-outline-info {
+    background-color: transparent;
+    border: 2px solid var(--info-color);
+    color: var(--info-color);
+}
+
+.btn-outline-info:hover:not(:disabled) {
+    background-color: var(--info-color);
+    color: white;
+}
+
+.btn-outline-danger {
+    background-color: transparent;
+    border: 2px solid var(--danger-color);
+    color: var(--danger-color);
+}
+
+.btn-outline-danger:hover:not(:disabled) {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+.btn-outline-purple {
+    background-color: transparent;
+    border: 2px solid var(--purple-color);
+    color: var(--purple-color);
+}
+
+.btn-outline-purple:hover:not(:disabled) {
+    background-color: var(--purple-color);
+    color: white;
+}
+
+.btn-outline-orange {
+    background-color: transparent;
+    border: 2px solid var(--orange-color);
+    color: var(--orange-color);
+}
+
+.btn-outline-orange:hover:not(:disabled) {
+    background-color: var(--orange-color);
+    color: white;
+}
+
+/* 小尺寸按鈕 */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 14px;
+    height: 32px;
+}
+
+/* 大尺寸按鈕 */
+.btn-lg {
+    padding: 12px 24px;
+    font-size: 18px;
+    height: 52px;
 }
 
 .find-sites-link {

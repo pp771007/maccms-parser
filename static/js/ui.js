@@ -122,6 +122,12 @@ export function renderPagination(currentPage, totalPages, onPageChange) {
         btn.disabled = isDisabled;
         const pageNumber = Number(page);
         if (pageNumber === currentPage) btn.classList.add('active');
+
+        // 為不同類型的按鈕添加顏色
+        if (text === '上一頁' || text === '下一頁') {
+            btn.classList.add('btn', 'btn-outline-info');
+        }
+
         btn.addEventListener('click', () => {
             if (currentPage !== pageNumber) {
                 onPageChange(pageNumber);

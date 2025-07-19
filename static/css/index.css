@@ -55,22 +55,22 @@
 .delete-btn {
     padding: 10px;
     height: 44px;
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--danger-color);
     border-left: none;
-    background: var(--input-background);
+    background: var(--danger-color);
     cursor: pointer;
     border-top-right-radius: 6px;
     border-bottom-right-radius: 6px;
     font-size: 20px;
     line-height: 1;
-    color: var(--text-secondary-color);
+    color: white;
     transition: all 0.2s;
 }
 
 .delete-btn:hover {
-    background-color: rgba(255, 77, 79, 0.1);
-    color: var(--danger-color);
-    border-color: var(--danger-color);
+    background-color: #ff7875;
+    color: white;
+    border-color: #ff7875;
 }
 
 .main-content {
@@ -284,11 +284,15 @@
     height: 100%;
     background-color: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(5px);
+    /* JavaScript 會將 display 設為 flex，所以這裡需要設定 flex-direction */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .modal-content {
     background-color: var(--card-background);
-    margin: 5% auto;
+    margin: 0;
     padding: 0;
     border-radius: 8px;
     width: 90%;
@@ -296,6 +300,9 @@
     max-height: 90vh;
     overflow: hidden;
     border: 1px solid var(--border-color);
+    /* 使用 flex 佈局來控制內容區域的高度 */
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-header {
@@ -315,8 +322,9 @@
 
 .modal-body {
     padding: 20px;
-    max-height: 70vh;
+    flex: 1;
     overflow-y: auto;
+    min-height: 0;
 }
 
 #dplayer {
@@ -331,6 +339,8 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
+    flex: 1;
+    min-height: 0;
 }
 
 .playlist-sources {
@@ -349,21 +359,30 @@
     transition: all 0.2s;
 }
 
+.source-btn:hover {
+    border-color: var(--purple-color);
+    color: var(--purple-color);
+    background-color: var(--hover-background);
+}
+
 .source-btn.active {
-    background: var(--primary-color);
+    background: var(--purple-color);
     color: white;
-    border-color: var(--primary-color);
+    border-color: var(--purple-color);
 }
 
 .source-btn:hover:not(.active) {
     background: var(--hover-background);
-    border-color: var(--primary-color);
+    border-color: var(--purple-color);
+    color: var(--purple-color);
 }
 
 .episode-list {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
 }
 
 .episode-item {
@@ -378,13 +397,14 @@
 
 .episode-item:hover {
     background: var(--hover-background);
-    border-color: var(--primary-color);
+    border-color: var(--orange-color);
+    color: var(--orange-color);
 }
 
 .episode-item.playing {
-    background: var(--primary-color);
+    background: var(--orange-color);
     color: white;
-    border-color: var(--primary-color);
+    border-color: var(--orange-color);
 }
 
 .close-btn {
@@ -403,7 +423,7 @@
 }
 
 .close-btn:hover {
-    color: var(--text-color);
+    color: var(--danger-color);
 }
 
 @keyframes fadeIn {
@@ -437,6 +457,8 @@
     background: var(--input-background);
     border-radius: 6px;
     border: 1px solid var(--border-color);
+    flex: 1;
+    min-height: 0;
 }
 
 .site-checkbox-list label {
@@ -545,6 +567,8 @@
 
     .modal-body {
         padding: 15px;
+        flex: 1;
+        min-height: 0;
     }
 
     #dplayer {
@@ -706,7 +730,7 @@
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    background: var(--primary-color);
+    background: var(--purple-color);
     color: white;
     border: none;
     cursor: pointer;
@@ -720,7 +744,7 @@
 }
 
 .scroll-btn:hover {
-    background: var(--primary-hover);
+    background: var(--purple-hover);
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
@@ -737,7 +761,7 @@
     position: absolute;
     top: 5px;
     right: 5px;
-    background: var(--primary-color);
+    background: var(--warning-color);
     color: white;
     border-radius: 50%;
     width: 24px;
