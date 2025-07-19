@@ -3,8 +3,8 @@
     "short_name": "資源站點管理器",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#000000",
+    "background_color": "#121212",
+    "theme_color": "#1890ff",
     "icons": [
         {
             "src": "/static/img/favicon.svg",

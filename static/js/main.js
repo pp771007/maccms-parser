@@ -5,12 +5,79 @@ import * as api from './api.js';
 import * as ui from './ui.js';
 import { $ } from './utils.js';
 
+// PWA 返回兩次關閉app的變數
+let backPressCount = 0;
+let backPressTimer = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     loadSitesAndAutoLoadLast();
     registerServiceWorker();
+    setupPWAExitHandler();
 });
+
+function setupPWAExitHandler() {
+    // 阻止index頁面的返回行為
+    window.history.pushState(null, null, window.location.href);
+
+    // 監聽瀏覽器的返回按鈕事件
+    window.addEventListener('popstate', (e) => {
+        // 如果是videoModal開啟狀態，關閉modal而不是返回
+        if ($('#videoModal').style.display === 'flex') {
+            e.preventDefault();
+            ui.closeModal();
+            // 重新推入狀態以防止返回
+            window.history.pushState(null, null, window.location.href);
+            return;
+        }
+
+        // 如果是siteSelectionModal開啟狀態，關閉modal而不是返回
+        if ($('#siteSelectionModal').style.display === 'flex') {
+            e.preventDefault();
+            ui.closeSiteSelectionModal();
+            // 重新推入狀態以防止返回
+            window.history.pushState(null, null, window.location.href);
+            return;
+        }
+
+        // 在PWA模式下，實現返回兩次關閉app
+        if (window.matchMedia('(display-mode: standalone)').matches ||
+            window.navigator.standalone === true) {
+            e.preventDefault();
+            backPressCount++;
+
+            if (backPressCount === 1) {
+                // 第一次按返回，顯示提示
+                ui.showToast('再按一次返回鍵退出應用');
+
+                // 重置計時器
+                if (backPressTimer) {
+                    clearTimeout(backPressTimer);
+                }
+                backPressTimer = setTimeout(() => {
+                    backPressCount = 0;
+                }, 2000);
+            } else if (backPressCount === 2) {
+                // 第二次按返回，關閉app
+                backPressCount = 0;
+                if (backPressTimer) {
+                    clearTimeout(backPressTimer);
+                }
+                window.close();
+                // 如果window.close()不起作用，嘗試其他方法
+                if (!window.closed) {
+                    window.location.href = 'about:blank';
+                }
+            }
+
+            // 重新推入狀態以防止返回
+            window.history.pushState(null, null, window.location.href);
+        } else {
+            // 非PWA模式，重新推入狀態以防止返回
+            window.history.pushState(null, null, window.location.href);
+        }
+    });
+}
 
 function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
