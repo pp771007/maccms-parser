@@ -34,7 +34,11 @@ app.register_blueprint(main_bp)
 init_auth_check(app)
 
 # --- Start Site Checker ---
-start_site_checker()
+def is_gunicorn():
+    return 'gunicorn' in os.environ.get('SERVER_SOFTWARE', '').lower()
+
+if is_gunicorn():
+    start_site_checker()
 
 # --- Main Execution ---
 if __name__ == '__main__':

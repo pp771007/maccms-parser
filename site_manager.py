@@ -141,29 +141,6 @@ def start_site_checker():
     check_thread.start()
     logger.info("站點檢查執行緒已啟動")
 
-def stop_site_checker():
-    """停止站點檢查執行緒"""
-    global stop_checking
-    
-    stop_checking = True
-    if check_thread and check_thread.is_alive():
-        check_thread.join(timeout=5)
-        logger.info("站點檢查執行緒已停止")
-
-def get_site_status():
-    """獲取站點狀態統計"""
-    sites = get_sites()
-    total = len(sites)
-    enabled = len([s for s in sites if s.get('enabled', True)])
-    disabled = total - enabled
-    
-    return {
-        'total': total,
-        'enabled': enabled,
-        'disabled': disabled,
-        'checker_running': check_thread and check_thread.is_alive() if check_thread else False
-    }
-
 def check_sites_immediately(include_disabled=False):
     """立即檢查所有站點並返回結果"""
     sites = get_sites()
