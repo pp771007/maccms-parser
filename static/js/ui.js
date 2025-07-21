@@ -284,8 +284,7 @@ function renderEpisodesOnly() {
         playVideo(currentSource.episodes[0].url, $('.episode-item'));
     } else {
         episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
-        if (state.dplayer) { state.dplayer.destroy(); state.dplayer = null; }
-        $('#dplayer').innerHTML = '';
+        if (state.artplayer) { state.artplayer.destroy(); state.artplayer = null; }
     }
 }
 
@@ -326,16 +325,15 @@ function renderPlaylist(sourceIndex = 0) {
         playVideo(currentSource.episodes[0].url, $('.episode-item'));
     } else {
         episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
-        if (state.dplayer) { state.dplayer.destroy(); state.dplayer = null; }
-        $('#dplayer').innerHTML = '';
+        if (state.artplayer) { state.artplayer.destroy(); state.artplayer = null; }
     }
 }
 
 export function closeModal() {
     $('#videoModal').style.display = 'none';
-    if (state.dplayer) {
-        state.dplayer.destroy();
-        state.dplayer = null;
+    if (state.artplayer) {
+        state.artplayer.destroy();
+        state.artplayer = null;
     }
     state.modalData = null;
     state.multiSourceVideos = []; // 清空多來源影片列表
