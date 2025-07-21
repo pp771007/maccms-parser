@@ -7,7 +7,7 @@ export default {
     totalPages: 1,
     currentTypeId: null,
     currentKeyword: null,
-    dplayer: null,
+    artplayer: null,
     modalData: null,
     searchSiteIds: [],
     multiSourceVideos: [], // 多來源影片列表
