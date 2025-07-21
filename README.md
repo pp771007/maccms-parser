@@ -1,130 +1,78 @@
-# 資源站點管理器 v5.9
+# maccms-parser
 
-一個基於Flask的資源站點管理工具，支援多站點聚合搜尋和自動健康檢查。
+**maccms-parser** 是一個基於 Flask 開發的蘋果CMS資源站點聚合管理工具，讓您能輕鬆管理、搜尋並聚合來自多個資源站點的影片內容。
 
-## 主要功能
+[![Docker Hub](https://img.shields.io/docker/pulls/smp771007/maccms-parser.svg)](https://hub.docker.com/r/smp771007/maccms-parser)
+[![GitHub Stars](https://img.shields.io/github/stars/pp771007/maccms_parser.svg)](https://github.com/pp771007/maccms_parser/stargazers)
+[![GitHub license](https://img.shields.io/github/license/pp771007/maccms_parser.svg)](https://github.com/pp771007/maccms_parser/blob/main/LICENSE)
 
-### 🔍 搜尋功能
-- **單站點搜尋**: 選擇單一站點進行影片搜尋
-- **多站點聚合搜尋**: 同時搜尋多個站點，結果自動聚合
-- **影片聚合顯示**: 相同名稱的影片會聚合顯示，並標示來源站點
-- **分類瀏覽**: 支援按分類瀏覽影片
+## ✨ 主要功能
 
-### 🏥 站點健康檢查
-- **自動檢查**: 每小時自動檢查所有啟用站點的健康狀態
-- **失敗處理**: 檢查失敗的站點會自動設為停用
-- **手動檢查**: 支援手動觸發站點檢查
-- **狀態監控**: 提供站點狀態統計資訊
+- **多站點聚合搜尋**: 同時搜尋多個資源站，並將相同名稱的影片結果聚合顯示。
+- **智慧站點管理**:
+    - **自動健康檢查**: 每小時自動檢查站點可用性，並停用無效站點。
+    - **手動檢查與排序**: 隨時手動觸發檢查，並可自訂站點順序。
+- **分類瀏覽**: 支援按分類瀏覽各個站點的影片。
+- **個人化設定**:
+    - **站點選擇記憶**: 自動記住您上次使用的單選或多選站點。
+    - **搜尋歷史**: 保存您的搜尋關鍵字與頁面狀態。
+- **安全認證**: 透過密碼保護您的管理後台，並提供30天免登入 Session。
+- **整合播放器**: 內建 DPlayer 播放器，支援多來源無縫切換。
 
-### 💾 設定記憶
-- **單選站台記憶**: 記住上次選擇的單一站台
-- **多選站台記憶**: 記住多選站台的選擇設定
-- **搜尋歷史**: 記住搜尋關鍵字和頁面狀態
+## 🚀 快速開始
 
-### 🔐 安全認證
-- **密碼保護**: 支援密碼設定和登入驗證
-- **Session管理**: 30天session過期時間，減少重複登入
-- **登入保護**: 防止暴力破解，超過嘗試次數會鎖定帳戶
+您可以透過 Docker 或手動方式安裝本應用。
 
-### 🎬 播放功能
-- **多來源播放**: 支援多個播放來源選擇
-- **聚合影片處理**: 相同影片的多個來源可以統一選擇
-- **播放器整合**: 內建DPlayer播放器
+### 使用 Docker (推薦)
 
-## 技術特點
+這是最簡單的安裝方式。您只需要一行指令即可啟動應用。
 
-### 效能優化
-- **Thread處理**: 多站點搜尋使用ThreadPoolExecutor並行處理
-- **Timeout控制**: 所有API請求使用10秒timeout
-- **圖片優化**: 改善圖片URL處理，避免中文編碼問題
-
-### 錯誤處理
-- **網路錯誤**: 完善的網路錯誤處理和重試機制
-- **API錯誤**: 處理各種API回應錯誤
-- **用戶體驗**: 友好的錯誤提示和狀態顯示
-
-## 安裝與使用
-
-### 環境要求
-- Python 3.7+
-- Flask
-- requests
-
-### 安裝步驟
-1. 克隆專案
 ```bash
-git clone <repository-url>
-cd maccms_parser
+docker run -d -p 5000:5000 -v ./maccms_data:/app/data --name maccms-parser smp771007/maccms-parser
 ```
 
-2. 安裝依賴
-```bash
-pip install -r requirements.txt
-```
+- `-d`: 背景執行容器。
+- `-p 5000:5000`: 將主機的 5000 連接埠映射到容器的 5000 連接埠。
+- `-v ./maccms_data:/app/data`: 將主機當前目錄下的 `maccms_data` 資料夾掛載到容器的 `/app/data` 目錄，用於持久化保存您的站點設定與資料。
+- `--name maccms-parser`: 為容器命名，方便管理。
 
-3. 啟動應用
-```bash
-python web_app.py
-```
+啟動後，請開啟瀏覽器訪問 `http://您的主機IP:5000`。
 
-4. 訪問應用
-```
-http://127.0.0.1:5000
-```
+### 手動安裝
 
-### 首次使用
-1. 設定管理員密碼
-2. 新增資源站點
-3. 開始搜尋和瀏覽影片
+如果您偏好手動設定環境，請依照以下步驟：
 
-## API端點
+1.  **環境要求**:
+    *   Python 3.7+
+    *   Git
 
-### 站點管理
-- `GET /api/sites` - 獲取站點列表
-- `POST /api/sites` - 新增站點
-- `PUT /api/sites/<id>` - 更新站點
-- `DELETE /api/sites/<id>` - 刪除站點
-- `POST /api/sites/<id>/move` - 移動站點順序
+2.  **克隆專案**:
+    ```bash
+    git clone https://github.com/pp771007/maccms_parser.git
+    cd maccms_parser
+    ```
 
-### 搜尋功能
-- `POST /api/list` - 單站點搜尋
-- `POST /api/details` - 獲取影片詳情
-- `POST /api/multi_site_search` - 多站點聚合搜尋
+3.  **安裝依賴**:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
+4.  **啟動應用**:
+    ```bash
+    python web_app.py
+    ```
 
+5.  **訪問應用**:
+    開啟瀏覽器訪問 `http://127.0.0.1:5000`。
 
-## 配置說明
+## 📝 使用說明
 
-### 站點設定
-- `name`: 站點名稱
-- `url`: 站點API地址
-- `enabled`: 是否啟用
-- `ssl_verify`: SSL驗證設定
-- `note`: 備註說明
+1.  **首次設定**: 第一次訪問應用時，系統會引導您設定管理員密碼。
+2.  **新增站點**: 進入主頁後，點擊「站點管理」按鈕，新增您的資源站點 API 地址。
+3.  **開始使用**: 新增站點後，即可開始搜尋、瀏覽影片。
 
-### 系統設定
-- `secret_key`: 應用密鑰
-- `password_hash`: 管理員密碼雜湊
-- `session_lifetime`: Session過期時間（30天）
+## 🛠️ 技術棧
 
-## 更新日誌
-
-### v5.9
-- ✅ 新增站點健康檢查機制（每小時自動檢查）
-- ✅ 所有API請求timeout改為10秒
-- ✅ 多選站台選項記憶功能
-- ✅ 改善圖片URL處理，解決中文編碼問題
-- ✅ 多選站台查詢使用thread處理
-- ✅ 影片名字聚合顯示功能
-- ✅ 解決密碼重複輸入問題（30天session）
-- ✅ 新增站點狀態監控API
-
-### 技術改進
-- 使用ThreadPoolExecutor進行並行處理
-- 改善錯誤處理和用戶體驗
-- 優化記憶體使用和效能
-- 增強安全性設定
-
-## 授權
-
-本專案採用MIT授權條款。
+- **後端**: Flask
+- **前端**: HTML, CSS, JavaScript (無框架)
+- **並行處理**: `ThreadPoolExecutor` 用於加速多站點搜尋
