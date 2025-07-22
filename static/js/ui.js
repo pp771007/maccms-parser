@@ -171,6 +171,7 @@ export function updateSearchBox(keyword) {
 }
 
 export async function openModal(video) {
+    document.body.classList.add('modal-open');
     $('#modalTitle').textContent = video.vod_name;
     $('#videoModal').style.display = 'flex';
     $('#playlistSources').innerHTML = '';
@@ -204,6 +205,7 @@ export async function openModal(video) {
 
 // 新增多來源影片的modal
 export async function openMultiSourceModal(videoName, videoList) {
+    document.body.classList.add('modal-open');
     $('#modalTitle').textContent = `${videoName} (${videoList.length} 個來源)`;
     $('#videoModal').style.display = 'flex';
     $('#playlistSources').innerHTML = '';
@@ -330,6 +332,7 @@ function renderPlaylist(sourceIndex = 0) {
 }
 
 export function closeModal() {
+    document.body.classList.remove('modal-open');
     $('#videoModal').style.display = 'none';
     if (state.artplayer) {
         state.artplayer.destroy();

@@ -775,3 +775,7 @@
 .video-pic-wrapper {
     position: relative;
 }
+
+body.modal-open {
+    overflow: hidden;
+}
