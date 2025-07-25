@@ -22,7 +22,7 @@ class ColorFormatter(logging.Formatter):
 
     def format(self, record):
         log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt)
+        formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
         return formatter.format(record)
 
 def setup_logger():
@@ -31,6 +31,6 @@ def setup_logger():
         logger.setLevel(logging.INFO)
         ch = logging.StreamHandler()
         ch.setLevel(logging.INFO)
-        ch.setFormatter(ColorFormatter("[%(levelname)s] %(message)s"))
+        ch.setFormatter(ColorFormatter("[%(asctime)s] [%(levelname)s] %(message)s"))
         logger.addHandler(ch)
     return logger
