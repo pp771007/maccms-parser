@@ -99,3 +99,38 @@
 .modal-warning .modal-title {
     color: #faad14;
 }
+
+.custom-toast {
+    position: fixed;
+    top: 32px;
+    right: 32px;
+    z-index: 10000;
+    min-width: 180px;
+    max-width: 90vw;
+    background: #fff;
+    color: #333;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(24, 144, 255, 0.13);
+    padding: 14px 28px;
+    font-size: 16px;
+    font-weight: 500;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-24px);
+    transition: opacity 0.32s, transform 0.32s;
+    border-left: 5px solid var(--primary-color, #1890ff);
+}
+
+.custom-toast.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.toast-success {
+    border-left-color: #52c41a;
+}
+
+.toast-info {
+    border-left-color: #1890ff;
+}

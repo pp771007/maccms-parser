@@ -2,7 +2,7 @@
 
 import * as api from './api.js';
 import { $ } from './utils.js';
-import { showModal, showConfirm } from './modal.js';
+import { showModal, showConfirm, showToast } from './modal.js';
 
 // PWA 返回處理變數
 let backPressCount = 0;
@@ -292,7 +292,7 @@ async function handleAddNewSite() {
         $('#newSiteName').value = '';
         $('#newSiteUrl').value = '';
         loadSites();
-        showModal('站點新增成功！', 'success');
+        showToast('站點新增成功！', 'success');
     } catch (err) {
         showModal(`新增失敗: ${err.message}`, 'error');
     } finally {
@@ -314,7 +314,7 @@ async function handleUpdateSite(siteId, listItem) {
 
     try {
         await api.updateSite(siteId, { name, url, note, enabled, ssl_verify });
-        showModal('站點更新成功！', 'success');
+        showToast('站點更新成功！', 'success');
         loadSites();
     } catch (err) {
         showModal(`更新失敗: ${err.message}`, 'error');
@@ -325,7 +325,7 @@ async function handleDeleteSite(siteId, siteName) {
     showConfirm(`確定要刪除站點 "${siteName}" 嗎？此操作不可恢復。`, async () => {
         try {
             await api.deleteSite(siteId);
-            showModal('站點已刪除。', 'success');
+            showToast('站點已刪除。', 'success');
             loadSites();
         } catch (err) {
             showModal('刪除失敗: ' + err.message, 'error');
@@ -365,7 +365,7 @@ async function handleResetFavicon() {
             const res = await fetch('/settings?reset_favicon=1', { method: 'POST' });
             const data = await res.json();
             if (data.status === 'success') {
-                showModal('已回復預設 Favicon！', 'success');
+                showToast('已回復預設 Favicon！', 'success');
                 loadSiteSettings();
             } else {
                 showModal(data.message || '操作失敗', 'error');
@@ -401,7 +401,7 @@ async function handleSiteSettingsSubmit(e) {
         });
         const data = await res.json();
         if (data.status === 'success') {
-            showModal('外觀設定已儲存！', 'success');
+            showToast('外觀設定已儲存！', 'success');
             loadSiteSettings();
         } else {
             showModal(data.message || '儲存失敗', 'error');
