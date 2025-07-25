@@ -4,6 +4,7 @@
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -68,5 +69,9 @@
 {% endblock %}
 
 {% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/modal.js') }}"></script>
 <script type="module" src="{{ url_for('static', filename='js/setup.js') }}"></script>
 {% endblock %}
+
+<!-- body 結尾加上彈窗容器 -->
+<div id="customModal"></div>

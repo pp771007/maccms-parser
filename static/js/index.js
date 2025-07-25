@@ -4,6 +4,7 @@ import state from './state.js';
 import * as api from './api.js';
 import * as ui from './ui.js';
 import { $ } from './utils.js';
+import { showModal } from './modal.js';
 
 // PWA 返回兩次關閉app的變數
 let backPressCount = 0;
@@ -173,7 +174,7 @@ async function handleToSimp() {
             t2s = module.t2s;
         } catch (error) {
             console.error('無法載入簡繁轉換模組:', error);
-            alert('無法載入簡繁轉換功能，請檢查網絡連線。');
+            showModal('無法載入簡繁轉換功能，請檢查網絡連線。', 'error');
             return;
         }
     }
@@ -264,7 +265,7 @@ function handleSiteSelection() {
 function handleConfirmSiteSelection() {
     const selectedIds = ui.getSelectedSiteIds();
     if (selectedIds.length === 0) {
-        alert('請至少選擇一個站台。');
+        showModal('請至少選擇一個站台。', 'warning');
         return;
     }
     state.searchSiteIds = selectedIds;
@@ -291,7 +292,7 @@ function handleSearch() {
     if (state.searchSiteIds.length === 0 && state.currentSite) {
         state.searchSiteIds = [state.currentSite.id];
     } else if (state.searchSiteIds.length === 0 && !state.currentSite) {
-        alert('請先選擇一個或多個站台進行搜尋。');
+        showModal('請先選擇一個或多個站台進行搜尋。', 'warning');
         return;
     }
 

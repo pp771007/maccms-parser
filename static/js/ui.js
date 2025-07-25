@@ -2,6 +2,7 @@ import state from './state.js';
 import { playVideo } from './player.js';
 import { fetchVideoDetails } from './api.js';
 import { $, $$ } from './utils.js';
+import { showModal } from './modal.js';
 
 export function renderSites(sites) {
     const selector = $('#siteSelector');
@@ -149,7 +150,7 @@ export function renderPagination(currentPage, totalPages, onPageChange) {
             if (newPage >= 1 && newPage <= totalPages) {
                 onPageChange(newPage);
             } else {
-                alert(`請輸入 1 到 ${totalPages} 之間的頁碼`);
+                showModal(`請輸入 1 到 ${totalPages} 之間的頁碼`, 'warning');
             }
         }
     });

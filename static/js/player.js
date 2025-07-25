@@ -1,5 +1,6 @@
 import state from './state.js';
 import { $$ } from './utils.js';
+import { showModal } from './modal.js';
 
 export function playVideo(url, element) {
     $$('.episode-item').forEach(el => el.classList.remove('playing'));
@@ -20,7 +21,7 @@ export function playVideo(url, element) {
                     hls.loadSource(url);
                     hls.attachMedia(video);
                 } else {
-                    alert('您的瀏覽器不支持HLS播放。');
+                    showModal('您的瀏覽器不支持HLS播放。', 'error');
                 }
             },
         },

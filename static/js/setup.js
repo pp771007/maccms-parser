@@ -2,6 +2,7 @@
 
 import * as api from './api.js';
 import { $ } from './utils.js';
+import { showModal, showConfirm } from './modal.js';
 
 // PWA 返回處理變數
 let backPressCount = 0;
@@ -66,7 +67,7 @@ async function loadSites() {
         renderSiteList(sites);
     } catch (err) {
         console.error("無法載入站點列表:", err);
-        alert("無法載入站點列表: " + err.message);
+        showModal("無法載入站點列表: " + err.message, 'error');
     }
 }
 
@@ -282,7 +283,7 @@ async function handleAddNewSite() {
     const name = $('#newSiteName').value.trim();
     const url = $('#newSiteUrl').value.trim();
     if (!url) {
-        alert('站點URL不能為空');
+        showModal('站點URL不能為空', 'warning');
         return;
     }
     try {
@@ -291,9 +292,9 @@ async function handleAddNewSite() {
         $('#newSiteName').value = '';
         $('#newSiteUrl').value = '';
         loadSites();
-        alert('站點新增成功！');
+        showModal('站點新增成功！', 'success');
     } catch (err) {
-        alert(`新增失敗: ${err.message}`);
+        showModal(`新增失敗: ${err.message}`, 'error');
     } finally {
         $('#addSiteBtn').disabled = false;
     }
@@ -307,29 +308,29 @@ async function handleUpdateSite(siteId, listItem) {
     const ssl_verify = listItem.querySelector('.site-ssl-toggle').checked;
 
     if (!url) {
-        alert('站點URL不能為空');
+        showModal('站點URL不能為空', 'warning');
         return;
     }
 
     try {
         await api.updateSite(siteId, { name, url, note, enabled, ssl_verify });
-        alert('站點更新成功！');
+        showModal('站點更新成功！', 'success');
         loadSites();
     } catch (err) {
-        alert(`更新失敗: ${err.message}`);
+        showModal(`更新失敗: ${err.message}`, 'error');
     }
 }
 
 async function handleDeleteSite(siteId, siteName) {
-    if (confirm(`確定要刪除站點 "${siteName}" 嗎？此操作不可恢復。`)) {
+    showConfirm(`確定要刪除站點 "${siteName}" 嗎？此操作不可恢復。`, async () => {
         try {
             await api.deleteSite(siteId);
-            alert('站點已刪除。');
+            showModal('站點已刪除。', 'success');
             loadSites();
         } catch (err) {
-            alert('刪除失敗: ' + err.message);
+            showModal('刪除失敗: ' + err.message, 'error');
         }
-    }
+    }, '請確認', 'warning');
 }
 
 async function handleMoveSite(siteId, direction) {
@@ -337,7 +338,7 @@ async function handleMoveSite(siteId, direction) {
         await api.moveSite(siteId, direction);
         loadSites();
     } catch (err) {
-        alert(`移動失敗: ${err.message}`);
+        showModal(`移動失敗: ${err.message}`, 'error');
     }
 }
 
@@ -359,19 +360,20 @@ async function loadSiteSettings() {
 }
 
 async function handleResetFavicon() {
-    if (!confirm('確定要回復預設 Favicon 嗎？')) return;
-    try {
-        const res = await fetch('/settings?reset_favicon=1', { method: 'POST' });
-        const data = await res.json();
-        if (data.status === 'success') {
-            alert('已回復預設 Favicon！');
-            loadSiteSettings();
-        } else {
-            alert(data.message || '操作失敗');
+    showConfirm('確定要回復預設 Favicon 嗎？', async () => {
+        try {
+            const res = await fetch('/settings?reset_favicon=1', { method: 'POST' });
+            const data = await res.json();
+            if (data.status === 'success') {
+                showModal('已回復預設 Favicon！', 'success');
+                loadSiteSettings();
+            } else {
+                showModal(data.message || '操作失敗', 'error');
+            }
+        } catch (err) {
+            showModal('操作失敗: ' + err.message, 'error');
         }
-    } catch (err) {
-        alert('操作失敗: ' + err.message);
-    }
+    });
 }
 
 function handleFaviconPreview(e) {
@@ -399,12 +401,12 @@ async function handleSiteSettingsSubmit(e) {
         });
         const data = await res.json();
         if (data.status === 'success') {
-            alert('外觀設定已儲存！');
+            showModal('外觀設定已儲存！', 'success');
             loadSiteSettings();
         } else {
-            alert(data.message || '儲存失敗');
+            showModal(data.message || '儲存失敗', 'error');
         }
     } catch (err) {
-        alert('儲存失敗: ' + err.message);
+        showModal('儲存失敗: ' + err.message, 'error');
     }
 }
