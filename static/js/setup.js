@@ -13,6 +13,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupReturnLink();
     $('#addSiteBtn').addEventListener('click', handleAddNewSite);
     $('#checkAllSitesBtn').addEventListener('click', handleCheckAllSites);
+    // 新增外觀設定表單事件
+    loadSiteSettings();
+    $('#siteSettingsForm').addEventListener('submit', handleSiteSettingsSubmit);
+    $('#faviconInput').addEventListener('change', handleFaviconPreview);
 });
 
 function setupReturnLink() {
@@ -334,5 +338,73 @@ async function handleMoveSite(siteId, direction) {
         loadSites();
     } catch (err) {
         alert(`移動失敗: ${err.message}`);
+    }
+}
+
+async function loadSiteSettings() {
+    try {
+        const res = await fetch('/settings');
+        const data = await res.json();
+        $('#siteTitleInput').value = data.site_title || '';
+        // favicon 預覽
+        if (data.favicon_ext && data.favicon_version !== undefined) {
+            const url = `/favicon?v=${data.favicon_version}`;
+            $('#faviconPreview').innerHTML = `<img src="${url}" alt="目前 Favicon" style="width:32px;height:32px;">` +
+                `<button id="resetFaviconBtn" type="button" class="btn btn-secondary" style="margin-left:10px;">回復預設值</button>`;
+            $('#resetFaviconBtn').onclick = handleResetFavicon;
+        }
+    } catch (err) {
+        console.error('無法載入外觀設定:', err);
+    }
+}
+
+async function handleResetFavicon() {
+    if (!confirm('確定要回復預設 Favicon 嗎？')) return;
+    try {
+        const res = await fetch('/settings?reset_favicon=1', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+            alert('已回復預設 Favicon！');
+            loadSiteSettings();
+        } else {
+            alert(data.message || '操作失敗');
+        }
+    } catch (err) {
+        alert('操作失敗: ' + err.message);
+    }
+}
+
+function handleFaviconPreview(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (evt) {
+        $('#faviconPreview').innerHTML = `<img src="${evt.target.result}" alt="預覽 Favicon" style="width:32px;height:32px;">`;
+    };
+    reader.readAsDataURL(file);
+}
+
+async function handleSiteSettingsSubmit(e) {
+    e.preventDefault();
+    const form = $('#siteSettingsForm');
+    const formData = new FormData(form);
+    // 若標題為空，自動設為預設值
+    if (!formData.get('site_title') || formData.get('site_title').trim() === '') {
+        formData.set('site_title', '資源站點管理器');
+    }
+    try {
+        const res = await fetch('/settings', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            alert('外觀設定已儲存！');
+            loadSiteSettings();
+        } else {
+            alert(data.message || '儲存失敗');
+        }
+    } catch (err) {
+        alert('儲存失敗: ' + err.message);
     }
 }

@@ -36,7 +36,11 @@ def setup_password():
         session['logged_in'] = True
         session.permanent = True  # 設定session為永久性
         return redirect(url_for('main.index'))
-    return render_template('password_setup.html')
+    site_title = get_config_value('site_title', '資源站點管理器')
+    favicon_ext = get_config_value('favicon_ext', 'svg')
+    favicon_version = get_config_value('favicon_version', '')
+    favicon_url = f"/favicon?v={favicon_version}"
+    return render_template('password_setup.html', site_title=site_title, favicon_url=favicon_url)
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -72,7 +76,11 @@ def login():
                 error_msg = f'嘗試次數過多，帳戶已鎖定 {LOGIN_LOCKOUT_MINUTES} 分鐘。'
             return render_template('login.html', error=error_msg)
             
-    return render_template('login.html')
+    site_title = get_config_value('site_title', '資源站點管理器')
+    favicon_ext = get_config_value('favicon_ext', 'svg')
+    favicon_version = get_config_value('favicon_version', '')
+    favicon_url = f"/favicon?v={favicon_version}"
+    return render_template('login.html', error=locals().get('error', None), site_title=site_title, favicon_url=favicon_url)
 
 @auth_bp.route('/logout')
 def logout():

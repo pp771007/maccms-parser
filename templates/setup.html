@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}站點設定{% endblock %}
+{% block title %}站點設定 - {{ site_title }}{% endblock %}
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}">
@@ -45,6 +45,24 @@
         <ul id="siteList">
             <!-- 站點列表將由 JavaScript 動態生成 -->
         </ul>
+    </div>
+
+    <div class="card site-settings-card">
+        <div class="card-header">
+            <h2>網站外觀設定</h2>
+        </div>
+        <form id="siteSettingsForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="siteTitleInput">網站標題</label>
+                <input type="text" id="siteTitleInput" name="site_title" placeholder="網站標題">
+            </div>
+            <div class="form-group">
+                <label for="faviconInput">Favicon 圖示（SVG/PNG）</label>
+                <input type="file" id="faviconInput" name="favicon" accept="image/svg+xml,image/png">
+                <div id="faviconPreview" style="margin-top:8px;"></div>
+            </div>
+            <button type="submit" class="btn btn-primary">儲存外觀設定</button>
+        </form>
     </div>
 </div>
 {% endblock %}
