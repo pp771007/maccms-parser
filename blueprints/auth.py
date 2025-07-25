@@ -95,6 +95,9 @@ def init_auth_check(app):
     def require_login():
         # Public endpoints that don't require any checks
         public_endpoints = ['auth.setup_password', 'static']
+        # 新增 manifest.json 與 favicon 為公開路徑
+        if request.path in ['/manifest.json', '/favicon']:
+            return
 
         if not is_password_set():
             if request.endpoint not in public_endpoints:

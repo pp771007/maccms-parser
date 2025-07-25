@@ -1,6 +1,7 @@
-from flask import Blueprint, render_template, request, jsonify, send_file
+from flask import Blueprint, render_template, request, jsonify, send_file, Response
 import os
 import time
+import json
 from config import get_config_value, set_config_value
 
 main_bp = Blueprint('main', __name__)
@@ -81,3 +82,31 @@ def serve_favicon():
     else:
         mimetype = 'image/svg+xml' if ext == 'svg' else 'image/png'
     return send_file(path, mimetype=mimetype)
+
+@main_bp.route('/manifest.json', strict_slashes=False)
+def manifest():
+    site_title = get_config_value('site_title', '資源站點管理器')
+    favicon_ext = get_config_value('favicon_ext', 'svg')
+    favicon_version = get_config_value('favicon_version', '')
+    icon_url = f"/favicon?v={favicon_version}"
+    manifest_data = {
+        "name": site_title,
+        "short_name": site_title,
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#121212",
+        "theme_color": "#1890ff",
+        "icons": [
+            {
+                "src": icon_url,
+                "sizes": "192x192",
+                "type": f"image/{'svg+xml' if favicon_ext == 'svg' else 'png'}"
+            },
+            {
+                "src": icon_url,
+                "sizes": "512x512",
+                "type": f"image/{'svg+xml' if favicon_ext == 'svg' else 'png'}"
+            }
+        ]
+    }
+    return Response(json.dumps(manifest_data, ensure_ascii=False), content_type='application/json')
