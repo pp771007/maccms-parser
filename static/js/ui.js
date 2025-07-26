@@ -2,7 +2,7 @@ import state from './state.js';
 import { playVideo } from './player.js';
 import { fetchVideoDetails } from './api.js';
 import { $, $$ } from './utils.js';
-import { showModal } from './modal.js';
+import { showModal, showConfirm, showToast } from './modal.js';
 
 export function renderSites(sites) {
     const selector = $('#siteSelector');
@@ -198,6 +198,8 @@ export async function openModal(video) {
 
         const result = await fetchVideoDetails(siteUrl, video.vod_id);
         state.modalData = result.data;
+        // 保存原始影片資訊，包含影片ID
+        state.currentVideo = video;
         renderPlaylist();
     } catch (err) {
         $('#episodeList').innerHTML = `<p style="color:red;">獲取播放列表失敗: ${err.message}</p>`;
@@ -247,6 +249,8 @@ export async function openMultiSourceModal(videoName, videoList) {
                 const result = await fetchVideoDetails(siteUrl, video.vod_id);
                 state.modalData = result.data;
                 state.currentSourceIndex = index;
+                // 保存當前選擇的影片資訊
+                state.currentVideo = video;
                 // 使用renderPlaylist來顯示播放列表
                 renderPlaylist();
             } catch (err) {
@@ -281,10 +285,33 @@ function renderEpisodesOnly() {
             const item = document.createElement('div');
             item.className = 'episode-item';
             item.textContent = epi.name;
-            item.onclick = () => playVideo(epi.url, item);
+            item.onclick = () => {
+                const videoInfo = {
+                    videoId: state.currentVideo?.vod_id || epi.vod_id,
+                    videoName: $('#modalTitle').textContent,
+                    episodeName: epi.name,
+                    episodeUrl: epi.url,
+                    siteId: state.currentSite?.id || state.multiSourceVideos?.[state.currentSourceIndex]?.from_site_id,
+                    siteName: state.currentSite?.name || state.multiSourceVideos?.[state.currentSourceIndex]?.from_site
+                };
+                playVideo(epi.url, item, videoInfo);
+            };
             episodeList.appendChild(item);
         });
-        playVideo(currentSource.episodes[0].url, $('.episode-item'));
+
+        // 自動播放第一個劇集
+        const firstEpisode = episodeList.firstElementChild;
+        if (firstEpisode) {
+            const videoInfo = {
+                videoId: state.currentVideo?.vod_id || currentSource.episodes[0]?.vod_id,
+                videoName: $('#modalTitle').textContent,
+                episodeName: currentSource.episodes[0].name,
+                episodeUrl: currentSource.episodes[0].url,
+                siteId: state.currentSite?.id || state.multiSourceVideos?.[state.currentSourceIndex]?.from_site_id,
+                siteName: state.currentSite?.name || state.multiSourceVideos?.[state.currentSourceIndex]?.from_site
+            };
+            playVideo(currentSource.episodes[0].url, firstEpisode, videoInfo);
+        }
     } else {
         episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
         if (state.artplayer) { state.artplayer.destroy(); state.artplayer = null; }
@@ -322,10 +349,33 @@ function renderPlaylist(sourceIndex = 0) {
             const item = document.createElement('div');
             item.className = 'episode-item';
             item.textContent = epi.name;
-            item.onclick = () => playVideo(epi.url, item);
+            item.onclick = () => {
+                const videoInfo = {
+                    videoId: state.currentVideo?.vod_id,
+                    videoName: $('#modalTitle').textContent,
+                    episodeName: epi.name,
+                    episodeUrl: epi.url,
+                    siteId: state.currentSite?.id || state.multiSourceVideos?.[state.currentSourceIndex]?.from_site_id,
+                    siteName: state.currentSite?.name || state.multiSourceVideos?.[state.currentSourceIndex]?.from_site
+                };
+                playVideo(epi.url, item, videoInfo);
+            };
             episodeList.appendChild(item);
         });
-        playVideo(currentSource.episodes[0].url, $('.episode-item'));
+
+        // 自動播放第一個劇集
+        const firstEpisode = episodeList.firstElementChild;
+        if (firstEpisode) {
+            const videoInfo = {
+                videoId: state.currentVideo?.vod_id,
+                videoName: $('#modalTitle').textContent,
+                episodeName: currentSource.episodes[0].name,
+                episodeUrl: currentSource.episodes[0].url,
+                siteId: state.currentSite?.id || state.multiSourceVideos?.[state.currentSourceIndex]?.from_site_id,
+                siteName: state.currentSite?.name || state.multiSourceVideos?.[state.currentSourceIndex]?.from_site
+            };
+            playVideo(currentSource.episodes[0].url, firstEpisode, videoInfo);
+        }
     } else {
         episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
         if (state.artplayer) { state.artplayer.destroy(); state.artplayer = null; }
@@ -342,6 +392,7 @@ export function closeModal() {
     state.modalData = null;
     state.multiSourceVideos = []; // 清空多來源影片列表
     state.currentSourceIndex = 0; // 重置來源索引
+    state.currentVideo = null; // 重置當前影片資訊
 }
 
 export function openSiteSelectionModal() {
@@ -398,32 +449,252 @@ export function showError(msg) {
     }
 }
 
-// 新增Toast提示功能
-export function showToast(message, duration = 2000) {
-    // 移除現有的toast
-    const existingToast = document.querySelector('.toast');
-    if (existingToast) {
-        existingToast.remove();
+
+
+// 新增歷史紀錄相關功能
+export function renderWatchHistory() {
+    const historyContainer = $('#watchHistoryContainer');
+    if (!historyContainer) return;
+
+    if (state.watchHistory.length === 0) {
+        historyContainer.innerHTML = '<p class="no-history">暫無觀看歷史</p>';
+        return;
     }
 
-    // 創建新的toast
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = message;
-    document.body.appendChild(toast);
+    historyContainer.innerHTML = '';
 
-    // 顯示動畫
-    setTimeout(() => {
-        toast.classList.add('show');
-    }, 10);
+    state.watchHistory.forEach((item, index) => {
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
 
-    // 自動隱藏
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.remove();
+        // 計算播放進度百分比
+        const progressPercent = item.duration > 0 ?
+            Math.round((item.currentTime / item.duration) * 100) : 0;
+
+        // 格式化時間
+        const formatTime = (seconds) => {
+            if (!seconds || seconds <= 0) return '00:00';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+
+            if (hours > 0) {
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
             }
-        }, 300);
-    }, duration);
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        // 格式化時間戳
+        const formatDate = (timestamp) => {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+
+            if (diff < 60000) return '剛剛';
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}分鐘前`;
+            if (diff < 86400000) return `${Math.floor(diff / 3600000)}小時前`;
+            if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`;
+
+            return date.toLocaleDateString('zh-TW');
+        };
+
+        historyItem.innerHTML = `
+            <div class="history-info">
+                <div class="history-title" title="${item.videoName}">${item.videoName}</div>
+                <div class="history-episode">${item.episodeName || '未知劇集'}</div>
+                <div class="history-site">${item.siteName || '未知站台'}</div>
+                <div class="history-time">${formatDate(item.lastWatched || item.timestamp)}</div>
+            </div>
+            <div class="history-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                </div>
+                <div class="progress-text">${formatTime(item.currentTime)} / ${formatTime(item.duration)}</div>
+            </div>
+            <div class="history-actions">
+                <button class="btn btn-primary btn-sm continue-btn" title="繼續觀看">繼續觀看</button>
+                <button class="btn btn-danger btn-sm remove-btn" title="移除紀錄">×</button>
+            </div>
+        `;
+
+        // 繼續觀看按鈕事件
+        const continueBtn = historyItem.querySelector('.continue-btn');
+        continueBtn.addEventListener('click', async () => {
+            try {
+                // 獲取站台資訊
+                const site = state.sites.find(s => s.id === item.siteId);
+                if (!site) {
+                    showModal('找不到對應的站台資訊', 'error');
+                    return;
+                }
+
+                // 獲取影片詳細資訊
+                const result = await fetchVideoDetails(site.url, item.videoId);
+                state.modalData = result.data;
+                // 保存原始影片資訊
+                state.currentVideo = { vod_id: item.videoId, vod_name: item.videoName };
+
+                // 打開播放器並定位到對應劇集
+                openHistoryVideoModal(item, result.data);
+            } catch (err) {
+                showModal(`無法載入影片: ${err.message}`, 'error');
+            }
+        });
+
+        // 移除紀錄按鈕事件
+        const removeBtn = historyItem.querySelector('.remove-btn');
+        removeBtn.addEventListener('click', () => {
+            state.watchHistory.splice(index, 1);
+            state.saveWatchHistory();
+            renderWatchHistory();
+            showToast('已移除觀看紀錄');
+        });
+
+        historyContainer.appendChild(historyItem);
+    });
+}
+
+// 打開歷史紀錄影片的播放器
+export function openHistoryVideoModal(historyItem, modalData) {
+    document.body.classList.add('modal-open');
+    $('#modalTitle').textContent = historyItem.videoName;
+    $('#videoModal').style.display = 'flex';
+    $('#playlistSources').innerHTML = '';
+    $('#episodeList').innerHTML = '正在載入...';
+
+    // 設置當前影片資訊
+    state.currentVideo = { vod_id: historyItem.videoId, vod_name: historyItem.videoName };
+
+    // 渲染播放源按鈕
+    const playlistSources = $('#playlistSources');
+    playlistSources.innerHTML = '';
+
+    modalData.forEach((source, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'source-btn';
+        btn.textContent = source.flag;
+        btn.dataset.index = index;
+        btn.onclick = () => renderHistoryEpisodes(historyItem, modalData, index);
+        playlistSources.appendChild(btn);
+    });
+
+    // 找到對應的播放源並自動選擇
+    const targetSourceIndex = findTargetSourceIndex(historyItem, modalData);
+    if (targetSourceIndex >= 0) {
+        playlistSources.children[targetSourceIndex].click();
+    } else if (modalData.length > 0) {
+        playlistSources.firstElementChild.click();
+    }
+}
+
+// 渲染歷史紀錄的劇集列表
+function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
+    // 更新按鈕狀態
+    $$('.source-btn').forEach(b => b.classList.remove('active'));
+    // 找到對應的按鈕並設置為active
+    const targetBtn = document.querySelector(`[data-index="${sourceIndex}"]`);
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
+
+    const episodeList = $('#episodeList');
+    episodeList.innerHTML = '';
+
+    const currentSource = modalData[sourceIndex];
+    if (currentSource && currentSource.episodes.length > 0) {
+        currentSource.episodes.forEach((epi, epiIndex) => {
+            const item = document.createElement('div');
+            item.className = 'episode-item';
+            item.textContent = epi.name;
+
+            // 檢查是否為目標劇集
+            const isTargetEpisode = epi.url === historyItem.episodeUrl;
+            if (isTargetEpisode) {
+                item.classList.add('target-episode');
+            }
+
+            item.onclick = () => {
+                const videoInfo = {
+                    videoId: historyItem.videoId,
+                    videoName: historyItem.videoName,
+                    episodeName: epi.name,
+                    episodeUrl: epi.url,
+                    siteId: historyItem.siteId,
+                    siteName: historyItem.siteName,
+                    currentTime: isTargetEpisode ? historyItem.currentTime : 0,
+                    duration: historyItem.duration
+                };
+
+                playVideo(epi.url, item, videoInfo);
+
+                // 如果是目標劇集且有播放進度，設置播放位置
+                if (isTargetEpisode && historyItem.currentTime > 0) {
+                    setTimeout(() => {
+                        if (state.artplayer) {
+                            state.artplayer.currentTime = historyItem.currentTime;
+                        }
+                    }, 1000);
+                }
+            };
+
+            episodeList.appendChild(item);
+        });
+
+        // 自動播放第一個劇集
+        const firstEpisode = episodeList.firstElementChild;
+        if (firstEpisode) {
+            firstEpisode.click();
+        }
+    } else {
+        episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
+    }
+}
+
+// 找到目標播放源的索引
+function findTargetSourceIndex(historyItem, modalData) {
+    for (let i = 0; i < modalData.length; i++) {
+        const source = modalData[i];
+        const hasTargetEpisode = source.episodes.some(epi => epi.url === historyItem.episodeUrl);
+        if (hasTargetEpisode) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// 顯示歷史紀錄面板
+export function showHistoryPanel() {
+    const historyPanel = $('#historyPanel');
+    if (historyPanel) {
+        historyPanel.style.display = 'block';
+        renderWatchHistory();
+
+        // 重新綁定清除按鈕事件
+        const clearHistoryBtn = $('#clearHistoryBtn');
+        if (clearHistoryBtn) {
+            clearHistoryBtn.onclick = clearAllHistory;
+        }
+
+        const closeHistoryBtn = $('#closeHistoryBtn');
+        if (closeHistoryBtn) {
+            closeHistoryBtn.onclick = hideHistoryPanel;
+        }
+    }
+}
+
+// 隱藏歷史紀錄面板
+export function hideHistoryPanel() {
+    const historyPanel = $('#historyPanel');
+    if (historyPanel) {
+        historyPanel.style.display = 'none';
+    }
+}
+
+// 清除所有歷史紀錄
+export function clearAllHistory() {
+    showConfirm('確定要清除所有觀看歷史嗎？此操作無法復原。', () => {
+        state.clearHistory();
+        renderWatchHistory();
+        showToast('已清除所有觀看歷史');
+    }, '請確認', 'warning');
 }

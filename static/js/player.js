@@ -2,12 +2,18 @@ import state from './state.js';
 import { $$ } from './utils.js';
 import { showModal } from './modal.js';
 
-export function playVideo(url, element) {
+export function playVideo(url, element, videoInfo = null) {
     $$('.episode-item').forEach(el => el.classList.remove('playing'));
     if (element) element.classList.add('playing');
 
     if (state.artplayer) {
         state.artplayer.destroy();
+    }
+
+    // 如果有影片資訊，記錄到歷史紀錄
+    if (videoInfo) {
+        state.currentVideoInfo = videoInfo;
+        state.addToHistory(videoInfo);
     }
 
     state.artplayer = new Artplayer({
@@ -125,5 +131,61 @@ export function playVideo(url, element) {
             'webkit-playsinline': true,
         },
         gesture: true, // 啟用手勢操作
+    });
+
+    // 添加播放進度記錄事件
+    let progressTimer = null;
+
+    // 播放時開始記錄進度
+    state.artplayer.on('play', () => {
+        if (progressTimer) clearInterval(progressTimer);
+        progressTimer = setInterval(() => {
+            if (state.currentVideoInfo && state.artplayer) {
+                const currentTime = state.artplayer.currentTime;
+                const duration = state.artplayer.duration;
+                if (currentTime > 0 && duration > 0) {
+                    state.updateProgress(
+                        state.currentVideoInfo.videoId,
+                        state.currentVideoInfo.episodeUrl,
+                        state.currentVideoInfo.siteId,
+                        currentTime,
+                        duration
+                    );
+                }
+            }
+        }, 5000); // 每5秒記錄一次進度
+    });
+
+    // 暫停時記錄進度
+    state.artplayer.on('pause', () => {
+        if (state.currentVideoInfo && state.artplayer) {
+            const currentTime = state.artplayer.currentTime;
+            const duration = state.artplayer.duration;
+            if (currentTime > 0 && duration > 0) {
+                state.updateProgress(
+                    state.currentVideoInfo.videoId,
+                    state.currentVideoInfo.episodeUrl,
+                    state.currentVideoInfo.siteId,
+                    currentTime,
+                    duration
+                );
+            }
+        }
+    });
+
+    // 播放結束時清理計時器
+    state.artplayer.on('ended', () => {
+        if (progressTimer) {
+            clearInterval(progressTimer);
+            progressTimer = null;
+        }
+    });
+
+    // 播放器銷毀時清理計時器
+    state.artplayer.on('destroy', () => {
+        if (progressTimer) {
+            clearInterval(progressTimer);
+            progressTimer = null;
+        }
     });
 }

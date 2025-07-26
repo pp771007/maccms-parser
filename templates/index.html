@@ -34,6 +34,7 @@
                 <button id="toSimpBtn" class="btn btn-warning simp-btn" title="轉為簡體">簡</button>
                 <input type="search" id="searchInput" placeholder="輸入關鍵字搜索..." autocomplete="off">
                 <button id="multiSiteSelectBtn" class="btn btn-purple" title="選擇多個站台進行搜尋">站台</button>
+                <button id="historyBtn" class="btn btn-secondary" title="觀看歷史">歷史</button>
                 <button id="searchBtn" class="btn btn-info">搜索</button>
             </div>
             <div id="selectedSites" class="selected-sites-display"></div>
@@ -81,6 +82,19 @@
                 <button id="confirmSiteSelectionBtn" class="btn btn-primary">確定</button>
             </footer>
         </main>
+    </div>
+</div>
+
+<div id="historyPanel" class="history-panel" style="display: none;">
+    <div class="history-header">
+        <h3>觀看歷史</h3>
+        <div class="history-actions">
+            <button id="clearHistoryBtn" class="btn btn-danger btn-sm">清除全部</button>
+            <button id="closeHistoryBtn" class="btn btn-secondary btn-sm">&times;</button>
+        </div>
+    </div>
+    <div id="watchHistoryContainer" class="history-container">
+        <!-- 歷史紀錄將在這裡渲染 -->
     </div>
 </div>
 {% endblock %}

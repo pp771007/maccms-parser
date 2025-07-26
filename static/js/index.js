@@ -130,6 +130,11 @@ function setupEventListeners() {
     $('#selectAllSitesBtn').addEventListener('click', () => ui.toggleAllSites(true));
     $('#deselectAllSitesBtn').addEventListener('click', () => ui.toggleAllSites(false));
     $('#confirmSiteSelectionBtn').addEventListener('click', handleConfirmSiteSelection);
+
+    // History Panel
+    $('#historyBtn').addEventListener('click', ui.showHistoryPanel);
+    $('#closeHistoryBtn').addEventListener('click', ui.hideHistoryPanel);
+    $('#clearHistoryBtn').addEventListener('click', ui.clearAllHistory);
 }
 
 function initScrollButtons() {
@@ -188,6 +193,9 @@ async function loadSitesAndAutoLoadLast() {
 
         // 載入多選站台設定
         state.loadMultiSiteSelection();
+
+        // 載入觀看歷史紀錄
+        state.loadWatchHistory();
 
         // 檢查是否從其他頁面返回
         const isFromOtherPage = sessionStorage.getItem('fromOtherPage');
