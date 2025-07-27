@@ -85,16 +85,19 @@
     </div>
 </div>
 
+<div id="historyOverlay" class="history-overlay" style="display: none;"></div>
 <div id="historyPanel" class="history-panel" style="display: none;">
     <div class="history-header">
         <h3>觀看歷史</h3>
         <div class="history-actions">
             <button id="clearHistoryBtn" class="btn btn-danger btn-sm">清除全部</button>
-            <button id="closeHistoryBtn" class="btn btn-secondary btn-sm">&times;</button>
         </div>
     </div>
     <div id="watchHistoryContainer" class="history-container">
         <!-- 歷史紀錄將在這裡渲染 -->
+    </div>
+    <div class="history-footer">
+        <button id="closeHistoryBtn" class="btn btn-danger history-close-btn">關閉</button>
     </div>
 </div>
 {% endblock %}

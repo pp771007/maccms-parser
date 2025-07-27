@@ -665,9 +665,14 @@ function findTargetSourceIndex(historyItem, modalData) {
 // 顯示歷史紀錄面板
 export function showHistoryPanel() {
     const historyPanel = $('#historyPanel');
-    if (historyPanel) {
-        historyPanel.style.display = 'block';
+    const historyOverlay = $('#historyOverlay');
+    if (historyPanel && historyOverlay) {
+        historyOverlay.style.display = 'block';
+        historyPanel.style.display = 'flex';
         renderWatchHistory();
+
+        // 推入新的歷史狀態，以便返回鍵能正確關閉面板
+        window.history.pushState({ panel: 'history' }, null, window.location.href);
 
         // 重新綁定清除按鈕事件
         const clearHistoryBtn = $('#clearHistoryBtn');
@@ -685,8 +690,27 @@ export function showHistoryPanel() {
 // 隱藏歷史紀錄面板
 export function hideHistoryPanel() {
     const historyPanel = $('#historyPanel');
-    if (historyPanel) {
-        historyPanel.style.display = 'none';
+    const historyOverlay = $('#historyOverlay');
+    if (historyPanel && historyOverlay) {
+        // 立即隱藏覆蓋層，避免閃爍
+        historyOverlay.style.display = 'none';
+
+        // 添加關閉動畫類
+        historyPanel.classList.add('closing');
+
+        // 監聽動畫結束事件
+        const handleAnimationEnd = () => {
+            historyPanel.style.display = 'none';
+            historyPanel.classList.remove('closing');
+            historyPanel.removeEventListener('animationend', handleAnimationEnd);
+        };
+
+        historyPanel.addEventListener('animationend', handleAnimationEnd);
+
+        // 如果當前歷史狀態是歷史面板，則返回上一頁
+        if (window.history.state && window.history.state.panel === 'history') {
+            window.history.back();
+        }
     }
 }
 

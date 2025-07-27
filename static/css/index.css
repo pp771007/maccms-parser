@@ -862,6 +862,18 @@ body.modal-open {
     flex-direction: column;
     box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
     animation: slideInRight 0.3s ease-out;
+    overflow: hidden;
+}
+
+.history-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    z-index: 998;
 }
 
 @keyframes slideInRight {
@@ -872,6 +884,20 @@ body.modal-open {
     to {
         transform: translateX(0);
     }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(100%);
+    }
+}
+
+.history-panel.closing {
+    animation: slideOutRight 0.3s ease-out forwards;
 }
 
 .history-header {
@@ -899,6 +925,43 @@ body.modal-open {
     flex: 1;
     overflow-y: auto;
     padding: 15px;
+    min-height: 0;
+}
+
+.history-footer {
+    padding: 15px;
+    border-top: 1px solid var(--border-color);
+    background: var(--input-background);
+    flex-shrink: 0;
+    margin-top: auto;
+}
+
+.history-close-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    background: var(--secondary-color);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+}
+
+.history-close-btn:hover {
+    background: var(--secondary-hover-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.history-close-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .no-history {
@@ -1006,7 +1069,6 @@ body.modal-open {
 @media (max-width: 768px) {
     .history-panel {
         width: 100%;
-        height: 100vh;
     }
 
     .history-header {
@@ -1020,6 +1082,15 @@ body.modal-open {
     .history-item {
         padding: 12px;
         margin-bottom: 10px;
+    }
+
+    .history-footer {
+        padding: 15px;
+    }
+
+    .history-close-btn {
+        padding: 15px;
+        font-size: 18px;
     }
 }
 

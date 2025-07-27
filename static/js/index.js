@@ -52,6 +52,15 @@ function setupPWAExitHandler() {
             return;
         }
 
+        // 如果是historyPanel開啟狀態，關閉歷史紀錄面板而不是返回
+        if ($('#historyPanel').style.display === 'flex') {
+            e.preventDefault();
+            ui.hideHistoryPanel();
+            // 重新推入狀態以防止返回
+            window.history.pushState(null, null, window.location.href);
+            return;
+        }
+
         // 在PWA模式下，實現返回兩次關閉app
         if (window.matchMedia('(display-mode: standalone)').matches ||
             window.navigator.standalone === true) {
@@ -135,6 +144,14 @@ function setupEventListeners() {
     $('#historyBtn').addEventListener('click', ui.showHistoryPanel);
     $('#closeHistoryBtn').addEventListener('click', ui.hideHistoryPanel);
     $('#clearHistoryBtn').addEventListener('click', ui.clearAllHistory);
+    $('#historyOverlay').addEventListener('click', ui.hideHistoryPanel);
+
+    // 添加 ESC 鍵關閉歷史紀錄面板
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && $('#historyPanel').style.display === 'flex') {
+            ui.hideHistoryPanel();
+        }
+    });
 }
 
 function initScrollButtons() {
