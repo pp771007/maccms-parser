@@ -642,13 +642,25 @@ function renderPlaylist(sourceIndex = 0) {
                     }
                 }
 
+                // 獲取影片圖片URL
+                let videoPic = '';
+                if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
+                    const currentVideo = state.multiSourceVideos[sourceIndex];
+                    if (currentVideo && currentVideo.vod_pic) {
+                        videoPic = currentVideo.vod_pic;
+                    }
+                } else if (state.currentVideo && state.currentVideo.vod_pic) {
+                    videoPic = state.currentVideo.vod_pic;
+                }
+
                 const videoInfo = {
                     videoId: videoId,
                     videoName: $('#modalTitle').textContent,
                     episodeName: epi.name,
                     episodeUrl: epi.url,
                     siteId: siteId,
-                    siteName: siteName || '未知站台'
+                    siteName: siteName || '未知站台',
+                    videoPic: videoPic
                 };
 
 
@@ -711,13 +723,25 @@ function renderPlaylist(sourceIndex = 0) {
                 pureVideoName = state.currentVideo.vod_name;
             }
 
+            // 獲取影片圖片URL
+            let videoPic = '';
+            if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
+                const currentVideo = state.multiSourceVideos[sourceIndex];
+                if (currentVideo && currentVideo.vod_pic) {
+                    videoPic = currentVideo.vod_pic;
+                }
+            } else if (state.currentVideo && state.currentVideo.vod_pic) {
+                videoPic = state.currentVideo.vod_pic;
+            }
+
             const videoInfo = {
                 videoId: videoId,
                 videoName: pureVideoName,
                 episodeName: currentSource.episodes[0].name,
                 episodeUrl: currentSource.episodes[0].url,
                 siteId: siteId,
-                siteName: siteName || '未知站台'
+                siteName: siteName || '未知站台',
+                videoPic: videoPic
             };
 
 
@@ -906,22 +930,44 @@ export function renderWatchHistory() {
             return date.toLocaleDateString('zh-TW');
         };
 
+        // 處理圖片URL
+        let finalImageUrl;
+        if (item.videoPic && item.videoPic.trim()) {
+            finalImageUrl = item.videoPic;
+        } else {
+            // 嘗試從影片名稱生成一個更相關的佔位圖片
+            const englishName = item.videoName.replace(/[^\w\s]/g, '').substring(0, 10);
+            const placeholderText = encodeURIComponent(englishName || 'No Image');
+            finalImageUrl = `https://placehold.co/300x400/666666/ffffff.png?text=${placeholderText}`;
+        }
+
         historyItem.innerHTML = `
-            <div class="history-info">
-                <div class="history-title" title="${item.videoName}">${item.videoName}</div>
-                <div class="history-episode">${item.episodeName || '未知劇集'}</div>
-                <div class="history-site">${item.siteName || (item.siteId ? (state.sites.find(s => s.id === item.siteId)?.name || state.sites.find(s => s.name === item.siteName)?.name || '未知站台') : (state.sites.find(s => s.name === item.siteName)?.name || '未知站台'))}</div>
-                <div class="history-time">${formatDate(item.lastWatched || item.timestamp)}</div>
+            <div class="history-pic-wrapper">
+                <img class="history-pic" src="${finalImageUrl}" alt="${item.videoName}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x400/666666/ffffff.png?text=No+Image';">
             </div>
-            <div class="history-progress">
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${progressPercent}%"></div>
+            <div class="history-content">
+                <div class="history-header">
+                    <div class="history-title" title="${item.videoName}">${item.videoName}</div>
+                    <button class="btn btn-danger btn-sm remove-btn" title="移除紀錄">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                        </svg>
+                    </button>
                 </div>
-                <div class="progress-text">${formatTime(item.currentTime)} / ${formatTime(item.duration)}</div>
-            </div>
-            <div class="history-actions">
-                <button class="btn btn-primary btn-sm continue-btn" title="繼續觀看">繼續觀看</button>
-                <button class="btn btn-danger btn-sm remove-btn" title="移除紀錄">×</button>
+                <div class="history-details">
+                    <span class="history-episode">${item.episodeName || '未知劇集'}</span>
+                    <span class="history-site">${item.siteName || (item.siteId ? (state.sites.find(s => s.id === item.siteId)?.name || state.sites.find(s => s.name === item.siteName)?.name || '未知站台') : (state.sites.find(s => s.name === item.siteName)?.name || '未知站台'))}</span>
+                    <span class="history-time">${formatDate(item.lastWatched || item.timestamp)}</span>
+                </div>
+                <div class="history-bottom">
+                    <div class="history-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                        </div>
+                        <div class="progress-text">${formatTime(item.currentTime)} / ${formatTime(item.duration)}</div>
+                    </div>
+                    <button class="btn btn-primary btn-sm continue-btn" title="繼續觀看">繼續觀看</button>
+                </div>
             </div>
         `;
 

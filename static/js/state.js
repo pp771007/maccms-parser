@@ -117,6 +117,11 @@ export default {
             existingItem.episodeName = videoInfo.episodeName;
             existingItem.episodeUrl = videoInfo.episodeUrl;
 
+            // 更新圖片URL（如果新的有圖片而舊的沒有，或者新的圖片不同）
+            if (videoInfo.videoPic && (!existingItem.videoPic || existingItem.videoPic !== videoInfo.videoPic)) {
+                existingItem.videoPic = videoInfo.videoPic;
+            }
+
             // 只有當播放新集數時才重置進度
             if (isNewEpisode) {
                 existingItem.currentTime = 0;
