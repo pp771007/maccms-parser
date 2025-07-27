@@ -6,101 +6,84 @@ import * as ui from './ui.js';
 import { $ } from './utils.js';
 import { showModal } from './modal.js';
 
-// PWA 返回兩次關閉app的變數
-let backPressCount = 0;
-let backPressTimer = null;
-
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     loadSitesAndAutoLoadLast();
     registerServiceWorker();
-    setupPWAExitHandler();
-
-    // 暴露測試函數到全局（僅用於調試）
-    window.addTestHistory = ui.addTestHistory;
 });
 
-function setupPWAExitHandler() {
-    // 阻止index頁面的返回行為
-    window.history.pushState(null, null, window.location.href);
-
-    // 檢查是否從其他頁面返回
-    const isFromOtherPage = sessionStorage.getItem('fromOtherPage');
-    if (isFromOtherPage) {
-        // 如果從其他頁面返回，重置返回計數器
-        backPressCount = 0;
-        if (backPressTimer) {
-            clearTimeout(backPressTimer);
-        }
-        sessionStorage.removeItem('fromOtherPage');
+// 監聽瀏覽器的返回按鈕事件，處理 modal 和面板的關閉
+window.addEventListener('popstate', (e) => {
+    // 按照優先級順序處理：modal > 歷史面板
+    // 1. 如果是videoModal開啟狀態，關閉modal而不是返回
+    if ($('#videoModal').style.display === 'flex') {
+        e.preventDefault();
+        ui.closeModal();
+        // 不立即推入狀態，讓下一次返回事件能夠觸發
+        return;
     }
 
-    // 監聽瀏覽器的返回按鈕事件
-    window.addEventListener('popstate', (e) => {
-        // 如果是videoModal開啟狀態，關閉modal而不是返回
-        if ($('#videoModal').style.display === 'flex') {
-            e.preventDefault();
-            ui.closeModal();
-            // 重新推入狀態以防止返回
-            window.history.pushState(null, null, window.location.href);
-            return;
-        }
+    // 2. 如果是siteSelectionModal開啟狀態，關閉modal而不是返回
+    if ($('#siteSelectionModal').style.display === 'flex') {
+        e.preventDefault();
+        ui.closeSiteSelectionModal();
+        // 不立即推入狀態，讓下一次返回事件能夠觸發
+        return;
+    }
 
-        // 如果是siteSelectionModal開啟狀態，關閉modal而不是返回
-        if ($('#siteSelectionModal').style.display === 'flex') {
-            e.preventDefault();
-            ui.closeSiteSelectionModal();
-            // 重新推入狀態以防止返回
-            window.history.pushState(null, null, window.location.href);
-            return;
-        }
+    // 3. 如果是historyPanel開啟狀態，關閉歷史紀錄面板而不是返回
+    if ($('#historyPanel').style.display === 'flex') {
+        e.preventDefault();
+        ui.hideHistoryPanel();
+        // 關閉歷史面板後，重新推入狀態以防止返回
+        window.history.pushState(null, null, window.location.href);
+        return;
+    }
 
-        // 如果是historyPanel開啟狀態，關閉歷史紀錄面板而不是返回
-        if ($('#historyPanel').style.display === 'flex') {
-            e.preventDefault();
-            ui.hideHistoryPanel();
-            // 重新推入狀態以防止返回
-            window.history.pushState(null, null, window.location.href);
-            return;
-        }
+    // 重新推入狀態以防止返回
+    window.history.pushState(null, null, window.location.href);
+});
 
-        // 在PWA模式下，實現返回兩次關閉app
-        if (window.matchMedia('(display-mode: standalone)').matches ||
-            window.navigator.standalone === true) {
-            e.preventDefault();
-            backPressCount++;
+// 初始化時推入狀態以防止返回
+window.history.pushState(null, null, window.location.href);
 
-            if (backPressCount === 1) {
-                // 第一次按返回，顯示提示
-                ui.showToast('再按一次返回鍵退出應用');
+// 處理 ESC 鍵的邏輯
+function handleEscKey(e) {
+    if (e.key !== 'Escape') return;
 
-                // 重置計時器
-                if (backPressTimer) {
-                    clearTimeout(backPressTimer);
-                }
-                backPressTimer = setTimeout(() => {
-                    backPressCount = 0;
-                }, 2000);
-            } else if (backPressCount === 2) {
-                // 第二次按返回，關閉app
-                backPressCount = 0;
-                if (backPressTimer) {
-                    clearTimeout(backPressTimer);
-                }
-                window.close();
-                // 如果window.close()不起作用，嘗試其他方法
-                if (!window.closed) {
-                    window.location.href = 'about:blank';
-                }
-            }
+    // 檢查是否在全螢幕模式，如果是則不處理（讓 ArtPlayer 處理）
+    if (document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement) {
+        return;
+    }
 
-            // 重新推入狀態以防止返回
-            window.history.pushState(null, null, window.location.href);
-        } else {
-            // 非PWA模式，重新推入狀態以防止返回
-            window.history.pushState(null, null, window.location.href);
-        }
-    });
+    // 按照視覺層級（z-index）的順序處理，最上層的優先處理
+    // 1. 檢查是否有 toast 顯示（z-index: 9998）
+    const toast = document.querySelector('.custom-toast.show');
+    if (toast) {
+        // toast 通常會自動消失，不需要手動關閉
+        return;
+    }
+
+    // 2. 檢查 videoModal（z-index: 9997）
+    if ($('#videoModal').style.display === 'flex') {
+        ui.closeModal();
+        return;
+    }
+
+    // 3. 檢查 siteSelectionModal（z-index: 9997）
+    if ($('#siteSelectionModal').style.display === 'flex') {
+        ui.closeSiteSelectionModal();
+        return;
+    }
+
+    // 4. 檢查 historyPanel（z-index: 999）
+    if ($('#historyPanel').style.display === 'flex') {
+        ui.hideHistoryPanel();
+        return;
+    }
 }
 
 function registerServiceWorker() {
@@ -150,12 +133,8 @@ function setupEventListeners() {
     $('#clearHistoryBtn').addEventListener('click', ui.clearAllHistory);
     $('#historyOverlay').addEventListener('click', ui.hideHistoryPanel);
 
-    // 添加 ESC 鍵關閉歷史紀錄面板
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && $('#historyPanel').style.display === 'flex') {
-            ui.hideHistoryPanel();
-        }
-    });
+    // 添加 ESC 鍵處理邏輯
+    document.addEventListener('keydown', handleEscKey);
 }
 
 function initScrollButtons() {

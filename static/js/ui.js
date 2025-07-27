@@ -941,11 +941,6 @@ export function renderWatchHistory() {
         console.log('歷史紀錄為空，顯示「暫無觀看歷史」');
         historyContainer.innerHTML = `
             <p class="no-history">暫無觀看歷史</p>
-            <div style="text-align: center; margin-top: 20px;">
-                <button onclick="window.addTestHistory()" style="background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-                    添加測試歷史紀錄
-                </button>
-            </div>
         `;
         return;
     }
@@ -1235,9 +1230,6 @@ export function showHistoryPanel() {
         // 設置歷史記錄更新回調
         state.onHistoryUpdate = renderWatchHistory;
 
-        // 推入新的歷史狀態，以便返回鍵能正確關閉面板
-        window.history.pushState({ panel: 'history' }, null, window.location.href);
-
         // 重新綁定清除按鈕事件
         const clearHistoryBtn = $('#clearHistoryBtn');
         if (clearHistoryBtn) {
@@ -1285,11 +1277,6 @@ export function hideHistoryPanel() {
         };
 
         historyPanel.addEventListener('animationend', handleAnimationEnd);
-
-        // 如果當前歷史狀態是歷史面板，則返回上一頁
-        if (window.history.state && window.history.state.panel === 'history') {
-            window.history.back();
-        }
     }
 }
 
@@ -1302,28 +1289,4 @@ export function clearAllHistory() {
     }, '請確認', 'warning');
 }
 
-// 添加測試歷史紀錄（僅用於調試）
-export function addTestHistory() {
-    if (state.sites.length === 0) {
-        showToast('請先載入站台列表', 'warning');
-        return;
-    }
 
-    const testSite = state.sites[0];
-    const testHistory = {
-        videoId: 'test_video_001',
-        videoName: '測試影片 - 刁蛮小医仙',
-        episodeName: '第1集',
-        episodeUrl: 'https://example.com/test_episode_1.mp4',
-        siteId: testSite.id,
-        siteName: testSite.name,
-        currentTime: 300, // 5分鐘
-        duration: 3600,   // 1小時
-        lastWatched: Date.now() - 3600000 // 1小時前
-    };
-
-    state.addToHistory(testHistory);
-    renderWatchHistory();
-    showToast('已添加測試歷史紀錄', 'success');
-    console.log('添加測試歷史紀錄:', testHistory);
-}

@@ -289,7 +289,7 @@ select:focus {
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     border: 1px solid var(--border-color);
-    z-index: 10000;
+    z-index: 9998;
     opacity: 0;
     transition: all 0.3s ease;
 }
