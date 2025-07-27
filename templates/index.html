@@ -34,7 +34,6 @@
                 <button id="toSimpBtn" class="btn btn-warning simp-btn" title="轉為簡體">簡</button>
                 <input type="search" id="searchInput" placeholder="輸入關鍵字搜索..." autocomplete="off">
                 <button id="multiSiteSelectBtn" class="btn btn-purple" title="選擇多個站台進行搜尋">站台</button>
-                <button id="historyBtn" class="btn btn-secondary" title="觀看歷史">歷史</button>
                 <button id="searchBtn" class="btn btn-info">搜索</button>
             </div>
             <div id="selectedSites" class="selected-sites-display"></div>
@@ -50,6 +49,7 @@
 <!-- Scroll Buttons -->
 <button id="scrollToTopBtn" class="scroll-btn top" title="回到頂部">▲</button>
 <button id="scrollToBottomBtn" class="scroll-btn bottom" title="去到底部">▼</button>
+<button id="historyBtn" class="scroll-btn history" title="觀看歷史">📋</button>
 
 <div id="videoModal" class="modal">
     <div class="modal-content">
@@ -89,6 +89,7 @@
 <div id="historyOverlay" class="history-overlay" style="display: none;"></div>
 <div id="historyPanel" class="history-panel" style="display: none;">
     <div class="history-header">
+        <button id="historyCloseBtn" class="history-close-header-btn" title="關閉">×</button>
         <h3>觀看歷史</h3>
         <div class="history-actions">
             <button id="clearHistoryBtn" class="btn btn-danger btn-sm">清除全部</button>

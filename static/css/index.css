@@ -580,18 +580,13 @@
         order: 3;
     }
 
-    #historyBtn {
-        flex-shrink: 0;
-        padding: 8px 10px;
-        font-size: 12px;
-        order: 4;
-    }
+
 
     #searchBtn {
         flex-shrink: 0;
         padding: 8px 10px;
         font-size: 12px;
-        order: 5;
+        order: 4;
     }
 
     .search-bar-container {
@@ -670,16 +665,12 @@
         order: 3;
     }
 
-    #historyBtn {
-        padding: 6px 8px;
-        font-size: 11px;
-        order: 4;
-    }
+
 
     #searchBtn {
         padding: 6px 8px;
         font-size: 11px;
-        order: 5;
+        order: 4;
     }
 
     .search-bar-container {
@@ -764,16 +755,12 @@
         order: 3;
     }
 
-    #historyBtn {
-        padding: 5px 6px;
-        font-size: 10px;
-        order: 4;
-    }
+
 
     #searchBtn {
         padding: 5px 6px;
         font-size: 10px;
-        order: 5;
+        order: 4;
     }
 
     .search-bar-container {
@@ -837,6 +824,10 @@
 
 .scroll-btn.bottom {
     bottom: 20px;
+}
+
+.scroll-btn.history {
+    bottom: 140px;
 }
 
 .video-count-badge {
@@ -924,6 +915,38 @@ body.modal-open {
     justify-content: space-between;
     align-items: center;
     background: var(--input-background);
+    position: relative;
+}
+
+.history-close-header-btn {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: var(--danger-color);
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 1;
+}
+
+.history-close-header-btn:hover {
+    background: #ff7875;
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.history-close-header-btn:active {
+    transform: translateY(-50%) scale(0.95);
 }
 
 .history-header h3 {
@@ -931,6 +954,9 @@ body.modal-open {
     color: var(--text-color);
     font-size: 18px;
     font-weight: 600;
+    flex: 1;
+    text-align: center;
+    padding: 0 40px;
 }
 
 .history-actions {
@@ -1094,6 +1120,18 @@ body.modal-open {
         padding: 15px;
     }
 
+    .history-close-header-btn {
+        left: 10px;
+        width: 28px;
+        height: 28px;
+        font-size: 18px;
+    }
+
+    .history-header h3 {
+        padding: 0 35px;
+        font-size: 16px;
+    }
+
     .history-container {
         padding: 10px;
     }
@@ -1111,11 +1149,43 @@ body.modal-open {
         padding: 15px;
         font-size: 18px;
     }
+
+    /* 移動端滾動按鈕調整 */
+    .scroll-btn {
+        right: 15px;
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+
+    .scroll-btn.top {
+        bottom: 70px;
+    }
+
+    .scroll-btn.bottom {
+        bottom: 15px;
+    }
+
+    .scroll-btn.history {
+        bottom: 125px;
+    }
 }
 
 @media (max-width: 480px) {
     .history-header h3 {
         font-size: 16px;
+    }
+
+    .history-close-header-btn {
+        left: 8px;
+        width: 26px;
+        height: 26px;
+        font-size: 16px;
+    }
+
+    .history-header h3 {
+        padding: 0 30px;
+        font-size: 15px;
     }
 
     .history-actions {
@@ -1138,6 +1208,26 @@ body.modal-open {
 
     .history-episode {
         font-size: 13px;
+    }
+
+    /* 小螢幕滾動按鈕進一步調整 */
+    .scroll-btn {
+        right: 10px;
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+
+    .scroll-btn.top {
+        bottom: 60px;
+    }
+
+    .scroll-btn.bottom {
+        bottom: 10px;
+    }
+
+    .scroll-btn.history {
+        bottom: 110px;
     }
 }
 

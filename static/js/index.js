@@ -146,6 +146,7 @@ function setupEventListeners() {
     // History Panel
     $('#historyBtn').addEventListener('click', ui.showHistoryPanel);
     $('#closeHistoryBtn').addEventListener('click', ui.hideHistoryPanel);
+    $('#historyCloseBtn').addEventListener('click', ui.hideHistoryPanel);
     $('#clearHistoryBtn').addEventListener('click', ui.clearAllHistory);
     $('#historyOverlay').addEventListener('click', ui.hideHistoryPanel);
 
@@ -160,6 +161,7 @@ function setupEventListeners() {
 function initScrollButtons() {
     const toTopBtn = $('#scrollToTopBtn');
     const toBottomBtn = $('#scrollToBottomBtn');
+    const historyBtn = $('#historyBtn');
 
     toTopBtn.addEventListener('click', () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -168,6 +170,9 @@ function initScrollButtons() {
     toBottomBtn.addEventListener('click', () => {
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     });
+
+    // 歷史紀錄按鈕始終顯示
+    historyBtn.style.display = 'flex';
 
     window.addEventListener('scroll', () => {
         const scrollHeight = document.documentElement.scrollHeight;

@@ -2,7 +2,7 @@ import state from './state.js';
 import { $$ } from './utils.js';
 import { showModal } from './modal.js';
 
-export function playVideo(url, element, videoInfo = null, historyItem = null) {
+export function playVideo(url, element, videoInfo = null) {
     $$('.episode-item').forEach(el => el.classList.remove('playing'));
     if (element) element.classList.add('playing');
 
@@ -20,37 +20,10 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         state.addToHistory(videoInfo);
     }
 
-    // 檢查是否有歷史進度需要恢復
-    // 如果直接傳入了 historyItem，使用它；否則查找匹配的歷史記錄
-    const historyItemToUse = historyItem || state.watchHistory.find(item =>
-        item.videoId === state.currentVideoInfo?.videoId &&
-        item.episodeUrl === state.currentVideoInfo?.episodeUrl &&
-        item.siteId === state.currentVideoInfo?.siteId
-    );
-
-    console.log('playVideo 歷史記錄檢查:', {
-        passedHistoryItem: historyItem,
-        foundHistoryItem: historyItemToUse,
-        currentVideoInfo: state.currentVideoInfo,
-        historyItemToUseCurrentTime: historyItemToUse?.currentTime,
-        historyItemToUseDuration: historyItemToUse?.duration
-    });
-
-    // 準備播放器配置
-    const playerConfig = {
+    state.artplayer = new Artplayer({
         container: '#artplayer-container',
         url: url,
         type: url.includes('.m3u8') ? 'customHls' : 'auto',
-    };
-
-    // 在播放器初始化時就設置播放位置
-    if (historyItemToUse && historyItemToUse.currentTime > 0) {
-        playerConfig.currentTime = Math.min(historyItemToUse.currentTime, historyItemToUse.duration - 10);
-        console.log('設置初始播放位置:', playerConfig.currentTime);
-    }
-
-    state.artplayer = new Artplayer({
-        ...playerConfig,
         customType: {
             customHls: function (video, url) {
                 if (Hls.isSupported()) {
@@ -195,11 +168,20 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         }
     });
 
+    // 檢查是否有歷史進度需要恢復
+    const historyItem = state.watchHistory.find(item =>
+        item.videoId === state.currentVideoInfo?.videoId &&
+        item.episodeUrl === state.currentVideoInfo?.episodeUrl &&
+        item.siteId === state.currentVideoInfo?.siteId
+    );
+
+
+
     // 強制進度恢復檢查
     setTimeout(() => {
-        if (historyItemToUse && historyItemToUse.currentTime && state.artplayer) {
+        if (historyItem && historyItem.currentTime && state.artplayer) {
             const currentTime = state.artplayer.currentTime;
-            const targetTime = Math.min(historyItemToUse.currentTime, state.artplayer.duration - 10);
+            const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
 
             if (Math.abs(currentTime - targetTime) > 5) {
                 state.artplayer.currentTime = targetTime;
@@ -209,9 +191,9 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
 
     // 更強制的進度恢復 - 在播放器完全載入後
     setTimeout(() => {
-        if (historyItemToUse && historyItemToUse.currentTime && state.artplayer && state.artplayer.duration > 0) {
+        if (historyItem && historyItem.currentTime && state.artplayer && state.artplayer.duration > 0) {
             const currentTime = state.artplayer.currentTime;
-            const targetTime = Math.min(historyItemToUse.currentTime, state.artplayer.duration - 10);
+            const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
 
             // 如果當前時間接近0，強制跳轉
             if (currentTime < 5 && targetTime > 10) {
@@ -222,19 +204,20 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
 
     // 影片載入完成後恢復進度
     state.artplayer.on('loadedmetadata', () => {
-        if (historyItemToUse && historyItemToUse.currentTime && historyItemToUse.duration) {
-            // 立即設置播放位置，不等待
-            if (state.artplayer && state.artplayer.duration > 0) {
-                const targetTime = Math.min(historyItemToUse.currentTime, state.artplayer.duration - 10);
-                if (targetTime > 0) {
-                    state.artplayer.currentTime = targetTime;
-                    console.log('loadedmetadata 設置播放位置:', targetTime);
+        if (historyItem && historyItem.currentTime && historyItem.duration) {
+            // 確保影片已經載入完成
+            setTimeout(() => {
+                if (state.artplayer && state.artplayer.duration > 0) {
+                    const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
+                    if (targetTime > 0) {
+                        state.artplayer.currentTime = targetTime;
+                    }
                 }
-            }
+            }, 1000); // 延遲1秒確保影片完全載入
         }
     });
 
-    // 影片可以播放時移除載入指示器並設置播放位置
+    // 影片可以播放時移除載入指示器
     state.artplayer.on('canplay', () => {
         // 移除載入指示器
         const container = document.getElementById('artplayer-container');
@@ -243,15 +226,13 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
             loadingDiv.remove();
         }
 
-        // 立即設置播放位置
-        if (historyItemToUse && historyItemToUse.currentTime > 0 && state.artplayer.duration > 0) {
+        if (historyItem && historyItem.currentTime && !state.artplayer.paused) {
+            // 如果影片正在播放但時間不對，重新設置
             const currentTime = state.artplayer.currentTime;
-            const targetTime = Math.min(historyItemToUse.currentTime, state.artplayer.duration - 10);
+            const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
 
-            // 如果當前時間與目標時間差異很大，重新設置
-            if (Math.abs(currentTime - targetTime) > 2) { // 降低閾值到2秒
+            if (Math.abs(currentTime - targetTime) > 5) { // 如果時間差異超過5秒
                 state.artplayer.currentTime = targetTime;
-                console.log('canplay 設置播放位置:', targetTime);
             }
         }
     });
@@ -271,9 +252,9 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     state.artplayer.on('play', () => {
         // 延遲檢查，確保影片已經開始播放
         setTimeout(() => {
-            if (historyItemToUse && historyItemToUse.currentTime && state.artplayer) {
+            if (historyItem && historyItem.currentTime && state.artplayer) {
                 const currentTime = state.artplayer.currentTime;
-                const targetTime = Math.min(historyItemToUse.currentTime, state.artplayer.duration - 10);
+                const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
 
                 // 如果當前時間與目標時間差異很大，重新設置
                 if (Math.abs(currentTime - targetTime) > 10) {
