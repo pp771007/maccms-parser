@@ -4,7 +4,6 @@ import json
 
 def process_api_request(base_url, params, logger, ssl_verify=True, site_name=None):
     site_info = f"站點 [{site_name}] " if site_name else ""
-    logger.info(f"{site_info}開始處理請求: {base_url} (Params: {params}, SSL Verify: {ssl_verify})")
     if not base_url.startswith('http'):
         base_url = 'http://' + base_url
     
@@ -14,7 +13,7 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
     # 構建完整的請求URL用於日誌
     import urllib.parse
     full_url = f"{api_url}?{urllib.parse.urlencode(params)}"
-    logger.info(f"{site_info}實際請求URL: {full_url}")
+    logger.info(f"{site_info}開始處理請求: {full_url} (SSL Verify: {ssl_verify})")
     
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
@@ -24,12 +23,10 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
         # 檢查響應內容，如果是 "暂不支持搜索" 等特殊情況，直接返回錯誤
         response_text = list_response.text.strip()
         if response_text == "暂不支持搜索" or response_text == "不支持":
-            logger.warning(f"{site_info}站台返回: {response_text}")
             return {'status': 'error', 'message': f"該站台暫不支持搜尋功能"}
         
         # 檢查HTTP狀態碼
         if list_response.status_code != 200:
-            logger.error(f"{site_info}HTTP狀態碼錯誤: {list_response.status_code}")
             return {'status': 'error', 'message': f"站台返回HTTP {list_response.status_code} 錯誤"}
         
         list_data = list_response.json()
@@ -83,18 +80,13 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
         logger.error(f"{site_info}網絡請求超時 (超過 {timeout_seconds} 秒): {full_url}")
         return {'status': 'error', 'message': f"連接目標站點超時，該站點可能已失效或網絡不佳。"}
     except requests.exceptions.RequestException as e:
-        logger.error(f"{site_info}網絡請求失敗: {e} (URL: {full_url})")
+        # 不記錄詳細錯誤，讓上層處理
         return {'status': 'error', 'message': f"網絡連接失敗，請檢查URL或您的網絡連接。"}
     except json.JSONDecodeError as e:
         # 獲取響應內容以便調試
         try:
             response_text = list_response.text if 'list_response' in locals() else "無法獲取響應內容"
             response_status = list_response.status_code if 'list_response' in locals() else "未知"
-            
-            # 記錄JSON解析失敗，顯示響應內容
-            logger.error(f"{site_info}解析JSON失敗: 響應內容為 {response_text}")
-            logger.error(f"{site_info}請求URL: {full_url}")
-            logger.error(f"{site_info}響應狀態碼: {response_status}")
             
             # 提供更詳細的錯誤信息
             if response_text.strip() == "":
@@ -112,10 +104,8 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
                 
             return {'status': 'error', 'message': error_msg}
         except Exception as debug_error:
-            logger.error(f"{site_info}調試信息獲取失敗: {debug_error}")
             return {'status': 'error', 'message': f"返回的不是有效的JSON格式: {e}"}
     except Exception as e:
-        logger.error(f"{site_info}發生未知錯誤: {e}")
         return {'status': 'error', 'message': f"發生未知錯誤: {e}"}
 
 
@@ -187,9 +177,7 @@ def get_details_from_api(base_url, vod_id, logger, ssl_verify=True, site_name=No
             response_status = response.status_code if 'response' in locals() else "未知"
             
             # 記錄JSON解析失敗，顯示響應內容
-            logger.error(f"{site_info}解析JSON失敗: 響應內容為 {response_text}")
-            logger.error(f"{site_info}請求URL: {full_url}")
-            logger.error(f"{site_info}響應狀態碼: {response_status}")
+            logger.error(f"{site_info}解析JSON失敗: URL={full_url}, 狀態碼={response_status}, 響應內容={response_text}")
             
             # 提供更詳細的錯誤信息
             if response_text.strip() == "":

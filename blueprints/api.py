@@ -184,26 +184,27 @@ def multi_site_search():
         params = {'wd': keyword, 'pg': page}
         ssl_verify = site.get('ssl_verify', True)
         try:
-            logger.info(f"開始搜尋站台: {site['name']} ({site['url']})")
             result = process_api_request(site['url'], params, logger, ssl_verify=ssl_verify, site_name=site['name'])
             
-            if result.get('status') == 'success' and result.get('list'):
-                for video in result['list']:
-                    video['from_site'] = site['name']
-                    video['from_site_id'] = site['id']
-                
-                page_count = int(result.get('pagecount', 0))
-                logger.info(f"站台 {site['name']} 搜尋成功，找到 {len(result['list'])} 個結果")
-                return result['list'], page_count
+            if result.get('status') == 'success':
+                if result.get('list'):
+                    for video in result['list']:
+                        video['from_site'] = site['name']
+                        video['from_site_id'] = site['id']
+                    
+                    page_count = int(result.get('pagecount', 0))
+                    return result['list'], page_count
+                else:
+                    # 搜尋成功但沒有結果
+                    page_count = int(result.get('pagecount', 0))
+                    return [], page_count
             else:
+                # 真正的搜尋失敗
                 error_msg = result.get('message', '未知錯誤')
                 logger.warning(f"站台 {site['name']} 搜尋失敗: {error_msg}")
-                # 記錄詳細的錯誤信息
-                logger.warning(f"站台 {site['name']} 搜尋失敗詳情: status={result.get('status')}, message={result.get('message')}, list_length={len(result.get('list', []))}")
                 return [], 0
         except Exception as e:
-            logger.error(f"多站台搜尋失敗 - 站台: {site['name']}, 錯誤: {e}")
-            logger.error(f"站台 {site['name']} 搜尋異常詳情: {type(e).__name__}: {str(e)}")
+            logger.error(f"站台 {site['name']} 搜尋異常: {type(e).__name__}: {str(e)}")
             return [], 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(sites_to_search)) as executor:
@@ -216,22 +217,24 @@ def multi_site_search():
                     max_page_count = page_count
             except Exception as exc:
                 site_name = future_to_site[future]['name']
-                logger.error(f'站台 {site_name} 搜尋時發生異常: {exc}')
-                logger.error(f'異常詳情: {type(exc).__name__}: {str(exc)}')
+                logger.error(f'站台 {site_name} 搜尋異常: {type(exc).__name__}: {str(exc)}')
 
     if max_page_count == 0 and len(all_results) == 0:
         max_page_count = page
 
     # 統計各站台的搜尋結果
     results_by_site = {}
+    # 初始化所有站台的結果為0
+    for site in sites_to_search:
+        results_by_site[site['name']] = 0
+    
+    # 統計有結果的站台
     for video in all_results:
         site_name = video.get('from_site', 'unknown')
-        if site_name not in results_by_site:
-            results_by_site[site_name] = 0
-        results_by_site[site_name] += 1
+        if site_name in results_by_site:
+            results_by_site[site_name] += 1
 
-    logger.info(f"多站台搜尋完成 - 總結果數: {len(all_results)}, 參與搜尋站台數: {len(sites_to_search)}, 有結果站台數: {len(results_by_site)}")
-    logger.info(f"各站台結果統計: {results_by_site}")
+    logger.info(f"多站台搜尋完成 - 總結果數: {len(all_results)}, 參與搜尋站台數: {len(sites_to_search)}, 有結果站台數: {len([s for s in results_by_site.values() if s > 0])}, 各站台統計: {results_by_site}")
 
     return jsonify({
         'status': 'success',

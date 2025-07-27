@@ -229,7 +229,7 @@ def check_single_site_health(site_id):
             
         # 儲存更新後的站點資料
         save_sites(sites)
-        logger.info(f"站點 {site['name']} 檢查完成")
+        logger.info(f"站點 {site['name']} 檢查完成: {result['status']}")
         
         return result
         
