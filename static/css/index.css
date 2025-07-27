@@ -1140,3 +1140,130 @@ body.modal-open {
         font-size: 13px;
     }
 }
+
+/* 搜尋標籤樣式 */
+.search-tags-container {
+    margin-top: 10px;
+    padding: 10px 0;
+}
+
+.search-tags-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.search-tags-title {
+    font-size: 14px;
+    color: var(--text-color);
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.search-tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.search-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    position: relative;
+}
+
+.search-tag:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.search-tag-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    line-height: 1;
+}
+
+.search-tag-delete:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.search-tag-clear-all {
+    padding: 6px 12px;
+    background: var(--danger-color);
+    color: white;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.search-tag-clear-all:hover {
+    background: #ff7875;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 搜尋標籤響應式設計 */
+@media (max-width: 768px) {
+    .search-tags-list {
+        gap: 6px;
+    }
+
+    .search-tag {
+        padding: 5px 10px;
+        font-size: 12px;
+    }
+
+    .search-tag-delete {
+        width: 14px;
+        height: 14px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .search-tags-container {
+        margin-top: 8px;
+        padding: 8px 0;
+    }
+
+    .search-tags-title {
+        font-size: 13px;
+    }
+
+    .search-tags-list {
+        gap: 5px;
+    }
+
+    .search-tag {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+
+    .search-tag-clear-all {
+        padding: 4px 8px;
+        font-size: 11px;
+    }
+}

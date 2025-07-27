@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSitesAndAutoLoadLast();
     registerServiceWorker();
     setupPWAExitHandler();
+
+    // 暴露測試函數到全局（僅用於調試）
+    window.addTestHistory = ui.addTestHistory;
 });
 
 function setupPWAExitHandler() {
@@ -205,7 +208,17 @@ async function handleToSimp() {
 
 async function loadSitesAndAutoLoadLast() {
     try {
-        state.sites = await api.fetchSites();
+        const sites = await api.fetchSites();
+
+        // 過濾掉無效的站台（沒有 id 或 name 的站台）
+        state.sites = sites.filter(site => site && site.id && site.name && site.url);
+
+        console.log('載入站台列表:', {
+            totalSites: sites.length,
+            validSites: state.sites.length,
+            sites: state.sites.map(s => ({ id: s.id, name: s.name, url: s.url }))
+        });
+
         ui.renderSites(state.sites);
 
         // 載入多選站台設定
@@ -213,6 +226,15 @@ async function loadSitesAndAutoLoadLast() {
 
         // 載入觀看歷史紀錄
         state.loadWatchHistory();
+
+        // 載入搜尋關鍵字歷史記錄
+        state.loadSearchHistory();
+
+        // 渲染搜尋標籤
+        ui.renderSearchTags();
+
+        // 渲染影片列表
+        ui.renderVideos(state.videos);
 
         // 檢查是否從其他頁面返回
         const isFromOtherPage = sessionStorage.getItem('fromOtherPage');
@@ -313,6 +335,12 @@ function handleSearch() {
     state.currentPage = 1;
     state.currentKeyword = keyword;
 
+    // 記錄搜尋關鍵字到歷史記錄
+    if (keyword) {
+        state.addSearchKeyword(keyword);
+        ui.renderSearchTags();
+    }
+
     // If no multi-selection is active, use the currently selected single site
     if (state.searchSiteIds.length === 0 && state.currentSite) {
         state.searchSiteIds = [state.currentSite.id];
@@ -362,6 +390,22 @@ async function fetchAndRender() {
                 state.currentPage,
                 state.currentKeyword
             );
+
+            console.log('多選站台查詢結果:', {
+                searchSiteIds: state.searchSiteIds,
+                keyword: state.currentKeyword,
+                page: state.currentPage,
+                resultList: result.list,
+                resultListLength: result.list?.length,
+                searchStats: result.search_stats,
+                videosBySite: result.list?.reduce((acc, video) => {
+                    const site = video.from_site || 'unknown';
+                    if (!acc[site]) acc[site] = [];
+                    acc[site].push({ id: video.vod_id, name: video.vod_name, from_site: video.from_site, from_site_id: video.from_site_id });
+                    return acc;
+                }, {})
+            });
+
             // In multi-site search, categories are disabled.
             state.categories = [];
             ui.renderCategories([]);

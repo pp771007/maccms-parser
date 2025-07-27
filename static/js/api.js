@@ -79,34 +79,100 @@ export async function fetchMultiSiteVideoList(siteIds, page, keyword) {
 }
 
 export async function fetchVideoList(url, page, typeId, keyword) {
-    const response = await fetch('/api/list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, page, type_id: typeId, keyword: keyword })
-    });
-    if (!response.ok) {
-        const errData = await response.json().catch(() => ({ message: '獲取影片列表失敗' }));
-        if (errData.action) throw errData; // 拋出整個物件以進行重定向
-        throw new Error(errData.message);
+    try {
+        const response = await fetch('/api/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, page, type_id: typeId, keyword: keyword })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('影片列表API響應錯誤:', {
+                status: response.status,
+                statusText: response.statusText,
+                url: url,
+                page: page,
+                typeId: typeId,
+                keyword: keyword,
+                responseText: errorText
+            });
+
+            try {
+                const errData = JSON.parse(errorText);
+                if (errData.action) throw errData; // 拋出整個物件以進行重定向
+                throw new Error(errData.message || '獲取影片列表失敗');
+            } catch (parseError) {
+                throw new Error(`API請求失敗 (${response.status}): ${response.statusText}`);
+            }
+        }
+
+        const result = await response.json();
+        if (result.status && result.status !== 'success') {
+            console.error('影片列表API返回錯誤狀態:', {
+                status: result.status,
+                message: result.message,
+                url: url,
+                page: page,
+                typeId: typeId,
+                keyword: keyword
+            });
+            throw new Error(result.message || 'API返回錯誤狀態');
+        }
+        return result;
+    } catch (error) {
+        console.error('fetchVideoList 失敗:', {
+            url: url,
+            page: page,
+            typeId: typeId,
+            keyword: keyword,
+            error: error.message,
+            stack: error.stack
+        });
+        throw error;
     }
-    const result = await response.json();
-    if (result.status && result.status !== 'success') {
-        throw new Error(result.message);
-    }
-    return result;
 }
 
 export async function fetchVideoDetails(url, videoId) {
-    const response = await fetch('/api/details', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, id: videoId })
-    });
-    const result = await response.json();
-    if (result.status !== 'success') {
-        throw new Error(result.message);
+    try {
+        const response = await fetch('/api/details', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, id: videoId })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('API響應錯誤:', {
+                status: response.status,
+                statusText: response.statusText,
+                url: url,
+                videoId: videoId,
+                responseText: errorText
+            });
+            throw new Error(`API請求失敗 (${response.status}): ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (result.status !== 'success') {
+            console.error('API返回錯誤狀態:', {
+                status: result.status,
+                message: result.message,
+                url: url,
+                videoId: videoId
+            });
+            throw new Error(result.message || 'API返回錯誤狀態');
+        }
+        return result;
+    } catch (error) {
+        console.error('fetchVideoDetails 失敗:', {
+            url: url,
+            videoId: videoId,
+            error: error.message,
+            stack: error.stack
+        });
+        throw error;
     }
-    return result;
 }
 
 export async function checkSitesNow(includeDisabled = false) {

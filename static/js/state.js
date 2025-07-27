@@ -37,38 +37,125 @@ export default {
     // 載入觀看歷史紀錄
     loadWatchHistory() {
         const saved = localStorage.getItem('watchHistory');
+        console.log('載入歷史紀錄 - localStorage中的數據:', saved);
         if (saved) {
             try {
                 this.watchHistory = JSON.parse(saved);
+                console.log('歷史紀錄載入成功，共', this.watchHistory.length, '條記錄');
             } catch (e) {
                 console.error('載入觀看歷史紀錄失敗:', e);
                 this.watchHistory = [];
             }
+        } else {
+            console.log('localStorage中沒有歷史紀錄數據');
+            this.watchHistory = [];
         }
+    },
+
+    // 載入搜尋關鍵字歷史記錄
+    loadSearchHistory() {
+        const saved = localStorage.getItem('searchHistory');
+        if (saved) {
+            try {
+                this.searchHistory = JSON.parse(saved);
+            } catch (e) {
+                console.error('載入搜尋歷史記錄失敗:', e);
+                this.searchHistory = [];
+            }
+        } else {
+            this.searchHistory = [];
+        }
+    },
+
+    // 儲存搜尋關鍵字歷史記錄
+    saveSearchHistory() {
+        localStorage.setItem('searchHistory', JSON.stringify(this.searchHistory));
+    },
+
+    // 添加搜尋關鍵字到歷史記錄
+    addSearchKeyword(keyword) {
+        if (!keyword || keyword.trim() === '') return;
+
+        const trimmedKeyword = keyword.trim();
+
+        // 移除重複的關鍵字
+        this.searchHistory = this.searchHistory.filter(item => item !== trimmedKeyword);
+
+        // 添加到開頭
+        this.searchHistory.unshift(trimmedKeyword);
+
+        // 限制數量（最多20個）
+        if (this.searchHistory.length > 20) {
+            this.searchHistory = this.searchHistory.slice(0, 20);
+        }
+
+        this.saveSearchHistory();
+    },
+
+    // 清除搜尋關鍵字歷史記錄
+    clearSearchHistory() {
+        this.searchHistory = [];
+        this.saveSearchHistory();
     },
 
     // 儲存觀看歷史紀錄
     saveWatchHistory() {
-        localStorage.setItem('watchHistory', JSON.stringify(this.watchHistory));
+        const dataToSave = JSON.stringify(this.watchHistory);
+        console.log('保存歷史紀錄到localStorage:', dataToSave);
+        localStorage.setItem('watchHistory', dataToSave);
     },
 
     // 添加觀看歷史紀錄
     addToHistory(videoInfo) {
-        // 使用 videoId + episodeUrl + siteId 當唯一鍵
-        this.watchHistory = this.watchHistory.filter(item =>
-            !(item.videoId === videoInfo.videoId &&
-                item.episodeUrl === videoInfo.episodeUrl &&
-                item.siteId === videoInfo.siteId)
+        console.log('添加歷史紀錄:', videoInfo);
+
+        // 查找是否已存在同一部影片的記錄（使用 videoId + siteId）
+        const existingIndex = this.watchHistory.findIndex(item =>
+            item.videoId === videoInfo.videoId &&
+            item.siteId === videoInfo.siteId
         );
-        // 添加新的紀錄到開頭
-        this.watchHistory.unshift({
-            ...videoInfo,
-            timestamp: Date.now()
-        });
+
+        if (existingIndex !== -1) {
+            // 如果存在，更新現有記錄
+            const existingItem = this.watchHistory[existingIndex];
+            const isNewEpisode = existingItem.episodeUrl !== videoInfo.episodeUrl;
+
+            existingItem.episodeName = videoInfo.episodeName;
+            existingItem.episodeUrl = videoInfo.episodeUrl;
+
+            // 只有當播放新集數時才重置進度
+            if (isNewEpisode) {
+                existingItem.currentTime = 0;
+                existingItem.duration = 0;
+                console.log('播放新集數，重置進度');
+            } else {
+                console.log('播放相同集數，保留進度:', existingItem.currentTime);
+            }
+
+            existingItem.lastWatched = Date.now();
+            existingItem.timestamp = Date.now(); // 更新時間戳，讓它排在最前面
+
+            // 將更新後的記錄移到開頭
+            this.watchHistory.splice(existingIndex, 1);
+            this.watchHistory.unshift(existingItem);
+
+            console.log('更新現有影片記錄:', existingItem);
+        } else {
+            // 如果不存在，添加新記錄
+            this.watchHistory.unshift({
+                ...videoInfo,
+                timestamp: Date.now()
+            });
+
+            console.log('添加新影片記錄:', videoInfo);
+        }
+
         // 限制歷史紀錄數量（最多50條）
         if (this.watchHistory.length > 50) {
             this.watchHistory = this.watchHistory.slice(0, 50);
         }
+
+        console.log('歷史紀錄更新後，共', this.watchHistory.length, '條記錄');
         this.saveWatchHistory();
     },
 
@@ -76,11 +163,16 @@ export default {
     updateProgress(videoId, episodeUrl, siteId, currentTime, duration) {
         const historyItem = this.watchHistory.find(item =>
             item.videoId === videoId &&
-            item.episodeUrl === episodeUrl &&
             item.siteId === siteId
         );
 
         if (historyItem) {
+            // 更新集數信息（如果不同）
+            if (historyItem.episodeUrl !== episodeUrl) {
+                historyItem.episodeName = ''; // 會在 addToHistory 中更新
+                historyItem.episodeUrl = episodeUrl;
+            }
+
             historyItem.currentTime = currentTime;
             historyItem.duration = duration;
             historyItem.lastWatched = Date.now();

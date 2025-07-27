@@ -144,7 +144,13 @@ def api_get_list_route():
         'wd': data.get('keyword')
     }
     params = {k: v for k, v in params.items() if v}
-    result = process_api_request(url, params, logger, ssl_verify=ssl_verify)
+    
+    # 獲取站點名稱用於日誌
+    sites = get_sites()
+    site = next((s for s in sites if s['url'] == url), None)
+    site_name = site['name'] if site else None
+    
+    result = process_api_request(url, params, logger, ssl_verify=ssl_verify, site_name=site_name)
     return jsonify(result)
 
 @api_bp.route('/details', methods=['POST'])
@@ -155,7 +161,7 @@ def api_get_details_route():
     site = next((s for s in sites if s['url'] == url), None)
     ssl_verify = site.get('ssl_verify', True) if site else True
 
-    result = get_details_from_api(url, data.get('id'), logger, ssl_verify=ssl_verify)
+    result = get_details_from_api(url, data.get('id'), logger, ssl_verify=ssl_verify, site_name=site['name'] if site else None)
     return jsonify(result)
 
 @api_bp.route('/multi_site_search', methods=['POST'])
@@ -178,17 +184,27 @@ def multi_site_search():
         params = {'wd': keyword, 'pg': page}
         ssl_verify = site.get('ssl_verify', True)
         try:
-            result = process_api_request(site['url'], params, logger, ssl_verify=ssl_verify)
+            logger.info(f"開始搜尋站台: {site['name']} ({site['url']})")
+            result = process_api_request(site['url'], params, logger, ssl_verify=ssl_verify, site_name=site['name'])
+            
             if result.get('status') == 'success' and result.get('list'):
                 for video in result['list']:
                     video['from_site'] = site['name']
                     video['from_site_id'] = site['id']
                 
                 page_count = int(result.get('pagecount', 0))
+                logger.info(f"站台 {site['name']} 搜尋成功，找到 {len(result['list'])} 個結果")
                 return result['list'], page_count
+            else:
+                error_msg = result.get('message', '未知錯誤')
+                logger.warning(f"站台 {site['name']} 搜尋失敗: {error_msg}")
+                # 記錄詳細的錯誤信息
+                logger.warning(f"站台 {site['name']} 搜尋失敗詳情: status={result.get('status')}, message={result.get('message')}, list_length={len(result.get('list', []))}")
+                return [], 0
         except Exception as e:
             logger.error(f"多站台搜尋失敗 - 站台: {site['name']}, 錯誤: {e}")
-        return [], 0
+            logger.error(f"站台 {site['name']} 搜尋異常詳情: {type(e).__name__}: {str(e)}")
+            return [], 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(sites_to_search)) as executor:
         future_to_site = {executor.submit(search_site, site): site for site in sites_to_search}
@@ -200,17 +216,34 @@ def multi_site_search():
                     max_page_count = page_count
             except Exception as exc:
                 site_name = future_to_site[future]['name']
-                logger.error(f'{site_name} generated an exception: {exc}')
+                logger.error(f'站台 {site_name} 搜尋時發生異常: {exc}')
+                logger.error(f'異常詳情: {type(exc).__name__}: {str(exc)}')
 
     if max_page_count == 0 and len(all_results) == 0:
         max_page_count = page
+
+    # 統計各站台的搜尋結果
+    results_by_site = {}
+    for video in all_results:
+        site_name = video.get('from_site', 'unknown')
+        if site_name not in results_by_site:
+            results_by_site[site_name] = 0
+        results_by_site[site_name] += 1
+
+    logger.info(f"多站台搜尋完成 - 總結果數: {len(all_results)}, 參與搜尋站台數: {len(sites_to_search)}, 有結果站台數: {len(results_by_site)}")
+    logger.info(f"各站台結果統計: {results_by_site}")
 
     return jsonify({
         'status': 'success',
         'list': all_results,
         'page': page,
         'pagecount': max_page_count,
-        'total': len(all_results)
+        'total': len(all_results),
+        'search_stats': {
+            'total_sites_searched': len(sites_to_search),
+            'sites_with_results': len(results_by_site),
+            'results_by_site': results_by_site
+        }
     })
 
 @api_bp.route('/sites/check_now', methods=['POST'])
