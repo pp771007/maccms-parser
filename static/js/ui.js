@@ -314,7 +314,12 @@ function renderEpisodesOnly() {
         }
     } else {
         episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
-        if (state.artplayer) { state.artplayer.destroy(); state.artplayer = null; }
+        if (state.artplayer) {
+            // 保存進度後再銷毀
+            state.saveCurrentProgress();
+            state.artplayer.destroy();
+            state.artplayer = null;
+        }
     }
 }
 
@@ -378,11 +383,19 @@ function renderPlaylist(sourceIndex = 0) {
         }
     } else {
         episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
-        if (state.artplayer) { state.artplayer.destroy(); state.artplayer = null; }
+        if (state.artplayer) {
+            // 保存進度後再銷毀
+            state.saveCurrentProgress();
+            state.artplayer.destroy();
+            state.artplayer = null;
+        }
     }
 }
 
 export function closeModal() {
+    // 在關閉前保存當前進度
+    state.saveCurrentProgress();
+
     document.body.classList.remove('modal-open');
     $('#videoModal').style.display = 'none';
     if (state.artplayer) {
@@ -671,6 +684,9 @@ export function showHistoryPanel() {
         historyPanel.style.display = 'flex';
         renderWatchHistory();
 
+        // 設置歷史記錄更新回調
+        state.onHistoryUpdate = renderWatchHistory;
+
         // 推入新的歷史狀態，以便返回鍵能正確關閉面板
         window.history.pushState({ panel: 'history' }, null, window.location.href);
 
@@ -704,6 +720,9 @@ export function hideHistoryPanel() {
     const historyPanel = $('#historyPanel');
     const historyOverlay = $('#historyOverlay');
     if (historyPanel && historyOverlay) {
+        // 清除歷史記錄更新回調
+        state.onHistoryUpdate = null;
+
         // 立即隱藏覆蓋層，避免閃爍
         historyOverlay.style.display = 'none';
 

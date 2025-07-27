@@ -14,6 +14,7 @@ export default {
     watchHistory: [], // 觀看歷史紀錄
     currentVideoInfo: null, // 當前播放的影片資訊
     currentVideo: null, // 當前選擇的影片資訊
+    onHistoryUpdate: null, // 歷史記錄更新回調函數
 
     // 從localStorage載入多選站台設定
     loadMultiSiteSelection() {
@@ -53,9 +54,11 @@ export default {
 
     // 添加觀看歷史紀錄
     addToHistory(videoInfo) {
-        // 只用 videoId + siteId 當唯一鍵
+        // 使用 videoId + episodeUrl + siteId 當唯一鍵
         this.watchHistory = this.watchHistory.filter(item =>
-            !(item.videoId === videoInfo.videoId && item.siteId === videoInfo.siteId)
+            !(item.videoId === videoInfo.videoId &&
+                item.episodeUrl === videoInfo.episodeUrl &&
+                item.siteId === videoInfo.siteId)
         );
         // 添加新的紀錄到開頭
         this.watchHistory.unshift({
@@ -82,6 +85,11 @@ export default {
             historyItem.duration = duration;
             historyItem.lastWatched = Date.now();
             this.saveWatchHistory();
+
+            // 觸發歷史記錄更新回調
+            if (this.onHistoryUpdate) {
+                this.onHistoryUpdate();
+            }
         }
     },
 
@@ -89,5 +97,22 @@ export default {
     clearHistory() {
         this.watchHistory = [];
         this.saveWatchHistory();
+    },
+
+    // 保存當前播放進度（用於播放器銷毀時）
+    saveCurrentProgress() {
+        if (this.artplayer && this.currentVideoInfo) {
+            const currentTime = this.artplayer.currentTime;
+            const duration = this.artplayer.duration;
+            if (currentTime > 0 && duration > 0) {
+                this.updateProgress(
+                    this.currentVideoInfo.videoId,
+                    this.currentVideoInfo.episodeUrl,
+                    this.currentVideoInfo.siteId,
+                    currentTime,
+                    duration
+                );
+            }
+        }
     }
 };
