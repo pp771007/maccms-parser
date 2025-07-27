@@ -54,14 +54,7 @@ export function renderVideos(videos) {
         groupedVideos[key].push(video);
     });
 
-    console.log('影片聚合結果:', {
-        totalVideos: videos.length,
-        groupedVideos: Object.entries(groupedVideos).map(([name, list]) => ({
-            name,
-            count: list.length,
-            videos: list.map(v => ({ id: v.vod_id, from_site: v.from_site, from_site_id: v.from_site_id }))
-        }))
-    });
+
 
     // 渲染聚合後的影片
     Object.entries(groupedVideos).forEach(([videoName, videoList]) => {
@@ -120,10 +113,8 @@ export function renderVideos(videos) {
             // 在多站點搜尋模式下，即使只有一個結果也使用 openMultiSourceModal
             // 這樣可以確保站台信息正確傳遞
             if (videoList.length > 1 || state.searchSiteIds.length > 0) {
-                console.log('調用 openMultiSourceModal');
                 openMultiSourceModal(videoName, videoList);
             } else {
-                console.log('調用 openModal');
                 openModal(firstVideo);
             }
         });
@@ -267,7 +258,6 @@ export function renderSearchTags() {
 }
 
 export async function openModal(video) {
-    console.log('openModal 開始，當前 multiSourceVideos:', state.multiSourceVideos);
 
     document.body.classList.add('modal-open');
     $('#modalTitle').textContent = video.vod_name;
@@ -336,12 +326,7 @@ export async function openMultiSourceModal(videoName, videoList) {
     // 初始化多來源的 modalData 存儲
     state.multiSourceModalData = {};
 
-    console.log('openMultiSourceModal 設置 multiSourceVideos:', {
-        videoName,
-        videoListLength: videoList.length,
-        multiSourceVideos: videoList.map(v => ({ id: v.vod_id, from_site: v.from_site, from_site_id: v.from_site_id })),
-        stateMultiSourceVideos: state.multiSourceVideos
-    });
+
 
     videoList.forEach((video, index) => {
         const btn = document.createElement('button');
@@ -382,15 +367,7 @@ export async function openMultiSourceModal(videoName, videoList) {
                 // 保存當前選擇的影片資訊
                 state.currentVideo = video;
 
-                console.log('多站點模式切換來源:', {
-                    index,
-                    video,
-                    modalData: result.data,
-                    modalDataLength: result.data?.length,
-                    currentSourceIndex: state.currentSourceIndex,
-                    multiSourceModalData: state.multiSourceModalData,
-                    multiSourceVideos: state.multiSourceVideos?.map(v => ({ id: v.vod_id, from_site: v.from_site, from_site_id: v.from_site_id }))
-                });
+
 
                 // 檢查 modalData 是否有效
                 if (!result.data || result.data.length === 0) {
@@ -428,11 +405,8 @@ export async function openMultiSourceModal(videoName, videoList) {
     // 自動選擇第一個來源
     if (videoList.length > 0) {
         // 確保 state.multiSourceVideos 已經設置後再點擊第一個來源
-        console.log('準備自動點擊第一個來源，當前 multiSourceVideos:', state.multiSourceVideos);
-
         // 使用 requestAnimationFrame 確保 DOM 更新完成後再點擊
         requestAnimationFrame(() => {
-            console.log('執行自動點擊，當前 multiSourceVideos:', state.multiSourceVideos);
             if (playlistSources.firstElementChild) {
                 playlistSources.firstElementChild.click();
             }
@@ -799,8 +773,6 @@ export function closeModal() {
     // 在關閉前保存當前進度
     state.saveCurrentProgress();
 
-    console.log('closeModal 清空 multiSourceVideos:', state.multiSourceVideos);
-
     document.body.classList.remove('modal-open');
     $('#videoModal').style.display = 'none';
     if (state.artplayer) {
@@ -874,12 +846,8 @@ export function showError(msg) {
 export function renderWatchHistory() {
     const historyContainer = $('#watchHistoryContainer');
     if (!historyContainer) {
-        console.error('找不到歷史紀錄容器元素');
         return;
     }
-
-    console.log('渲染歷史紀錄 - 當前歷史紀錄數量:', state.watchHistory.length);
-    console.log('當前歷史紀錄:', state.watchHistory);
 
     // 清理無效的歷史紀錄（站台不存在的記錄）
     if (state.sites && state.sites.length > 0) {
@@ -891,14 +859,12 @@ export function renderWatchHistory() {
                 state.sites.some(s => s.id === item.siteId || s.name === item.siteName) ||
                 (item.siteId && item.siteName === null); // 允許siteName為null但有siteId的記錄
 
-            if (!hasValidSite) {
-                console.log('清理無效歷史紀錄:', item);
-            }
+
 
             return hasValidSite;
         });
         if (originalLength !== state.watchHistory.length) {
-            console.log('清理了', originalLength - state.watchHistory.length, '條無效歷史紀錄');
+
             state.saveWatchHistory();
         }
 
@@ -909,12 +875,7 @@ export function renderWatchHistory() {
                 const site = state.sites.find(s => s.id === item.siteId);
                 if (site) {
                     item.siteName = site.name;
-                    console.log('修復歷史紀錄站台信息:', {
-                        videoId: item.videoId,
-                        oldSiteName: '未知站台',
-                        newSiteName: site.name,
-                        siteId: item.siteId
-                    });
+
                 }
             }
         });
@@ -932,13 +893,10 @@ export function renderWatchHistory() {
             }
         });
 
-        if (invalidHistoryItems.length > 0) {
-            console.log('發現無效歷史紀錄:', invalidHistoryItems);
-        }
+
     }
 
     if (state.watchHistory.length === 0) {
-        console.log('歷史紀錄為空，顯示「暫無觀看歷史」');
         historyContainer.innerHTML = `
             <p class="no-history">暫無觀看歷史</p>
         `;

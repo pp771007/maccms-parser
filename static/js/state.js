@@ -37,17 +37,13 @@ export default {
     // 載入觀看歷史紀錄
     loadWatchHistory() {
         const saved = localStorage.getItem('watchHistory');
-        console.log('載入歷史紀錄 - localStorage中的數據:', saved);
         if (saved) {
             try {
                 this.watchHistory = JSON.parse(saved);
-                console.log('歷史紀錄載入成功，共', this.watchHistory.length, '條記錄');
             } catch (e) {
-                console.error('載入觀看歷史紀錄失敗:', e);
                 this.watchHistory = [];
             }
         } else {
-            console.log('localStorage中沒有歷史紀錄數據');
             this.watchHistory = [];
         }
     },
@@ -101,13 +97,11 @@ export default {
     // 儲存觀看歷史紀錄
     saveWatchHistory() {
         const dataToSave = JSON.stringify(this.watchHistory);
-        console.log('保存歷史紀錄到localStorage:', dataToSave);
         localStorage.setItem('watchHistory', dataToSave);
     },
 
     // 添加觀看歷史紀錄
     addToHistory(videoInfo) {
-        console.log('添加歷史紀錄:', videoInfo);
 
         // 查找是否已存在同一部影片的記錄（使用 videoId + siteId）
         const existingIndex = this.watchHistory.findIndex(item =>
@@ -127,9 +121,6 @@ export default {
             if (isNewEpisode) {
                 existingItem.currentTime = 0;
                 existingItem.duration = 0;
-                console.log('播放新集數，重置進度');
-            } else {
-                console.log('播放相同集數，保留進度:', existingItem.currentTime);
             }
 
             existingItem.lastWatched = Date.now();
@@ -139,15 +130,12 @@ export default {
             this.watchHistory.splice(existingIndex, 1);
             this.watchHistory.unshift(existingItem);
 
-            console.log('更新現有影片記錄:', existingItem);
         } else {
             // 如果不存在，添加新記錄
             this.watchHistory.unshift({
                 ...videoInfo,
                 timestamp: Date.now()
             });
-
-            console.log('添加新影片記錄:', videoInfo);
         }
 
         // 限制歷史紀錄數量（最多50條）
@@ -155,7 +143,6 @@ export default {
             this.watchHistory = this.watchHistory.slice(0, 50);
         }
 
-        console.log('歷史紀錄更新後，共', this.watchHistory.length, '條記錄');
         this.saveWatchHistory();
     },
 

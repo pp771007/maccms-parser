@@ -90,9 +90,9 @@ function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('/static/sw.js').then(registration => {
-                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                // ServiceWorker registered successfully
             }, err => {
-                console.log('ServiceWorker registration failed: ', err);
+                // ServiceWorker registration failed
             });
         });
     }
@@ -197,11 +197,7 @@ async function loadSitesAndAutoLoadLast() {
         // 過濾掉無效的站台（沒有 id 或 name 的站台）
         state.sites = sites.filter(site => site && site.id && site.name && site.url);
 
-        console.log('載入站台列表:', {
-            totalSites: sites.length,
-            validSites: state.sites.length,
-            sites: state.sites.map(s => ({ id: s.id, name: s.name, url: s.url }))
-        });
+
 
         ui.renderSites(state.sites);
 
@@ -375,20 +371,7 @@ async function fetchAndRender() {
                 state.currentKeyword
             );
 
-            console.log('多選站台查詢結果:', {
-                searchSiteIds: state.searchSiteIds,
-                keyword: state.currentKeyword,
-                page: state.currentPage,
-                resultList: result.list,
-                resultListLength: result.list?.length,
-                searchStats: result.search_stats,
-                videosBySite: result.list?.reduce((acc, video) => {
-                    const site = video.from_site || 'unknown';
-                    if (!acc[site]) acc[site] = [];
-                    acc[site].push({ id: video.vod_id, name: video.vod_name, from_site: video.from_site, from_site_id: video.from_site_id });
-                    return acc;
-                }, {})
-            });
+
 
             // In multi-site search, categories are disabled.
             state.categories = [];
