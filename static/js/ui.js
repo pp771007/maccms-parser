@@ -684,6 +684,18 @@ export function showHistoryPanel() {
         if (closeHistoryBtn) {
             closeHistoryBtn.onclick = hideHistoryPanel;
         }
+
+        // 防止滾動傳播到外部頁面
+        const historyContainer = $('#watchHistoryContainer');
+        if (historyContainer) {
+            historyContainer.addEventListener('wheel', (e) => {
+                e.stopPropagation();
+            }, { passive: false });
+
+            historyContainer.addEventListener('touchmove', (e) => {
+                e.stopPropagation();
+            }, { passive: false });
+        }
     }
 }
 
