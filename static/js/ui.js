@@ -103,12 +103,6 @@ export function renderVideos(videos) {
 
         // 點擊時顯示所有來源的詳細資訊
         card.addEventListener('click', () => {
-            console.log('影片卡片點擊:', {
-                videoName,
-                videoListLength: videoList.length,
-                videoList: videoList.map(v => ({ id: v.vod_id, from_site: v.from_site, from_site_id: v.from_site_id })),
-                isMultiSiteSearch: state.searchSiteIds.length > 0
-            });
 
             // 在多站點搜尋模式下，即使只有一個結果也使用 openMultiSourceModal
             // 這樣可以確保站台信息正確傳遞
@@ -451,7 +445,7 @@ function renderEpisodesOnly() {
                 if (!siteId && state.currentSite) {
                     siteId = state.currentSite.id;
                     siteName = state.currentSite.name;
-                    console.log('renderEpisodesOnly 使用當前站台信息:', { siteId, siteName });
+
                 }
 
                 // 如果還是沒有，嘗試從站台列表中查找
@@ -460,7 +454,7 @@ function renderEpisodesOnly() {
                     if (validSites.length > 0) {
                         siteId = validSites[0].id;
                         siteName = validSites[0].name;
-                        console.log('renderEpisodesOnly 使用站台列表第一個站台:', { siteId, siteName });
+
                     }
                 }
 
@@ -473,13 +467,7 @@ function renderEpisodesOnly() {
                     siteName: siteName || '未知站台'
                 };
 
-                console.log('renderEpisodesOnly 構造 videoInfo:', {
-                    videoInfo,
-                    currentSourceIndex: state.currentSourceIndex,
-                    multiSourceVideos: state.multiSourceVideos?.map(v => ({ id: v.vod_id, from_site: v.from_site, from_site_id: v.from_site_id })),
-                    currentSite: state.currentSite ? { id: state.currentSite.id, name: state.currentSite.name } : null,
-                    availableSites: state.sites.length
-                });
+
 
                 playVideo(epi.url, item, videoInfo);
             };
@@ -496,18 +484,11 @@ function renderEpisodesOnly() {
             // 在多站點模式下，優先使用多來源影片的站台信息
             if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
                 const currentVideo = state.multiSourceVideos[state.currentSourceIndex];
-                console.log('renderEpisodesOnly 多站點模式獲取站台信息:', {
-                    currentSourceIndex: state.currentSourceIndex,
-                    currentVideo: currentVideo ? {
-                        id: currentVideo.vod_id,
-                        from_site: currentVideo.from_site,
-                        from_site_id: currentVideo.from_site_id
-                    } : null
-                });
+
                 if (currentVideo) {
                     siteId = currentVideo.from_site_id;
                     siteName = currentVideo.from_site;
-                    console.log('renderEpisodesOnly 從多來源影片獲取站台信息:', { siteId, siteName });
+
                 }
             }
 
@@ -515,7 +496,7 @@ function renderEpisodesOnly() {
             if (!siteId && state.currentSite) {
                 siteId = state.currentSite.id;
                 siteName = state.currentSite.name;
-                console.log('renderEpisodesOnly auto-play 使用當前站台信息:', { siteId, siteName });
+
             }
 
             // 如果還是沒有，嘗試從站台列表中查找
@@ -524,19 +505,29 @@ function renderEpisodesOnly() {
                 if (validSites.length > 0) {
                     siteId = validSites[0].id;
                     siteName = validSites[0].name;
-                    console.log('renderEpisodesOnly auto-play 使用站台列表第一個站台:', { siteId, siteName });
+
                 }
+            }
+
+            // 獲取純影片名稱（不包含來源數量信息）
+            let pureVideoName = $('#modalTitle').textContent;
+            if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
+                // 如果是多來源模式，使用第一個影片的名稱
+                pureVideoName = state.multiSourceVideos[0].vod_name;
+            } else if (state.currentVideo) {
+                // 如果是單一影片模式，使用當前影片的名稱
+                pureVideoName = state.currentVideo.vod_name;
             }
 
             const videoInfo = {
                 videoId: state.currentVideo?.vod_id || currentSource.episodes[0]?.vod_id,
-                videoName: $('#modalTitle').textContent,
+                videoName: pureVideoName,
                 episodeName: currentSource.episodes[0].name,
                 episodeUrl: currentSource.episodes[0].url,
                 siteId: siteId,
                 siteName: siteName || '未知站台'
             };
-            console.log('renderEpisodesOnly auto-play videoInfo:', videoInfo);
+
             playVideo(currentSource.episodes[0].url, firstEpisode, videoInfo);
         }
     } else {
@@ -551,12 +542,7 @@ function renderEpisodesOnly() {
 }
 
 function renderPlaylist(sourceIndex = 0) {
-    console.log('renderPlaylist 開始執行:', {
-        sourceIndex,
-        modalData: state.modalData,
-        multiSourceVideos: state.multiSourceVideos,
-        currentSourceIndex: state.currentSourceIndex
-    });
+
 
     if (!state.modalData || state.modalData.length === 0) {
         $('#episodeList').innerHTML = '<p>沒有可用的播放源。</p>';
@@ -565,11 +551,11 @@ function renderPlaylist(sourceIndex = 0) {
 
     // 檢查是否為多來源模式
     const isMultiSourceMode = state.multiSourceVideos && state.multiSourceVideos.length > 0;
-    console.log('多來源模式檢查:', { isMultiSourceMode, multiSourceVideosLength: state.multiSourceVideos?.length });
+
 
     // 如果 multiSourceVideos 是 undefined 但我們在模態框中，嘗試從 DOM 中獲取多來源信息
     if (!isMultiSourceMode && state.multiSourceVideos === undefined && $('#playlistSources').children.length > 1) {
-        console.log('檢測到多來源模式但 multiSourceVideos 未設置，嘗試從 DOM 恢復');
+
         // 這裡可以嘗試從其他地方恢復多來源信息
     }
 
@@ -605,13 +591,7 @@ function renderPlaylist(sourceIndex = 0) {
         modalDataToUse = state.multiSourceModalData[sourceIndex] || state.modalData;
     }
 
-    console.log('renderPlaylist 檢查 modalData:', {
-        sourceIndex,
-        modalDataLength: modalDataToUse?.length,
-        modalData: modalDataToUse,
-        currentSource: modalDataToUse?.[0], // 在多來源模式下，每個來源的 modalData 只有一個元素
-        multiSourceModalData: state.multiSourceModalData
-    });
+
 
     const currentSource = modalDataToUse?.[0]; // 在多來源模式下，每個來源的 modalData 只有一個元素
     if (currentSource && currentSource.episodes && currentSource.episodes.length > 0) {
@@ -628,23 +608,11 @@ function renderPlaylist(sourceIndex = 0) {
                 if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
                     // 使用傳入的 sourceIndex 而不是 state.currentSourceIndex
                     const currentVideo = state.multiSourceVideos[sourceIndex];
-                    console.log('多站點模式獲取站台信息:', {
-                        sourceIndex,
-                        currentVideo: currentVideo ? {
-                            id: currentVideo.vod_id,
-                            from_site: currentVideo.from_site,
-                            from_site_id: currentVideo.from_site_id
-                        } : null,
-                        allMultiSourceVideos: state.multiSourceVideos.map(v => ({
-                            id: v.vod_id,
-                            from_site: v.from_site,
-                            from_site_id: v.from_site_id
-                        }))
-                    });
+
                     if (currentVideo) {
                         siteId = currentVideo.from_site_id;
                         siteName = currentVideo.from_site;
-                        console.log('從多來源影片獲取站台信息:', { siteId, siteName });
+
                     }
                 }
 
@@ -652,7 +620,7 @@ function renderPlaylist(sourceIndex = 0) {
                 if (!siteId && state.currentSite) {
                     siteId = state.currentSite.id;
                     siteName = state.currentSite.name;
-                    console.log('renderPlaylist 使用當前站台信息:', { siteId, siteName });
+
                 }
 
                 // 如果還是沒有，嘗試從站台列表中查找
@@ -661,7 +629,7 @@ function renderPlaylist(sourceIndex = 0) {
                     if (validSites.length > 0) {
                         siteId = validSites[0].id;
                         siteName = validSites[0].name;
-                        console.log('renderPlaylist 使用站台列表第一個站台:', { siteId, siteName });
+
                     }
                 }
 
@@ -683,13 +651,7 @@ function renderPlaylist(sourceIndex = 0) {
                     siteName: siteName || '未知站台'
                 };
 
-                console.log('renderPlaylist videoInfo:', {
-                    videoInfo,
-                    sourceIndex,
-                    currentSourceIndex: state.currentSourceIndex,
-                    currentVideo: state.currentVideo ? { id: state.currentVideo.vod_id, from_site: state.currentVideo.from_site, from_site_id: state.currentVideo.from_site_id } : null,
-                    multiSourceVideos: state.multiSourceVideos?.map(v => ({ id: v.vod_id, from_site: v.from_site, from_site_id: v.from_site_id }))
-                });
+
 
                 playVideo(epi.url, item, videoInfo);
             };
@@ -717,7 +679,7 @@ function renderPlaylist(sourceIndex = 0) {
             if (!siteId && state.currentSite) {
                 siteId = state.currentSite.id;
                 siteName = state.currentSite.name;
-                console.log('renderPlaylist auto-play 使用當前站台信息:', { siteId, siteName });
+
             }
 
             // 如果還是沒有，嘗試從站台列表中查找
@@ -726,7 +688,7 @@ function renderPlaylist(sourceIndex = 0) {
                 if (validSites.length > 0) {
                     siteId = validSites[0].id;
                     siteName = validSites[0].name;
-                    console.log('renderPlaylist auto-play 使用站台列表第一個站台:', { siteId, siteName });
+
                 }
             }
 
@@ -739,22 +701,26 @@ function renderPlaylist(sourceIndex = 0) {
                 }
             }
 
+            // 獲取純影片名稱（不包含來源數量信息）
+            let pureVideoName = $('#modalTitle').textContent;
+            if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
+                // 如果是多來源模式，使用第一個影片的名稱
+                pureVideoName = state.multiSourceVideos[0].vod_name;
+            } else if (state.currentVideo) {
+                // 如果是單一影片模式，使用當前影片的名稱
+                pureVideoName = state.currentVideo.vod_name;
+            }
+
             const videoInfo = {
                 videoId: videoId,
-                videoName: $('#modalTitle').textContent,
+                videoName: pureVideoName,
                 episodeName: currentSource.episodes[0].name,
                 episodeUrl: currentSource.episodes[0].url,
                 siteId: siteId,
                 siteName: siteName || '未知站台'
             };
 
-            console.log('renderPlaylist auto-play videoInfo:', {
-                videoInfo,
-                sourceIndex,
-                currentSourceIndex: state.currentSourceIndex,
-                currentVideo: state.currentVideo ? { id: state.currentVideo.vod_id, from_site: state.currentVideo.from_site, from_site_id: state.currentVideo.from_site_id } : null,
-                multiSourceVideos: state.multiSourceVideos?.map(v => ({ id: v.vod_id, from_site: v.from_site, from_site_id: v.from_site_id }))
-            });
+
 
             playVideo(currentSource.episodes[0].url, firstEpisode, videoInfo);
         }
@@ -978,7 +944,7 @@ export function renderWatchHistory() {
                     if (validSites.length > 0) {
                         site = validSites[0];
                         console.warn(`找不到歷史紀錄中的站台 (ID: ${item.siteId}, Name: ${item.siteName})，使用第一個可用站台: ${site.name}`);
-                        console.log('當前可用站台列表:', validSites.map(s => ({ id: s.id, name: s.name, url: s.url })));
+
                     }
                 }
 
@@ -1122,20 +1088,9 @@ function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
                 };
 
                 // 如果是目標劇集且有播放進度，傳遞 historyItem 給 playVideo
-                console.log('播放劇集:', {
-                    episodeName: epi.name,
-                    episodeUrl: epi.url,
-                    isTargetEpisode,
-                    historyItemEpisodeUrl: historyItem.episodeUrl,
-                    historyItemCurrentTime: historyItem.currentTime,
-                    willPassHistoryItem: isTargetEpisode && historyItem.currentTime > 0
-                });
-
                 if (isTargetEpisode && historyItem.currentTime > 0) {
-                    console.log('傳遞 historyItem 給 playVideo');
                     playVideo(epi.url, item, videoInfo, historyItem);
                 } else {
-                    console.log('不傳遞 historyItem 給 playVideo');
                     playVideo(epi.url, item, videoInfo);
                 }
             };
