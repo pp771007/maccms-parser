@@ -51,35 +51,42 @@ window.history.pushState(null, null, window.location.href);
 function handleEscKey(e) {
     if (e.key !== 'Escape') return;
 
-    // 檢查是否在全螢幕模式，如果是則不處理（讓 ArtPlayer 處理）
-    if (document.fullscreenElement ||
+    // 合併全螢幕判斷，如果有任一全螢幕狀態則不處理 ESC（讓 ArtPlayer 處理）
+    if (
+        document.fullscreenElement ||
         document.webkitFullscreenElement ||
         document.mozFullScreenElement ||
-        document.msFullscreenElement) {
+        document.msFullscreenElement
+    ) {
         return;
     }
 
-    // 按照視覺層級（z-index）的順序處理，最上層的優先處理
-    // 1. 檢查是否有 toast 顯示（z-index: 9998）
+    // 檢查 ArtPlayer 是否處於全螢幕模式
+    if (state.artplayer && state.artplayer.fullscreenWeb) {
+        state.artplayer.fullscreenWeb = false;
+        return;
+    }
+
+    // 1. 檢查是否有 toast 顯示
     const toast = document.querySelector('.custom-toast.show');
     if (toast) {
         // toast 通常會自動消失，不需要手動關閉
         return;
     }
 
-    // 2. 檢查 videoModal（z-index: 9997）
+    // 2. 檢查 videoModal
     if ($('#videoModal').style.display === 'flex') {
         ui.closeModal();
         return;
     }
 
-    // 3. 檢查 siteSelectionModal（z-index: 9997）
+    // 3. 檢查 siteSelectionModal
     if ($('#siteSelectionModal').style.display === 'flex') {
         ui.closeSiteSelectionModal();
         return;
     }
 
-    // 4. 檢查 historyPanel（z-index: 999）
+    // 4. 檢查 historyPanel
     if ($('#historyPanel').style.display === 'flex') {
         ui.hideHistoryPanel();
         return;
