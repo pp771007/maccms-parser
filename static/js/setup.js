@@ -4,13 +4,8 @@ import * as api from './api.js';
 import { $ } from './utils.js';
 import { showModal, showConfirm, showToast } from './modal.js';
 
-// PWA 返回處理變數
-let backPressCount = 0;
-let backPressTimer = null;
-
 document.addEventListener('DOMContentLoaded', () => {
     loadSites();
-    setupPWAExitHandler();
     setupReturnLink();
     $('#addSiteBtn').addEventListener('click', handleAddNewSite);
     $('#checkAllSitesBtn').addEventListener('click', handleCheckAllSites);
@@ -22,44 +17,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setupReturnLink() {
     // 為「返回主頁」連結添加點擊事件
-    const returnLink = document.querySelector('.find-sites-link');
-    if (returnLink) {
-        returnLink.addEventListener('click', (e) => {
-            // 設置標記，表示從其他頁面返回
-            sessionStorage.setItem('fromOtherPage', 'true');
-        });
-    }
-}
-
-function setupPWAExitHandler() {
-    // 阻止設定頁面的返回行為
-    window.history.pushState(null, null, window.location.href);
-
-    // 監聽瀏覽器的返回按鈕事件
-    window.addEventListener('popstate', (e) => {
-        e.preventDefault();
-
-        // 在PWA模式下，直接返回主頁面
-        if (window.matchMedia('(display-mode: standalone)').matches ||
-            window.navigator.standalone === true) {
-
-            // 清除任何現有的計時器
-            if (backPressTimer) {
-                clearTimeout(backPressTimer);
-            }
-
-            // 設置標記，表示從其他頁面返回
-            sessionStorage.setItem('fromOtherPage', 'true');
-
-            // 重置返回計數器並返回主頁面
-            backPressCount = 0;
-            window.location.href = '/';
-        } else {
-            // 非PWA模式，重新推入狀態以防止返回
-            window.history.pushState(null, null, window.location.href);
+    const returnLinks = document.querySelectorAll('.find-sites-link');
+    returnLinks.forEach(link => {
+        // 只為包含「返回主頁」文字的連結添加事件監聽器
+        if (link.textContent.includes('返回主頁')) {
+            link.addEventListener('click', (e) => {
+                e.preventDefault(); // 阻止預設的導航行為
+                // 設置標記，表示從其他頁面返回
+                sessionStorage.setItem('fromOtherPage', 'true');
+                // 使用 replace 模式導航到主頁，不會在歷史記錄中留下設定頁面
+                window.location.replace('/');
+            });
         }
     });
 }
+
+
 
 async function loadSites() {
     try {
