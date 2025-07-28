@@ -2,7 +2,7 @@ import state from './state.js';
 import { $$ } from './utils.js';
 import { showModal } from './modal.js';
 
-export function playVideo(url, element, videoInfo = null) {
+export function playVideo(url, element, videoInfo = null, historyItem = null) {
     $$('.episode-item').forEach(el => el.classList.remove('playing'));
     if (element) element.classList.add('playing');
 
@@ -19,6 +19,16 @@ export function playVideo(url, element, videoInfo = null) {
         state.currentVideoInfo = videoInfo;
         state.addToHistory(videoInfo);
     }
+
+    // 檢查是否有歷史進度需要恢復
+    const historyItemToUse = historyItem || state.watchHistory.find(item =>
+        item.videoId === state.currentVideoInfo?.videoId &&
+        item.episodeUrl === state.currentVideoInfo?.episodeUrl &&
+        item.siteId === state.currentVideoInfo?.siteId
+    );
+
+    // 決定是否自動播放
+    const shouldAutoplay = !(historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 0);
 
     state.artplayer = new Artplayer({
         container: '#artplayer-container',
@@ -38,7 +48,7 @@ export function playVideo(url, element, videoInfo = null) {
         // 手機端優化設定
         fullscreenWeb: true,
         mini: true,
-        autoplay: true,
+        autoplay: shouldAutoplay, // 根據是否有歷史進度決定是否自動播放
         setting: true,
         // 添加自定義控制按鈕
         controls: [
@@ -187,74 +197,91 @@ export function playVideo(url, element, videoInfo = null) {
         }
     });
 
-    // 檢查是否有歷史進度需要恢復
-    const historyItem = state.watchHistory.find(item =>
-        item.videoId === state.currentVideoInfo?.videoId &&
-        item.episodeUrl === state.currentVideoInfo?.episodeUrl &&
-        item.siteId === state.currentVideoInfo?.siteId
-    );
+    // 處理歷史進度恢復
+    if (historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 0) {
+        console.log('檢測到歷史進度，準備恢復到:', historyItemToUse.currentTime, '秒');
 
-
-
-    // 強制進度恢復檢查
-    setTimeout(() => {
-        if (historyItem && historyItem.currentTime && state.artplayer) {
-            const currentTime = state.artplayer.currentTime;
-            const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
-
-            if (Math.abs(currentTime - targetTime) > 5) {
-                state.artplayer.currentTime = targetTime;
-            }
-        }
-    }, 3000); // 3秒後強制檢查
-
-    // 更強制的進度恢復 - 在播放器完全載入後
-    setTimeout(() => {
-        if (historyItem && historyItem.currentTime && state.artplayer && state.artplayer.duration > 0) {
-            const currentTime = state.artplayer.currentTime;
-            const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
-
-            // 如果當前時間接近0，強制跳轉
-            if (currentTime < 5 && targetTime > 10) {
-                state.artplayer.currentTime = targetTime;
-            }
-        }
-    }, 5000); // 5秒後最終檢查
-
-    // 影片載入完成後恢復進度
-    state.artplayer.on('loadedmetadata', () => {
-        if (historyItem && historyItem.currentTime && historyItem.duration) {
-            // 確保影片已經載入完成
-            setTimeout(() => {
-                if (state.artplayer && state.artplayer.duration > 0) {
-                    const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
-                    if (targetTime > 0) {
-                        state.artplayer.currentTime = targetTime;
-                    }
+        // 使用多個事件來確保進度恢復
+        const restoreProgress = () => {
+            if (state.artplayer && state.artplayer.duration > 0) {
+                const targetTime = Math.min(historyItemToUse.currentTime, state.artplayer.duration - 10);
+                if (targetTime > 0) {
+                    console.log('恢復進度到:', targetTime, '秒');
+                    // 先暫停播放
+                    state.artplayer.pause();
+                    // 跳到正確秒數
+                    state.artplayer.currentTime = targetTime;
+                    // 延遲一下再開始播放，讓用戶看到跳轉效果
+                    setTimeout(() => {
+                        if (state.artplayer) {
+                            state.artplayer.play();
+                            console.log('開始播放');
+                        }
+                    }, 800);
                 }
-            }, 1000); // 延遲1秒確保影片完全載入
-        }
-    });
-
-    // 影片可以播放時移除載入指示器
-    state.artplayer.on('canplay', () => {
-        // 移除載入指示器
-        const container = document.getElementById('artplayer-container');
-        const loadingDiv = container.querySelector('div[style*="載入中"]');
-        if (loadingDiv) {
-            loadingDiv.remove();
-        }
-
-        if (historyItem && historyItem.currentTime && !state.artplayer.paused) {
-            // 如果影片正在播放但時間不對，重新設置
-            const currentTime = state.artplayer.currentTime;
-            const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
-
-            if (Math.abs(currentTime - targetTime) > 5) { // 如果時間差異超過5秒
-                state.artplayer.currentTime = targetTime;
             }
-        }
-    });
+        };
+
+        // 在影片載入完成後恢復進度
+        state.artplayer.on('loadedmetadata', () => {
+            console.log('loadedmetadata 事件觸發');
+            setTimeout(restoreProgress, 500);
+        });
+
+        // 在影片可以播放時再次嘗試恢復進度
+        state.artplayer.on('canplay', () => {
+            console.log('canplay 事件觸發');
+            // 移除載入指示器
+            const container = document.getElementById('artplayer-container');
+            const loadingDiv = container.querySelector('div[style*="載入中"]');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+
+            // 如果還沒有恢復進度，再次嘗試
+            if (state.artplayer.currentTime < 5) {
+                setTimeout(restoreProgress, 300);
+            }
+        });
+
+        // 在影片開始播放時檢查進度
+        state.artplayer.on('play', () => {
+            console.log('play 事件觸發，當前時間:', state.artplayer.currentTime);
+            // 如果播放開始但時間不對，重新設置
+            if (state.artplayer.currentTime < 5 && historyItemToUse.currentTime > 10) {
+                setTimeout(restoreProgress, 200);
+            }
+        });
+
+        // 強制檢查 - 在播放器創建後的一段時間內多次檢查
+        let checkCount = 0;
+        const maxChecks = 10;
+        const checkInterval = setInterval(() => {
+            checkCount++;
+            if (state.artplayer && state.artplayer.duration > 0 && state.artplayer.currentTime < 5) {
+                console.log(`強制檢查 ${checkCount}: 恢復進度`);
+                restoreProgress();
+            }
+            if (checkCount >= maxChecks || (state.artplayer && state.artplayer.currentTime > 5)) {
+                clearInterval(checkInterval);
+            }
+        }, 1000);
+    } else {
+        // 沒有歷史進度時，正常自動播放
+        state.artplayer.on('canplay', () => {
+            // 移除載入指示器
+            const container = document.getElementById('artplayer-container');
+            const loadingDiv = container.querySelector('div[style*="載入中"]');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+
+            // 自動開始播放
+            if (state.artplayer && !state.artplayer.paused) {
+                state.artplayer.play();
+            }
+        });
+    }
 
     // 處理載入錯誤
     state.artplayer.on('error', (error) => {
@@ -269,19 +296,6 @@ export function playVideo(url, element, videoInfo = null) {
 
     // 播放時開始記錄進度
     state.artplayer.on('play', () => {
-        // 延遲檢查，確保影片已經開始播放
-        setTimeout(() => {
-            if (historyItem && historyItem.currentTime && state.artplayer) {
-                const currentTime = state.artplayer.currentTime;
-                const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
-
-                // 如果當前時間與目標時間差異很大，重新設置
-                if (Math.abs(currentTime - targetTime) > 10) {
-                    state.artplayer.currentTime = targetTime;
-                }
-            }
-        }, 2000); // 延遲2秒檢查
-
         // 開始記錄進度
         if (progressTimer) clearInterval(progressTimer);
         progressTimer = setInterval(() => {
