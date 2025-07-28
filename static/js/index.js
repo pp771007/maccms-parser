@@ -51,17 +51,13 @@ window.history.pushState(null, null, window.location.href);
 function handleEscKey(e) {
     if (e.key !== 'Escape') return;
 
-    // 合併全螢幕判斷，如果有任一全螢幕狀態則不處理 ESC（讓 ArtPlayer 處理）
-    if (
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement
-    ) {
+    // 檢查 ArtPlayer 是否處於全螢幕模式
+    if (state.artplayer && state.artplayer.fullscreen) {
+        // 如果 ArtPlayer 處於全螢幕模式，則不處理 ESC 鍵
         return;
     }
 
-    // 檢查 ArtPlayer 是否處於全螢幕模式
+    // 檢查 ArtPlayer 是否處於網頁全螢幕模式
     if (state.artplayer && state.artplayer.fullscreenWeb) {
         state.artplayer.fullscreenWeb = false;
         return;
