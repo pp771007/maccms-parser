@@ -1518,3 +1518,38 @@ body.modal-open {
         font-size: 11px;
     }
 }
+
+/* 播放器控制按鈕樣式 */
+.art-controls .art-control {
+    transition: all 0.2s ease;
+}
+
+.art-controls .art-control:hover {
+    transform: scale(1.1);
+    opacity: 0.8;
+}
+
+/* 快進快退按鈕特殊樣式 */
+.art-controls .art-control[data-tooltip*="10秒"] {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 4px;
+    margin: 0 2px;
+}
+
+.art-controls .art-control[data-tooltip*="10秒"]:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* 手機端按鈕樣式調整 */
+@media (max-width: 768px) {
+    .art-controls .art-control[data-tooltip*="10秒"] {
+        padding: 6px;
+        margin: 0 1px;
+    }
+
+    .art-controls .art-control[data-tooltip*="10秒"] svg {
+        width: 20px;
+        height: 20px;
+    }
+}

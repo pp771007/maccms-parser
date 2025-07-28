@@ -40,6 +40,25 @@ export function playVideo(url, element, videoInfo = null) {
         mini: true,
         autoplay: true,
         setting: true,
+        // 添加自定義控制按鈕
+        controls: [
+            {
+                position: 'left',
+                html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>',
+                tooltip: '往前10秒',
+                click: function () {
+                    this.currentTime = Math.max(0, this.currentTime - 10);
+                },
+            },
+            {
+                position: 'left',
+                html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h-2v12h2V6zm-3.5 6l-8.5 6V6l8.5 6z"/></svg>',
+                tooltip: '往後10秒',
+                click: function () {
+                    this.currentTime = Math.min(this.duration, this.currentTime + 10);
+                },
+            },
+        ],
         settings: [
             {
                 html: '速度',
