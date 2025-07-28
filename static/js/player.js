@@ -199,14 +199,11 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
 
     // 處理歷史進度恢復
     if (historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 0) {
-        console.log('檢測到歷史進度，準備恢復到:', historyItemToUse.currentTime, '秒');
-
         // 使用多個事件來確保進度恢復
         const restoreProgress = () => {
             if (state.artplayer && state.artplayer.duration > 0) {
                 const targetTime = Math.min(historyItemToUse.currentTime, state.artplayer.duration - 10);
                 if (targetTime > 0) {
-                    console.log('恢復進度到:', targetTime, '秒');
                     // 先暫停播放
                     state.artplayer.pause();
                     // 跳到正確秒數
@@ -215,7 +212,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                     setTimeout(() => {
                         if (state.artplayer) {
                             state.artplayer.play();
-                            console.log('開始播放');
                         }
                     }, 800);
                 }
@@ -224,13 +220,11 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
 
         // 在影片載入完成後恢復進度
         state.artplayer.on('loadedmetadata', () => {
-            console.log('loadedmetadata 事件觸發');
             setTimeout(restoreProgress, 500);
         });
 
         // 在影片可以播放時再次嘗試恢復進度
         state.artplayer.on('canplay', () => {
-            console.log('canplay 事件觸發');
             // 移除載入指示器
             const container = document.getElementById('artplayer-container');
             const loadingDiv = container.querySelector('div[style*="載入中"]');
@@ -246,7 +240,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
 
         // 在影片開始播放時檢查進度
         state.artplayer.on('play', () => {
-            console.log('play 事件觸發，當前時間:', state.artplayer.currentTime);
             // 如果播放開始但時間不對，重新設置
             if (state.artplayer.currentTime < 5 && historyItemToUse.currentTime > 10) {
                 setTimeout(restoreProgress, 200);
@@ -259,7 +252,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         const checkInterval = setInterval(() => {
             checkCount++;
             if (state.artplayer && state.artplayer.duration > 0 && state.artplayer.currentTime < 5) {
-                console.log(`強制檢查 ${checkCount}: 恢復進度`);
                 restoreProgress();
             }
             if (checkCount >= maxChecks || (state.artplayer && state.artplayer.currentTime > 5)) {
@@ -285,7 +277,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
 
     // 處理載入錯誤
     state.artplayer.on('error', (error) => {
-        console.error('播放器載入錯誤:', error);
         // 顯示錯誤信息
         const container = document.getElementById('artplayer-container');
         container.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: white; font-size: 16px; text-align: center; padding: 20px;">載入失敗，請稍後重試<br><small>錯誤代碼: ' + (error?.code || 'unknown') + '</small></div>';
