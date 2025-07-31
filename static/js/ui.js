@@ -10,7 +10,13 @@ export function renderSites(sites) {
     selector.innerHTML = '<option value="">-- 請選擇一個站點 --</option>';
     // The 'sites' array is now pre-filtered and sorted by the backend.
     sites.forEach(site => {
-        const displayName = site.note ? `${site.name} (${site.note})` : site.name;
+        let displayName = site.note ? `${site.name} (${site.note})` : site.name;
+        const errors = site.consecutive_errors || 0;
+        if (errors >= 2) {
+            displayName = `🔴 ${displayName}`;
+        } else if (errors === 1) {
+            displayName = `🟡 ${displayName}`;
+        }
         selector.innerHTML += `<option value="${site.id}">${displayName}</option>`;
     });
     if (sites.some(s => s.id == currentVal)) {
@@ -787,7 +793,13 @@ export function openSiteSelectionModal() {
         checkbox.value = site.id;
         checkbox.checked = state.searchSiteIds.includes(site.id);
         label.appendChild(checkbox);
-        const displayName = site.note ? `${site.name} (${site.note})` : site.name;
+        let displayName = site.note ? `${site.name} (${site.note})` : site.name;
+        const errors = site.consecutive_errors || 0;
+        if (errors >= 2) {
+            displayName = `🔴 ${displayName}`;
+        } else if (errors === 1) {
+            displayName = `🟡 ${displayName}`;
+        }
         label.append(` ${displayName}`);
         list.appendChild(label);
     });
@@ -1247,5 +1259,3 @@ export function clearAllHistory() {
         showToast('已清除所有觀看歷史');
     }, '請確認', 'warning');
 }
-
-

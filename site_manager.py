@@ -104,14 +104,14 @@ def check_all_sites():
                     
                     is_healthy = check_site_health(site)
                     
+                    site['last_check'] = datetime.now(timezone.utc).isoformat()
                     if not is_healthy:
-                        # 更新站點狀態為停用
-                        site['enabled'] = False
-                        site['last_check'] = datetime.now(timezone.utc).isoformat()
+                        site.setdefault('consecutive_errors', 0)
+                        site['consecutive_errors'] += 1
                         site['check_status'] = 'failed'
-                        logger.warning(f"站點 {site['name']} 檢查失敗，已設為停用")
+                        logger.warning(f"站點 {site['name']} 檢查失敗，連續錯誤 {site['consecutive_errors']} 次")
                     else:
-                        site['last_check'] = datetime.now(timezone.utc).isoformat()
+                        site['consecutive_errors'] = 0
                         site['check_status'] = 'success'
                 
                 # 儲存更新後的站點資料
@@ -157,20 +157,20 @@ def check_sites_immediately(include_disabled=False):
         try:
             is_healthy = check_site_health(site)
             
+            site['last_check'] = datetime.now(timezone.utc).isoformat()
             if not is_healthy:
-                # 更新站點狀態為停用
-                site['enabled'] = False
-                site['last_check'] = datetime.now(timezone.utc).isoformat()
+                site.setdefault('consecutive_errors', 0)
+                site['consecutive_errors'] += 1
                 site['check_status'] = 'failed'
-                logger.warning(f"站點 {site['name']} 檢查失敗，已設為停用")
+                logger.warning(f"站點 {site['name']} 檢查失敗，連續錯誤 {site['consecutive_errors']} 次")
                 results.append({
                     'name': site['name'],
                     'url': site['url'],
                     'status': 'failed',
-                    'message': '檢查失敗，已設為停用'
+                    'message': f"檢查失敗，連續錯誤 {site['consecutive_errors']} 次"
                 })
             else:
-                site['last_check'] = datetime.now(timezone.utc).isoformat()
+                site['consecutive_errors'] = 0
                 site['check_status'] = 'success'
                 results.append({
                     'name': site['name'],
@@ -205,20 +205,20 @@ def check_single_site_health(site_id):
     try:
         is_healthy = check_site_health(site)
         
+        site['last_check'] = datetime.now(timezone.utc).isoformat()
         if not is_healthy:
-            # 更新站點狀態為停用
-            site['enabled'] = False
-            site['last_check'] = datetime.now(timezone.utc).isoformat()
+            site.setdefault('consecutive_errors', 0)
+            site['consecutive_errors'] += 1
             site['check_status'] = 'failed'
-            logger.warning(f"站點 {site['name']} 檢查失敗，已設為停用")
+            logger.warning(f"站點 {site['name']} 檢查失敗，連續錯誤 {site['consecutive_errors']} 次")
             result = {
                 'name': site['name'],
                 'url': site['url'],
                 'status': 'failed',
-                'message': '檢查失敗，已設為停用'
+                'message': f"檢查失敗，連續錯誤 {site['consecutive_errors']} 次"
             }
         else:
-            site['last_check'] = datetime.now(timezone.utc).isoformat()
+            site['consecutive_errors'] = 0
             site['check_status'] = 'success'
             result = {
                 'name': site['name'],
