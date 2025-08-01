@@ -55,25 +55,8 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         mini: true,
         autoplay: shouldAutoplay, // 根據是否有歷史進度決定是否自動播放
         setting: true,
-        // 添加自定義控制按鈕
-        controls: [
-            {
-                position: 'left',
-                html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>',
-                tooltip: '往前10秒',
-                click: function () {
-                    this.currentTime = Math.max(0, this.currentTime - 10);
-                },
-            },
-            {
-                position: 'left',
-                html: '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h-2v12h2V6zm-3.5 6l-8.5 6V6l8.5 6z"/></svg>',
-                tooltip: '往後10秒',
-                click: function () {
-                    this.currentTime = Math.min(this.duration, this.currentTime + 10);
-                },
-            },
-        ],
+        // 移除自定義控制按鈕，因為現在有雙擊左右側功能
+        controls: [],
         settings: [
             {
                 html: '速度',
@@ -161,7 +144,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
             'playsinline': true,
             'webkit-playsinline': true,
         },
-        gesture: true, // 啟用手勢操作
+        gesture: false, // 停用內建手勢操作，避免與自定義雙擊功能衝突
         hotkey: true, // 啟用鍵盤控制
     });
 
@@ -195,6 +178,133 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 break;
         }
     });
+
+    // 添加雙擊螢幕左右側控制播放進度功能
+    let lastClickTime = 0;
+    let clickCount = 0;
+    let clickTimer = null;
+
+    const playerContainer = document.getElementById('artplayer-container');
+
+    // 阻止 ArtPlayer 的內建點擊事件
+    playerContainer.addEventListener('click', (event) => {
+        // 檢查是否點擊在控制欄上，如果是則不處理雙擊功能
+        const target = event.target;
+        if (target.closest('.art-controls') || target.closest('.art-control')) {
+            return;
+        }
+
+        // 阻止事件冒泡，防止觸發 ArtPlayer 的內建點擊事件
+        event.preventDefault();
+        event.stopPropagation();
+
+        const currentTime = new Date().getTime();
+        const timeDiff = currentTime - lastClickTime;
+
+        // 重置點擊計數器
+        if (timeDiff > 300) {
+            clickCount = 1;
+        } else {
+            clickCount++;
+        }
+
+        lastClickTime = currentTime;
+
+        // 清除之前的計時器
+        if (clickTimer) {
+            clearTimeout(clickTimer);
+        }
+
+        // 設置新的計時器
+        clickTimer = setTimeout(() => {
+            if (clickCount === 1) {
+                // 單擊事件 - 播放/暫停
+                if (state.artplayer) {
+                    state.artplayer.toggle();
+                }
+            } else if (clickCount === 2) {
+                // 雙擊事件
+                const rect = playerContainer.getBoundingClientRect();
+                const clickX = event.clientX - rect.left;
+                const containerWidth = rect.width;
+
+                // 判斷點擊位置（左側1/2或右側1/2）
+                if (clickX < containerWidth / 2) {
+                    // 雙擊左側 - 後退10秒
+                    if (state.artplayer) {
+                        const newTime = Math.max(0, state.artplayer.currentTime - 10);
+                        state.artplayer.currentTime = newTime;
+
+                        // 顯示提示
+                        showTimeChangeHint('後退 10 秒', 'left');
+                    }
+                } else {
+                    // 雙擊右側 - 前進10秒
+                    if (state.artplayer) {
+                        const newTime = Math.min(state.artplayer.duration, state.artplayer.currentTime + 10);
+                        state.artplayer.currentTime = newTime;
+
+                        // 顯示提示
+                        showTimeChangeHint('前進 10 秒', 'right');
+                    }
+                }
+            }
+            clickCount = 0;
+        }, 300);
+    }, true); // 使用捕獲階段來確保我們的處理器先執行
+
+    // 阻止 ArtPlayer 的內建雙擊事件
+    playerContainer.addEventListener('dblclick', (event) => {
+        // 檢查是否點擊在控制欄上
+        const target = event.target;
+        if (target.closest('.art-controls') || target.closest('.art-control')) {
+            return;
+        }
+
+        // 阻止 ArtPlayer 的內建雙擊事件
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
+
+    // 顯示時間變更提示的函數
+    function showTimeChangeHint(text, position) {
+        // 移除現有的提示
+        const existingHint = document.querySelector('.time-change-hint');
+        if (existingHint) {
+            existingHint.remove();
+        }
+
+        // 創建提示元素
+        const hint = document.createElement('div');
+        hint.className = 'time-change-hint';
+        hint.textContent = text;
+        hint.style.cssText = `
+            position: absolute;
+            top: 50%;
+            ${position === 'left' ? 'left: 20px;' : 'right: 20px;'}
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 10000;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        `;
+
+        playerContainer.appendChild(hint);
+
+        // 2秒後淡出並移除
+        setTimeout(() => {
+            hint.style.opacity = '0';
+            setTimeout(() => {
+                if (hint.parentNode) {
+                    hint.parentNode.removeChild(hint);
+                }
+            }, 300);
+        }, 2000);
+    }
 
     // 處理歷史進度恢復
     // 只有當歷史進度大於2秒時才進行恢復，避免小進度造成的問題
