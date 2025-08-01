@@ -28,7 +28,8 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     );
 
     // 決定是否自動播放
-    const shouldAutoplay = !(historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 0);
+    // 只有當歷史進度大於2秒時才不自動播放，避免小進度造成的問題
+    const shouldAutoplay = !(historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 2);
 
     // 檢測螢幕尺寸，判斷是否為小螢幕設備
     const isSmallScreen = window.innerWidth < 768;
@@ -196,20 +197,35 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     });
 
     // 處理歷史進度恢復
-    if (historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 0) {
+    // 只有當歷史進度大於2秒時才進行恢復，避免小進度造成的問題
+    if (historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 2) {
+        let progressRestored = false; // 標記是否已恢復進度
+        let restoreAttempts = 0; // 恢復嘗試次數
+        const maxRestoreAttempts = 3; // 最大嘗試次數
+
         // 使用多個事件來確保進度恢復
         const restoreProgress = () => {
+            // 如果已經恢復過進度或超過最大嘗試次數，則不再嘗試
+            if (progressRestored || restoreAttempts >= maxRestoreAttempts) {
+                return;
+            }
+
             if (state.artplayer && state.artplayer.duration > 0) {
                 const targetTime = Math.min(historyItemToUse.currentTime, state.artplayer.duration - 10);
                 if (targetTime > 0) {
+                    restoreAttempts++;
+
                     // 先暫停播放
                     state.artplayer.pause();
                     // 跳到正確秒數
                     state.artplayer.currentTime = targetTime;
+
                     // 延遲一下再開始播放，讓用戶看到跳轉效果
                     setTimeout(() => {
                         if (state.artplayer) {
                             state.artplayer.play();
+                            // 標記進度已恢復
+                            progressRestored = true;
                         }
                     }, 800);
                 }
@@ -230,29 +246,32 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 loadingDiv.remove();
             }
 
-            // 如果還沒有恢復進度，再次嘗試
-            if (state.artplayer.currentTime < 5) {
+            // 如果還沒有恢復進度且歷史進度大於2秒，再次嘗試
+            if (!progressRestored && historyItemToUse.currentTime > 2) {
                 setTimeout(restoreProgress, 300);
             }
         });
 
         // 在影片開始播放時檢查進度
         state.artplayer.on('play', () => {
-            // 如果播放開始但時間不對，重新設置
-            if (state.artplayer.currentTime < 5 && historyItemToUse.currentTime > 10) {
+            // 如果播放開始但時間不對且歷史進度大於2秒，重新設置
+            if (!progressRestored && state.artplayer.currentTime < 2 && historyItemToUse.currentTime > 2) {
                 setTimeout(restoreProgress, 200);
             }
         });
 
         // 強制檢查 - 在播放器創建後的一段時間內多次檢查
         let checkCount = 0;
-        const maxChecks = 10;
+        const maxChecks = 5; // 減少檢查次數
         const checkInterval = setInterval(() => {
             checkCount++;
-            if (state.artplayer && state.artplayer.duration > 0 && state.artplayer.currentTime < 5) {
+            if (state.artplayer && state.artplayer.duration > 0 &&
+                !progressRestored && state.artplayer.currentTime < 2 &&
+                historyItemToUse.currentTime > 2) {
                 restoreProgress();
             }
-            if (checkCount >= maxChecks || (state.artplayer && state.artplayer.currentTime > 5)) {
+            if (checkCount >= maxChecks || progressRestored ||
+                (state.artplayer && state.artplayer.currentTime > 2)) {
                 clearInterval(checkInterval);
             }
         }, 1000);
