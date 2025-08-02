@@ -3,7 +3,7 @@ import { playVideo } from './player.js';
 import { fetchVideoDetails } from './api.js';
 import { $, $$ } from './utils.js';
 import { showModal, showConfirm, showToast } from './modal.js';
-import historyManager from './history.js';
+import historyManager from './historyStateManager.js';
 
 export function renderSites(sites) {
     const selector = $('#siteSelector');

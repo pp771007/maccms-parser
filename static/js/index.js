@@ -7,7 +7,7 @@ import * as api from './api.js';
 import * as ui from './ui.js';
 import { $ } from './utils.js';
 import { showModal } from './modal.js';
-import historyManager from './history.js';
+import historyManager from './historyStateManager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     registerServiceWorker();
 });
 
-// The popstate event is now handled by history.js
+// The popstate event is now handled by historyStateManager.js
 
 // 處理 ESC 鍵的邏輯
 function handleEscKey(e) {
