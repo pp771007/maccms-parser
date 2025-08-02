@@ -180,131 +180,265 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     });
 
     // 添加雙擊螢幕左右側控制播放進度功能
-    let lastClickTime = 0;
-    let clickCount = 0;
-    let clickTimer = null;
+    class ClickController {
+        constructor(playerContainer, artplayer) {
+            this.playerContainer = playerContainer;
+            this.artplayer = artplayer;
+
+            // 點擊狀態
+            this.clickState = {
+                lastClickTime: Date.now(),
+                clickCount: 0,
+                clickTimer: null,
+                isProcessing: false
+            };
+
+            // 連續點擊狀態
+            this.continuousState = {
+                isActive: false,
+                direction: null,
+                clickCount: 0,
+                stopTimer: null,
+                startTime: 0 // 記錄開始連續模式時的初始時間
+            };
+
+            this.init();
+        }
+
+        init() {
+            // 綁定方法到實例，確保事件監聽器能正確移除
+            this.boundHandleClick = this.handleClick.bind(this);
+            this.boundHandleDoubleClick = this.handleDoubleClick.bind(this);
+            this.boundHandleContinuousClick = this.handleContinuousClick.bind(this);
+
+            // 主要點擊事件處理
+            this.playerContainer.addEventListener('click', this.boundHandleClick, true);
+
+            // 阻止 ArtPlayer 的內建雙擊事件
+            this.playerContainer.addEventListener('dblclick', this.boundHandleDoubleClick, true);
+        }
+
+        handleClick(event) {
+            // 檢查是否點擊在控制欄上
+            const target = event.target;
+            if (target.closest('.art-controls') || target.closest('.art-control')) {
+                return;
+            }
+
+            // 阻止事件冒泡
+            event.preventDefault();
+            event.stopPropagation();
+
+            const currentTime = new Date().getTime();
+            const timeDiff = currentTime - this.clickState.lastClickTime;
+
+            // 清除之前的計時器
+            if (this.clickState.clickTimer) {
+                clearTimeout(this.clickState.clickTimer);
+            }
+
+            // 重置點擊計數器
+            if (timeDiff > 300) {
+                this.clickState.clickCount = 1;
+            } else {
+                this.clickState.clickCount++;
+            }
+
+            this.clickState.lastClickTime = currentTime;
+
+
+
+            // 設置新的計時器
+            this.clickState.clickTimer = setTimeout(() => {
+                if (this.clickState.clickCount === 1) {
+                    // 單擊事件 - 播放/暫停
+                    this.togglePlayPause();
+                } else if (this.clickState.clickCount >= 2) {
+                    // 雙擊事件 - 開始連續點擊模式
+                    // 傳遞點擊計數給連續模式
+                    this.startContinuousMode(event, this.clickState.clickCount);
+                }
+
+                // 重置狀態
+                this.clickState.clickCount = 0;
+            }, 300);
+        }
+
+        handleDoubleClick(event) {
+            // 檢查是否點擊在控制欄上
+            const target = event.target;
+            if (target.closest('.art-controls') || target.closest('.art-control')) {
+                return;
+            }
+
+            // 阻止 ArtPlayer 的內建雙擊事件
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        handleContinuousClick(event) {
+            const target = event.target;
+            if (target.closest('.art-controls') || target.closest('.art-control')) {
+                return;
+            }
+
+            // 阻止事件冒泡，防止觸發 ArtPlayer 的內建功能
+            event.preventDefault();
+            event.stopPropagation();
+
+            this.continuousState.clickCount++;
+            this.executeTimeJump();
+
+            // 重置停止計時器
+            if (this.continuousState.stopTimer) {
+                clearTimeout(this.continuousState.stopTimer);
+            }
+
+            // 設置停止連續點擊的計時器
+            this.continuousState.stopTimer = setTimeout(() => {
+                this.stopContinuousMode();
+            }, 500);
+        }
+
+        togglePlayPause() {
+            if (!this.artplayer) return;
+
+            // 使用 ArtPlayer 的內建 toggle 方法，這比手動檢查 paused 狀態更可靠
+            this.artplayer.toggle();
+        }
+
+        startContinuousMode(event, initialClickCount = 1) {
+            if (this.continuousState.isActive) return;
+
+            const rect = this.playerContainer.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const containerWidth = rect.width;
+
+            // 判斷點擊位置
+            const direction = clickX < containerWidth / 2 ? 'left' : 'right';
+
+
+
+            this.continuousState.isActive = true;
+            this.continuousState.direction = direction;
+            this.continuousState.clickCount = initialClickCount; // 使用傳入的初始點擊計數
+            this.continuousState.startTime = this.artplayer.currentTime; // 記錄開始時間
+
+            // 立即執行跳轉
+            this.executeTimeJump();
+
+            // 設置停止連續點擊的計時器
+            this.continuousState.stopTimer = setTimeout(() => {
+                this.stopContinuousMode();
+            }, 500);
+
+            // 添加連續點擊事件監聽器
+            this.playerContainer.addEventListener('click', this.boundHandleContinuousClick, true);
+        }
+
+        stopContinuousMode() {
+            if (!this.continuousState.isActive) return;
+
+            this.continuousState.isActive = false;
+            this.continuousState.direction = null;
+            this.continuousState.clickCount = 0;
+            this.continuousState.startTime = 0;
+
+            if (this.continuousState.stopTimer) {
+                clearTimeout(this.continuousState.stopTimer);
+                this.continuousState.stopTimer = null;
+            }
+
+            // 移除連續點擊事件監聽器
+            this.playerContainer.removeEventListener('click', this.boundHandleContinuousClick, true);
+        }
+
+        executeTimeJump() {
+            if (!this.artplayer || !this.continuousState.isActive) return;
+
+            // 根據點擊次數計算總跳轉秒數 (點擊次數-1)*10秒
+            const totalJumpSeconds = (this.continuousState.clickCount - 1) * 10;
+            let newTime;
+
+
+
+            if (this.continuousState.direction === 'left') {
+                // 後退 - 從開始時間計算
+                newTime = Math.max(0, this.continuousState.startTime - totalJumpSeconds);
+                this.showTimeChangeHint(`後退 ${totalJumpSeconds} 秒`, 'left');
+            } else {
+                // 前進 - 從開始時間計算
+                newTime = Math.min(this.artplayer.duration, this.continuousState.startTime + totalJumpSeconds);
+                this.showTimeChangeHint(`前進 ${totalJumpSeconds} 秒`, 'right');
+            }
+
+
+
+            // 確保時間跳轉有效
+            if (newTime !== this.artplayer.currentTime) {
+                this.artplayer.currentTime = newTime;
+            }
+        }
+
+        showTimeChangeHint(text, position) {
+            // 移除現有的提示
+            const existingHint = document.querySelector('.time-change-hint');
+            if (existingHint) {
+                existingHint.remove();
+            }
+
+            // 創建提示元素
+            const hint = document.createElement('div');
+            hint.className = 'time-change-hint';
+            hint.textContent = text;
+            hint.style.cssText = `
+                position: absolute;
+                top: 50%;
+                ${position === 'left' ? 'left: 20px;' : 'right: 20px;'}
+                transform: translateY(-50%);
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 10px 15px;
+                border-radius: 5px;
+                font-size: 14px;
+                z-index: 10000;
+                pointer-events: none;
+                transition: opacity 0.3s ease;
+            `;
+
+            this.playerContainer.appendChild(hint);
+
+            // 2秒後淡出並移除
+            setTimeout(() => {
+                hint.style.opacity = '0';
+                setTimeout(() => {
+                    if (hint.parentNode) {
+                        hint.parentNode.removeChild(hint);
+                    }
+                }, 300);
+            }, 2000);
+        }
+
+        destroy() {
+            // 清理所有計時器
+            if (this.clickState.clickTimer) {
+                clearTimeout(this.clickState.clickTimer);
+            }
+            if (this.continuousState.stopTimer) {
+                clearTimeout(this.continuousState.stopTimer);
+            }
+
+            // 移除所有事件監聽器
+            if (this.playerContainer) {
+                this.playerContainer.removeEventListener('click', this.boundHandleClick, true);
+                this.playerContainer.removeEventListener('dblclick', this.boundHandleDoubleClick, true);
+                this.playerContainer.removeEventListener('click', this.boundHandleContinuousClick, true);
+            }
+        }
+    }
 
     const playerContainer = document.getElementById('artplayer-container');
-
-    // 阻止 ArtPlayer 的內建點擊事件
-    playerContainer.addEventListener('click', (event) => {
-        // 檢查是否點擊在控制欄上，如果是則不處理雙擊功能
-        const target = event.target;
-        if (target.closest('.art-controls') || target.closest('.art-control')) {
-            return;
-        }
-
-        // 阻止事件冒泡，防止觸發 ArtPlayer 的內建點擊事件
-        event.preventDefault();
-        event.stopPropagation();
-
-        const currentTime = new Date().getTime();
-        const timeDiff = currentTime - lastClickTime;
-
-        // 重置點擊計數器
-        if (timeDiff > 300) {
-            clickCount = 1;
-        } else {
-            clickCount++;
-        }
-
-        lastClickTime = currentTime;
-
-        // 清除之前的計時器
-        if (clickTimer) {
-            clearTimeout(clickTimer);
-        }
-
-        // 設置新的計時器
-        clickTimer = setTimeout(() => {
-            if (clickCount === 1) {
-                // 單擊事件 - 播放/暫停
-                if (state.artplayer) {
-                    state.artplayer.toggle();
-                }
-            } else if (clickCount === 2) {
-                // 雙擊事件
-                const rect = playerContainer.getBoundingClientRect();
-                const clickX = event.clientX - rect.left;
-                const containerWidth = rect.width;
-
-                // 判斷點擊位置（左側1/2或右側1/2）
-                if (clickX < containerWidth / 2) {
-                    // 雙擊左側 - 後退10秒
-                    if (state.artplayer) {
-                        const newTime = Math.max(0, state.artplayer.currentTime - 10);
-                        state.artplayer.currentTime = newTime;
-
-                        // 顯示提示
-                        showTimeChangeHint('後退 10 秒', 'left');
-                    }
-                } else {
-                    // 雙擊右側 - 前進10秒
-                    if (state.artplayer) {
-                        const newTime = Math.min(state.artplayer.duration, state.artplayer.currentTime + 10);
-                        state.artplayer.currentTime = newTime;
-
-                        // 顯示提示
-                        showTimeChangeHint('前進 10 秒', 'right');
-                    }
-                }
-            }
-            clickCount = 0;
-        }, 300);
-    }, true); // 使用捕獲階段來確保我們的處理器先執行
-
-    // 阻止 ArtPlayer 的內建雙擊事件
-    playerContainer.addEventListener('dblclick', (event) => {
-        // 檢查是否點擊在控制欄上
-        const target = event.target;
-        if (target.closest('.art-controls') || target.closest('.art-control')) {
-            return;
-        }
-
-        // 阻止 ArtPlayer 的內建雙擊事件
-        event.preventDefault();
-        event.stopPropagation();
-    }, true);
-
-    // 顯示時間變更提示的函數
-    function showTimeChangeHint(text, position) {
-        // 移除現有的提示
-        const existingHint = document.querySelector('.time-change-hint');
-        if (existingHint) {
-            existingHint.remove();
-        }
-
-        // 創建提示元素
-        const hint = document.createElement('div');
-        hint.className = 'time-change-hint';
-        hint.textContent = text;
-        hint.style.cssText = `
-            position: absolute;
-            top: 50%;
-            ${position === 'left' ? 'left: 20px;' : 'right: 20px;'}
-            transform: translateY(-50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 10px 15px;
-            border-radius: 5px;
-            font-size: 14px;
-            z-index: 10000;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        `;
-
-        playerContainer.appendChild(hint);
-
-        // 2秒後淡出並移除
-        setTimeout(() => {
-            hint.style.opacity = '0';
-            setTimeout(() => {
-                if (hint.parentNode) {
-                    hint.parentNode.removeChild(hint);
-                }
-            }, 300);
-        }, 2000);
-    }
+    const clickController = new ClickController(playerContainer, state.artplayer);
 
     // 處理歷史進度恢復
     // 只有當歷史進度大於2秒時才進行恢復，避免小進度造成的問題
@@ -493,6 +627,11 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         if (progressTimer) {
             clearInterval(progressTimer);
             progressTimer = null;
+        }
+
+        // 清理點擊控制器
+        if (clickController) {
+            clickController.destroy();
         }
     });
 
