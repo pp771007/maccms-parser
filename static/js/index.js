@@ -1,10 +1,13 @@
 "use strict";
 
+"use strict";
+
 import state from './state.js';
 import * as api from './api.js';
 import * as ui from './ui.js';
 import { $ } from './utils.js';
 import { showModal } from './modal.js';
+import historyManager from './history.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
@@ -12,80 +15,28 @@ document.addEventListener('DOMContentLoaded', () => {
     registerServiceWorker();
 });
 
-// 監聽瀏覽器的返回按鈕事件，處理 modal 和面板的關閉
-window.addEventListener('popstate', (e) => {
-    // 按照優先級順序處理：modal > 歷史面板
-    // 1. 如果是videoModal開啟狀態，關閉modal而不是返回
-    if ($('#videoModal').style.display === 'flex') {
-        e.preventDefault();
-        ui.closeModal();
-        // 不立即推入狀態，讓下一次返回事件能夠觸發
-        return;
-    }
-
-    // 2. 如果是siteSelectionModal開啟狀態，關閉modal而不是返回
-    if ($('#siteSelectionModal').style.display === 'flex') {
-        e.preventDefault();
-        ui.closeSiteSelectionModal();
-        // 不立即推入狀態，讓下一次返回事件能夠觸發
-        return;
-    }
-
-    // 3. 如果是historyPanel開啟狀態，關閉歷史紀錄面板而不是返回
-    if ($('#historyPanel').style.display === 'flex') {
-        e.preventDefault();
-        ui.hideHistoryPanel();
-        // 關閉歷史面板後，重新推入狀態以防止返回
-        window.history.pushState(null, null, window.location.href);
-        return;
-    }
-
-    // 重新推入狀態以防止返回
-    window.history.pushState(null, null, window.location.href);
-});
-
-// 初始化時推入狀態以防止返回
-window.history.pushState(null, null, window.location.href);
+// The popstate event is now handled by history.js
 
 // 處理 ESC 鍵的邏輯
 function handleEscKey(e) {
     if (e.key !== 'Escape') return;
 
-    // 檢查 ArtPlayer 是否處於全螢幕模式
-    if (state.artplayer && state.artplayer.fullscreen) {
-        // 如果 ArtPlayer 處於全螢幕模式，則不處理 ESC 鍵
+    // ArtPlayer fullscreen check
+    if (state.artplayer && (state.artplayer.fullscreen || state.artplayer.fullscreenWeb)) {
+        if (state.artplayer.fullscreen) {
+            // Native fullscreen is handled by the browser
+            return;
+        }
+        if (state.artplayer.fullscreenWeb) {
+            state.artplayer.fullscreenWeb = false;
+        }
         return;
     }
 
-    // 檢查 ArtPlayer 是否處於網頁全螢幕模式
-    if (state.artplayer && state.artplayer.fullscreenWeb) {
-        state.artplayer.fullscreenWeb = false;
-        return;
-    }
-
-    // 1. 檢查是否有 toast 顯示
-    const toast = document.querySelector('.custom-toast.show');
-    if (toast) {
-        // toast 通常會自動消失，不需要手動關閉
-        return;
-    }
-
-    // 2. 檢查 videoModal
-    if ($('#videoModal').style.display === 'flex') {
-        ui.closeModal();
-        return;
-    }
-
-    // 3. 檢查 siteSelectionModal
-    if ($('#siteSelectionModal').style.display === 'flex') {
-        ui.closeSiteSelectionModal();
-        return;
-    }
-
-    // 4. 檢查 historyPanel
-    if ($('#historyPanel').style.display === 'flex') {
-        ui.hideHistoryPanel();
-        return;
+    // Close the most recent UI element from the history stack
+    const currentState = historyManager.getCurrentState();
+    if (currentState) {
+        historyManager.back();
     }
 }
 

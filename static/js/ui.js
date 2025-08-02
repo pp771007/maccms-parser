@@ -3,6 +3,7 @@ import { playVideo } from './player.js';
 import { fetchVideoDetails } from './api.js';
 import { $, $$ } from './utils.js';
 import { showModal, showConfirm, showToast } from './modal.js';
+import historyManager from './history.js';
 
 export function renderSites(sites) {
     const selector = $('#siteSelector');
@@ -258,12 +259,18 @@ export function renderSearchTags() {
 }
 
 export async function openModal(video) {
-
-    document.body.classList.add('modal-open');
-    $('#modalTitle').textContent = video.vod_name;
-    $('#videoModal').style.display = 'flex';
-    $('#playlistSources').innerHTML = '';
-    $('#episodeList').innerHTML = '正在加載播放列表...';
+    historyManager.add({
+        id: 'videoModal',
+        apply: async () => {
+            document.body.classList.add('modal-open');
+            $('#modalTitle').textContent = video.vod_name;
+            $('#videoModal').style.display = 'flex';
+            $('#playlistSources').innerHTML = '';
+            $('#episodeList').innerHTML = '正在加載播放列表...';
+        },
+        revert: closeModal,
+        context: video
+    });
 
     try {
         let siteUrl;
@@ -311,11 +318,18 @@ export async function openModal(video) {
 
 // 新增多來源影片的modal
 export async function openMultiSourceModal(videoName, videoList) {
-    document.body.classList.add('modal-open');
-    $('#modalTitle').textContent = `${videoName} (${videoList.length} 個來源)`;
-    $('#videoModal').style.display = 'flex';
-    $('#playlistSources').innerHTML = '';
-    $('#episodeList').innerHTML = '請選擇來源...';
+    historyManager.add({
+        id: 'videoModal',
+        apply: () => {
+            document.body.classList.add('modal-open');
+            $('#modalTitle').textContent = `${videoName} (${videoList.length} 個來源)`;
+            $('#videoModal').style.display = 'flex';
+            $('#playlistSources').innerHTML = '';
+            $('#episodeList').innerHTML = '請選擇來源...';
+        },
+        revert: closeModal,
+        context: { videoName, videoList }
+    });
 
     // 創建來源選擇按鈕
     const playlistSources = $('#playlistSources');
@@ -780,34 +794,47 @@ export function closeModal() {
     state.currentSourceIndex = 0; // 重置來源索引
     state.currentVideo = null; // 重置當前影片資訊
     state.multiSourceModalData = {}; // 清理多來源 modalData
+
+    if (historyManager.getCurrentState()?.id === 'videoModal') {
+        historyManager.back();
+    }
 }
 
 export function openSiteSelectionModal() {
-    const list = $('#siteCheckboxList');
-    list.innerHTML = '';
-    // The 'sites' in the state are now pre-filtered and sorted.
-    state.sites.forEach(site => {
-        const label = document.createElement('label');
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.value = site.id;
-        checkbox.checked = state.searchSiteIds.includes(site.id);
-        label.appendChild(checkbox);
-        let displayName = site.note ? `${site.name} (${site.note})` : site.name;
-        const errors = site.consecutive_errors || 0;
-        if (errors >= 2) {
-            displayName = `🔴 ${displayName}`;
-        } else if (errors === 1) {
-            displayName = `🟡 ${displayName}`;
-        }
-        label.append(` ${displayName}`);
-        list.appendChild(label);
+    historyManager.add({
+        id: 'siteSelectionModal',
+        apply: () => {
+            const list = $('#siteCheckboxList');
+            list.innerHTML = '';
+            // The 'sites' in the state are now pre-filtered and sorted.
+            state.sites.forEach(site => {
+                const label = document.createElement('label');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = site.id;
+                checkbox.checked = state.searchSiteIds.includes(site.id);
+                label.appendChild(checkbox);
+                let displayName = site.note ? `${site.name} (${site.note})` : site.name;
+                const errors = site.consecutive_errors || 0;
+                if (errors >= 2) {
+                    displayName = `🔴 ${displayName}`;
+                } else if (errors === 1) {
+                    displayName = `🟡 ${displayName}`;
+                }
+                label.append(` ${displayName}`);
+                list.appendChild(label);
+            });
+            $('#siteSelectionModal').style.display = 'flex';
+        },
+        revert: closeSiteSelectionModal
     });
-    $('#siteSelectionModal').style.display = 'flex';
 }
 
 export function closeSiteSelectionModal() {
     $('#siteSelectionModal').style.display = 'none';
+    if (historyManager.getCurrentState()?.id === 'siteSelectionModal') {
+        historyManager.back();
+    }
 }
 
 export function getSelectedSiteIds() {
@@ -1078,35 +1105,42 @@ export function renderWatchHistory() {
 
 // 打開歷史紀錄影片的播放器
 export function openHistoryVideoModal(historyItem, modalData) {
-    document.body.classList.add('modal-open');
-    $('#modalTitle').textContent = historyItem.videoName;
-    $('#videoModal').style.display = 'flex';
-    $('#playlistSources').innerHTML = '';
-    $('#episodeList').innerHTML = '正在載入...';
+    historyManager.add({
+        id: 'videoModal',
+        apply: () => {
+            document.body.classList.add('modal-open');
+            $('#modalTitle').textContent = historyItem.videoName;
+            $('#videoModal').style.display = 'flex';
+            $('#playlistSources').innerHTML = '';
+            $('#episodeList').innerHTML = '正在載入...';
 
-    // 設置當前影片資訊
-    state.currentVideo = { vod_id: historyItem.videoId, vod_name: historyItem.videoName };
+            // 設置當前影片資訊
+            state.currentVideo = { vod_id: historyItem.videoId, vod_name: historyItem.videoName };
 
-    // 渲染播放源按鈕
-    const playlistSources = $('#playlistSources');
-    playlistSources.innerHTML = '';
+            // 渲染播放源按鈕
+            const playlistSources = $('#playlistSources');
+            playlistSources.innerHTML = '';
 
-    modalData.forEach((source, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'source-btn';
-        btn.textContent = source.flag;
-        btn.dataset.index = index;
-        btn.onclick = () => renderHistoryEpisodes(historyItem, modalData, index);
-        playlistSources.appendChild(btn);
+            modalData.forEach((source, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'source-btn';
+                btn.textContent = source.flag;
+                btn.dataset.index = index;
+                btn.onclick = () => renderHistoryEpisodes(historyItem, modalData, index);
+                playlistSources.appendChild(btn);
+            });
+
+            // 找到對應的播放源並自動選擇
+            const targetSourceIndex = findTargetSourceIndex(historyItem, modalData);
+            if (targetSourceIndex >= 0) {
+                playlistSources.children[targetSourceIndex].click();
+            } else if (modalData.length > 0) {
+                playlistSources.firstElementChild.click();
+            }
+        },
+        revert: closeModal,
+        context: { historyItem, modalData }
     });
-
-    // 找到對應的播放源並自動選擇
-    const targetSourceIndex = findTargetSourceIndex(historyItem, modalData);
-    if (targetSourceIndex >= 0) {
-        playlistSources.children[targetSourceIndex].click();
-    } else if (modalData.length > 0) {
-        playlistSources.firstElementChild.click();
-    }
 }
 
 // 渲染歷史紀錄的劇集列表
@@ -1191,39 +1225,45 @@ function findTargetSourceIndex(historyItem, modalData) {
 
 // 顯示歷史紀錄面板
 export function showHistoryPanel() {
-    const historyPanel = $('#historyPanel');
-    const historyOverlay = $('#historyOverlay');
-    if (historyPanel && historyOverlay) {
-        historyOverlay.style.display = 'block';
-        historyPanel.style.display = 'flex';
-        renderWatchHistory();
+    historyManager.add({
+        id: 'historyPanel',
+        apply: () => {
+            const historyPanel = $('#historyPanel');
+            const historyOverlay = $('#historyOverlay');
+            if (historyPanel && historyOverlay) {
+                historyOverlay.style.display = 'block';
+                historyPanel.style.display = 'flex';
+                renderWatchHistory();
 
-        // 設置歷史記錄更新回調
-        state.onHistoryUpdate = renderWatchHistory;
+                // 設置歷史記錄更新回調
+                state.onHistoryUpdate = renderWatchHistory;
 
-        // 重新綁定清除按鈕事件
-        const clearHistoryBtn = $('#clearHistoryBtn');
-        if (clearHistoryBtn) {
-            clearHistoryBtn.onclick = clearAllHistory;
-        }
+                // 重新綁定清除按鈕事件
+                const clearHistoryBtn = $('#clearHistoryBtn');
+                if (clearHistoryBtn) {
+                    clearHistoryBtn.onclick = clearAllHistory;
+                }
 
-        const closeHistoryBtn = $('#closeHistoryBtn');
-        if (closeHistoryBtn) {
-            closeHistoryBtn.onclick = hideHistoryPanel;
-        }
+                const closeHistoryBtn = $('#closeHistoryBtn');
+                if (closeHistoryBtn) {
+                    closeHistoryBtn.onclick = hideHistoryPanel;
+                }
 
-        // 防止滾動傳播到外部頁面
-        const historyContainer = $('#watchHistoryContainer');
-        if (historyContainer) {
-            historyContainer.addEventListener('wheel', (e) => {
-                e.stopPropagation();
-            }, { passive: false });
+                // 防止滾動傳播到外部頁面
+                const historyContainer = $('#watchHistoryContainer');
+                if (historyContainer) {
+                    historyContainer.addEventListener('wheel', (e) => {
+                        e.stopPropagation();
+                    }, { passive: false });
 
-            historyContainer.addEventListener('touchmove', (e) => {
-                e.stopPropagation();
-            }, { passive: false });
-        }
-    }
+                    historyContainer.addEventListener('touchmove', (e) => {
+                        e.stopPropagation();
+                    }, { passive: false });
+                }
+            }
+        },
+        revert: hideHistoryPanel
+    });
 }
 
 // 隱藏歷史紀錄面板
@@ -1248,6 +1288,10 @@ export function hideHistoryPanel() {
         };
 
         historyPanel.addEventListener('animationend', handleAnimationEnd);
+
+        if (historyManager.getCurrentState()?.id === 'historyPanel') {
+            historyManager.back();
+        }
     }
 }
 
