@@ -478,9 +478,18 @@ function renderEpisodesOnly() {
                     }
                 }
 
+                // 獲取純影片名稱
+                let pureVideoName = state.currentVideo?.vod_name;
+                if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
+                    const currentVideo = state.multiSourceVideos[state.currentSourceIndex];
+                    if (currentVideo) {
+                        pureVideoName = currentVideo.vod_name;
+                    }
+                }
+
                 const videoInfo = {
                     videoId: state.currentVideo?.vod_id || epi.vod_id,
-                    videoName: $('#modalTitle').textContent,
+                    videoName: pureVideoName || $('#modalTitle').textContent,
                     episodeName: epi.name,
                     episodeUrl: epi.url,
                     siteId: siteId,
@@ -673,9 +682,18 @@ function renderPlaylist(sourceIndex = 0) {
                     videoPic = state.currentVideo.vod_pic;
                 }
 
+                // 獲取純影片名稱
+                let pureVideoName = state.currentVideo?.vod_name;
+                if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
+                    const currentVideo = state.multiSourceVideos[sourceIndex];
+                    if (currentVideo) {
+                        pureVideoName = currentVideo.vod_name;
+                    }
+                }
+
                 const videoInfo = {
                     videoId: videoId,
-                    videoName: $('#modalTitle').textContent,
+                    videoName: pureVideoName || $('#modalTitle').textContent,
                     episodeName: epi.name,
                     episodeUrl: epi.url,
                     siteId: siteId,

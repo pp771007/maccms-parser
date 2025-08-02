@@ -114,6 +114,7 @@ export default {
             const existingItem = this.watchHistory[existingIndex];
             const isNewEpisode = existingItem.episodeUrl !== videoInfo.episodeUrl;
 
+            existingItem.videoName = videoInfo.videoName; // 確保影片名稱被更新
             existingItem.episodeName = videoInfo.episodeName;
             existingItem.episodeUrl = videoInfo.episodeUrl;
 
