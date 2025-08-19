@@ -219,9 +219,9 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         }
 
         handleClick(event) {
-            // 檢查是否點擊在控制欄上
+            // 檢查是否點擊在控制欄或設定面板上
             const target = event.target;
-            if (target.closest('.art-controls') || target.closest('.art-control')) {
+            if (target.closest('.art-controls') || target.closest('.art-control') || target.closest('.art-settings')) {
                 return;
             }
 
@@ -265,9 +265,9 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         }
 
         handleDoubleClick(event) {
-            // 檢查是否點擊在控制欄上
+            // 檢查是否點擊在控制欄或設定面板上
             const target = event.target;
-            if (target.closest('.art-controls') || target.closest('.art-control')) {
+            if (target.closest('.art-controls') || target.closest('.art-control') || target.closest('.art-settings')) {
                 return;
             }
 
@@ -278,7 +278,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
 
         handleContinuousClick(event) {
             const target = event.target;
-            if (target.closest('.art-controls') || target.closest('.art-control')) {
+            if (target.closest('.art-controls') || target.closest('.art-control') || target.closest('.art-settings')) {
                 return;
             }
 
