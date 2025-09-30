@@ -17,5 +17,5 @@ VOLUME /app/data
 # 宣告容器對外的連接埠
 EXPOSE 5000
 
-# 設定 Gunicorn 啟動參數
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "web_app:app"]
+# 設定 Gunicorn 啟動參數，避免卡死
+CMD ["gunicorn", "--worker-class", "gevent", "--workers", "2", "--bind", "0.0.0.0:5000", "web_app:app"]
