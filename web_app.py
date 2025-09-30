@@ -2,7 +2,6 @@ import os
 from flask import Flask, cli
 from config import get_config_value, set_config_value
 from logger_config import setup_logger
-from site_manager import start_site_checker
 
 # --- Blueprints ---
 from blueprints.auth import auth_bp, init_auth_check
@@ -15,7 +14,7 @@ app = Flask(__name__)
 logger = setup_logger()
 
 logger.info("==============================================")
-logger.info("   資源站點管理器 v6.0 啟動！")
+logger.info("   資源站點管理器 v6.1 啟動！")
 logger.info("==============================================")
 
 # --- Initialize Secret Key ---
@@ -33,12 +32,7 @@ app.register_blueprint(main_bp)
 # --- Initialize Request Hooks ---
 init_auth_check(app)
 
-# --- Start Site Checker ---
-def is_gunicorn():
-    return 'gunicorn' in os.environ.get('SERVER_SOFTWARE', '').lower()
 
-if is_gunicorn():
-    start_site_checker()
 
 # --- Main Execution ---
 if __name__ == '__main__':
