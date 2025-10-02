@@ -1209,12 +1209,6 @@ body.modal-open {
     flex-shrink: 0;
 }
 
-.target-episode {
-    background: var(--warning-color) !important;
-    color: white !important;
-    border-color: var(--warning-color) !important;
-}
-
 /* 響應式設計 */
 @media (max-width: 768px) {
     .history-panel {

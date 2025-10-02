@@ -18,6 +18,51 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     if (videoInfo) {
         state.currentVideoInfo = videoInfo;
         state.addToHistory(videoInfo);
+
+        // 檢查 currentVideo 是否需要從 multiSourceVideos 中更新
+        if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
+            const videoFromSource = state.multiSourceVideos[state.currentSourceIndex];
+            if (videoFromSource && videoFromSource.vod_id === videoInfo.videoId) {
+                state.currentVideo = videoFromSource;
+            }
+        }
+
+        console.log('播放影片資訊:', {
+            videoInfo,
+            currentVideo: state.currentVideo,
+            modalData: state.modalData,
+            multiSourceData: state.multiSourceModalData,
+            currentSourceIndex: state.currentSourceIndex
+        });
+
+        // 確保 currentVideo 中包含完整的影片資訊，包括劇集列表
+        if (!state.currentVideo || state.currentVideo.vod_id !== videoInfo.videoId) {
+            // 從 modalData 中找到當前播放的影片資訊
+            let episodes = [];
+            if (state.modalData && state.modalData.length > 0) {
+                // 檢查 modalData 的結構
+                if (Array.isArray(state.modalData[0].episodes)) {
+                    episodes = state.modalData[0].episodes;
+                } else if (Array.isArray(state.modalData[0]?.episodes)) {
+                    episodes = state.modalData[0].episodes;
+                }
+                console.log('找到劇集列表:', {
+                    hasModalData: !!state.modalData,
+                    modalDataLength: state.modalData.length,
+                    firstItem: state.modalData[0],
+                    episodesFound: episodes.length
+                });
+            }
+
+            // 更新 currentVideo，保持現有屬性
+            state.currentVideo = {
+                ...(state.currentVideo || {}),  // 保留現有屬性
+                vod_id: videoInfo.videoId,
+                vod_name: videoInfo.videoName,
+                episodes: episodes
+            };
+            console.log('更新後的 currentVideo:', state.currentVideo);
+        }
     }
 
     // 檢查是否有歷史進度需要恢復
@@ -440,6 +485,45 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     const playerContainer = document.getElementById('artplayer-container');
     const clickController = new ClickController(playerContainer, state.artplayer);
 
+    // 添加播放器事件監聽器用於除錯
+    state.artplayer.on('ready', () => {
+        console.log('播放器初始化完成');
+    });
+
+    state.artplayer.on('play', () => {
+        console.log('開始播放');
+    });
+
+    state.artplayer.on('pause', () => {
+        console.log('暫停播放');
+    });
+
+    state.artplayer.on('ended', () => {
+        console.log('播放結束(ended事件)');
+    });
+
+    state.artplayer.on('video:ended', () => {
+        console.log('影片播放結束(video:ended事件)');
+    });
+
+    state.artplayer.on('complete', () => {
+        console.log('播放完成(complete事件)');
+    });
+
+    // 監聽時間更新
+    state.artplayer.on('timeupdate', () => {
+        const currentTime = state.artplayer.currentTime;
+        const duration = state.artplayer.duration;
+        // 當播放進度接近結尾時（最後3秒）
+        if (duration - currentTime <= 3) {
+            console.log('接近影片結尾:', {
+                currentTime,
+                duration,
+                remaining: duration - currentTime
+            });
+        }
+    });
+
     // 處理歷史進度恢復
     // 只有當歷史進度大於2秒時才進行恢復，避免小進度造成的問題
     if (historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 2) {
@@ -584,13 +668,19 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         }
     });
 
-    // 播放結束時記錄進度並清理計時器
-    state.artplayer.on('ended', () => {
+    // 播放結束時記錄進度、清理計時器並自動播放下一集
+    state.artplayer.on('video:ended', () => {
+        console.log('影片播放結束事件觸發');
+
         // 記錄最終進度
         if (state.currentVideoInfo && state.artplayer) {
-            const currentTime = state.artplayer.currentTime;
+            const currentTime = state.artplayer.duration; // 使用影片總長度作為最終時間
             const duration = state.artplayer.duration;
-            if (currentTime > 0 && duration > 0) {
+            if (duration > 0) {
+                console.log('記錄最終播放進度:', {
+                    currentTime,
+                    duration
+                });
                 state.updateProgress(
                     state.currentVideoInfo.videoId,
                     state.currentVideoInfo.episodeUrl,
@@ -604,6 +694,63 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         if (progressTimer) {
             clearInterval(progressTimer);
             progressTimer = null;
+            console.log('清理進度記錄計時器');
+        }
+
+        // 自動播放下一集
+        console.log('準備切換到下一集...');
+        if (state.autoPlayNext()) {
+            console.log('autoPlayNext 返回 true，準備播放下一集');
+            // 重置播放時間到0
+            state.artplayer.currentTime = 0;
+            // 延遲一下再載入新集數，讓用戶有時間看到播放結束
+            setTimeout(() => {
+                // 取得下一集的 URL
+                const nextEpisodeUrl = state.currentVideoInfo.episodeUrl;
+                console.log('下一集 URL:', nextEpisodeUrl);
+
+                if (nextEpisodeUrl) {
+                    // 找到對應的元素（如果有的話）
+                    const episodeElements = document.querySelectorAll('.episode-item');
+                    let nextEpisodeElement = null;
+
+                    // 尋找下一集的元素
+                    const currentSource = state.modalData[0];
+                    if (currentSource && currentSource.episodes) {
+                        const currentIndex = currentSource.episodes.findIndex(episode => episode.url === nextEpisodeUrl);
+
+                        if (currentIndex !== -1) {
+                            // 找到對應的元素
+                            nextEpisodeElement = episodeElements[currentIndex];
+                        }
+                    }
+
+                    // 移除所有 playing 類別並設置新的 playing 元素
+                    episodeElements.forEach(item => {
+                        item.classList.remove('playing');
+                    });
+
+                    if (nextEpisodeElement) {
+                        nextEpisodeElement.classList.add('playing');
+                        // 確保下一集按鈕在視圖中
+                        nextEpisodeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+
+                    console.log('找到下一集元素:', {
+                        hasElement: !!nextEpisodeElement,
+                        url: nextEpisodeUrl,
+                        elementText: nextEpisodeElement?.textContent
+                    });
+
+                    // 直接使用 playVideo 播放下一集
+                    console.log('開始播放下一集');
+                    playVideo(nextEpisodeUrl, nextEpisodeElement, state.currentVideoInfo);
+                } else {
+                    console.error('無法獲取下一集 URL');
+                }
+            }, 1000);
+        } else {
+            console.log('autoPlayNext 返回 false，不執行自動播放');
         }
     });
 

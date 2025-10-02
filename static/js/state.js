@@ -199,5 +199,80 @@ export default {
                 );
             }
         }
+    },
+
+    // 自動播放下一集
+    autoPlayNext() {
+        console.log('嘗試自動播放下一集...');
+
+        // 獲取當前的播放列表
+        let currentPlaylist = null;
+
+        // 在多來源模式下
+        if (this.multiSourceModalData && Object.keys(this.multiSourceModalData).length > 0) {
+            console.log('處於多來源模式，使用 multiSourceModalData');
+            // 使用當前來源的播放列表
+            const sourceData = this.multiSourceModalData[this.currentSourceIndex];
+            if (sourceData && sourceData.length > 0 && sourceData[0].episodes) {
+                currentPlaylist = sourceData[0].episodes;
+            }
+        }
+        // 在單一來源模式下
+        else if (this.modalData && this.modalData.length > 0 && this.modalData[0].episodes) {
+            console.log('處於單一來源模式，使用 modalData');
+            currentPlaylist = this.modalData[0].episodes;
+        }
+
+        console.log('播放列表狀態:', {
+            hasPlaylist: !!currentPlaylist,
+            playlistLength: currentPlaylist?.length || 0,
+            currentEpisodeUrl: this.currentVideoInfo?.episodeUrl
+        });
+
+        if (!currentPlaylist || currentPlaylist.length === 0) {
+            console.log('無法自動播放: 找不到有效的播放列表');
+            return false;
+        }
+
+        // 找到當前集數的索引
+        const currentIndex = currentPlaylist.findIndex(episode =>
+            episode.url === this.currentVideoInfo.episodeUrl
+        );
+
+        console.log('當前播放資訊:', {
+            currentEpisodeUrl: this.currentVideoInfo.episodeUrl,
+            currentIndex: currentIndex,
+            totalEpisodes: currentPlaylist.length
+        });
+
+        // 如果找到當前集數且不是最後一集
+        if (currentIndex !== -1 && currentIndex < currentPlaylist.length - 1) {
+            // 獲取下一集資訊
+            const nextEpisode = currentPlaylist[currentIndex + 1];
+            console.log('找到下一集:', {
+                nextEpisodeName: nextEpisode.name,
+                nextEpisodeUrl: nextEpisode.url,
+                currentVideoInfo: this.currentVideoInfo
+            });
+
+            // 保存當前影片資訊的完整副本
+            const updatedVideoInfo = {
+                ...this.currentVideoInfo,
+                episodeName: nextEpisode.name,
+                episodeUrl: nextEpisode.url
+            };
+
+            // 更新當前播放資訊
+            this.currentVideoInfo = updatedVideoInfo;
+
+            // 添加到歷史記錄
+            this.addToHistory(this.currentVideoInfo);
+            console.log('已更新播放資訊並添加到歷史記錄');
+
+            return true;
+        }
+
+        console.log('無法自動播放: 當前是最後一集或找不到當前集數');
+        return false;
     }
 };
