@@ -36,5 +36,7 @@ init_auth_check(app)
 
 # --- Main Execution ---
 if __name__ == '__main__':
-    logger.info(f"請用瀏覽器訪問: http://127.0.0.1:5000")
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    is_docker = os.path.exists('/.dockerenv')
+    host = '0.0.0.0' if is_docker else '127.0.0.1'
+    logger.info(f"請用瀏覽器訪問: http://{host}:5000")
+    app.run(host=host, port=5000, debug=True)

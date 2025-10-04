@@ -10,6 +10,14 @@ from api_parser import process_api_request, get_details_from_api
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 logger = setup_logger()
 
+@api_bp.route('/health', methods=['GET'])
+def health_check():
+    """健康檢查端點"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': int(time.time())
+    })
+
 def clean_base_url(raw_url):
     try:
         parsed = urlparse(raw_url)
