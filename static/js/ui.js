@@ -876,7 +876,7 @@ export function updateSelectedSitesDisplay() {
     }
 }
 
-export function showLoader(show) { $('#loader').style.display = show ? 'block' : 'none'; }
+export function showLoader(show) { $('#loader').style.display = show ? 'flex' : 'none'; }
 export function showError(msg) {
     const errorDiv = $('#error');
     if (msg) {
