@@ -6,7 +6,7 @@ import state from './state.js';
 import * as api from './api.js';
 import * as ui from './ui.js';
 import { $ } from './utils.js';
-import { showModal } from './modal.js';
+import { showModal, showToast } from './modal.js';
 import historyManager from './historyStateManager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -142,6 +142,7 @@ async function handleToSimp() {
         }
     }
     searchInput.value = t2s(searchInput.value);
+    showToast('已轉換為簡體中文。', 'success');
 }
 
 async function loadSitesAndAutoLoadLast() {
