@@ -89,8 +89,8 @@ function renderSiteList(sites) {
             </div>
             <div class="site-status">
                 <div class="check-info">
-                    <span class="check-time">${checkTimeDisplay ? `檢查時間: ${checkTimeDisplay}` : '尚未檢查'}</span>
                     <span class="check-result">${checkStatusDisplay}</span>
+                    <span class="check-time">${checkTimeDisplay ? `檢查時間: ${checkTimeDisplay}` : '尚未檢查'}</span>
                 </div>
             </div>
             <div class="site-controls">
