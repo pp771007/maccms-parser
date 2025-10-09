@@ -37,10 +37,6 @@
     border-bottom-right-radius: 0;
 }
 
-.container {
-    position: relative;
-}
-
 .loader {
     position: absolute;
     top: 0;

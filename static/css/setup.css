@@ -17,6 +17,29 @@
     color: var(--text-color);
 }
 
+/* 頁面標題區域樣式 */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+header h1 {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 24px;
+    font-weight: 600;
+}
+
+header .find-sites-link {
+    font-size: 14px;
+    font-weight: normal;
+    white-space: nowrap;
+}
+
 .add-site-card .form-group {
     margin-bottom: 15px;
 }
@@ -52,6 +75,12 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    max-height: 60vh;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 15px;
+    background-color: var(--input-background);
 }
 
 .site-item {
@@ -100,8 +129,10 @@
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: space-between;
+    gap: 8px;
     flex-wrap: wrap;
+    min-height: 40px;
 }
 
 .site-item .site-controls label {
@@ -144,6 +175,10 @@
     background-color: var(--input-background);
     color: var(--text-color);
     border-radius: 6px;
+    flex: 1;
+    min-width: 60px;
+    max-width: 120px;
+    text-align: center;
 }
 
 .site-item .site-controls .btn:hover {
@@ -385,7 +420,7 @@
     border-radius: 12px;
     box-shadow: 0 2px 16px rgba(24, 144, 255, 0.08);
     padding: 32px 28px 24px 28px;
-    max-width: 420px;
+    max-width: 800px;
     margin-left: auto;
     margin-right: auto;
 }

@@ -299,7 +299,7 @@ select:focus {
     opacity: 1;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1400px) {
     .container {
         margin: 10px;
         padding: 15px;
