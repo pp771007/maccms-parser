@@ -2,6 +2,414 @@ import state from './state.js';
 import { $$ } from './utils.js';
 import { showModal } from './modal.js';
 
+// 播放器配置常量
+const PLAYER_CONFIG = {
+    PROGRESS_SAVE_INTERVAL: 5000, // 進度保存間隔（毫秒）
+    RESTORE_ATTEMPTS_MAX: 3, // 進度恢復最大嘗試次數
+    RESTORE_CHECK_INTERVAL: 1000, // 進度恢復檢查間隔（毫秒）
+    RESTORE_CHECK_MAX: 5, // 進度恢復檢查次數上限
+    NEXT_EPISODE_DELAY: 1000, // 下一集切換延遲（毫秒）
+    HISTORY_TIME_THRESHOLD: 2, // 歷史進度閾值（秒）
+    JUMP_SECONDS: 10, // 鍵盤快進快退秒數
+    VOLUME_STEP: 0.1, // 音量調整步長
+    CLICK_THRESHOLD: 300, // 點擊事件閾值（毫秒）
+    CONTINUOUS_CLICK_TIMEOUT: 500, // 連續點擊超時時間（毫秒）
+    HINT_DISPLAY_TIME: 2000, // 提示顯示時間（毫秒）
+};
+
+// 播放器狀態管理類
+class PlayerStateManager {
+    constructor() {
+        this.progressTimer = null;
+        this.restoreTimer = null;
+        this.isRestoring = false;
+        this.restoreAttempts = 0;
+    }
+
+    startProgressTracking() {
+        if (this.progressTimer) {
+            clearInterval(this.progressTimer);
+        }
+
+        this.progressTimer = setInterval(() => {
+            this.saveProgress();
+        }, PLAYER_CONFIG.PROGRESS_SAVE_INTERVAL);
+    }
+
+    stopProgressTracking() {
+        if (this.progressTimer) {
+            clearInterval(this.progressTimer);
+            this.progressTimer = null;
+        }
+        this.saveProgress(); // 停止時保存最終進度
+    }
+
+    saveProgress() {
+        if (state.currentVideoInfo && state.artplayer) {
+            const currentTime = state.artplayer.currentTime;
+            const duration = state.artplayer.duration;
+            if (currentTime > 0 && duration > 0) {
+                state.updateProgress(
+                    state.currentVideoInfo.videoId,
+                    state.currentVideoInfo.episodeUrl,
+                    state.currentVideoInfo.siteId,
+                    currentTime,
+                    duration
+                );
+            }
+        }
+    }
+
+    startProgressRestore(historyItem) {
+        if (!historyItem || !historyItem.currentTime || historyItem.currentTime <= PLAYER_CONFIG.HISTORY_TIME_THRESHOLD) {
+            return;
+        }
+
+        this.isRestoring = false;
+        this.restoreAttempts = 0;
+
+        const restoreProgress = () => {
+            if (this.isRestoring || this.restoreAttempts >= PLAYER_CONFIG.RESTORE_ATTEMPTS_MAX) {
+                return;
+            }
+
+            if (state.artplayer && state.artplayer.duration > 0) {
+                const targetTime = Math.min(historyItem.currentTime, state.artplayer.duration - 10);
+                if (targetTime > 0) {
+                    this.restoreAttempts++;
+                    this.performRestore(targetTime);
+                }
+            }
+        };
+
+        // 多重事件監聽確保恢復成功
+        state.artplayer.on('loadedmetadata', () => setTimeout(restoreProgress, 500));
+        state.artplayer.on('canplay', () => {
+            if (!this.isRestoring && historyItem.currentTime > PLAYER_CONFIG.HISTORY_TIME_THRESHOLD) {
+                setTimeout(restoreProgress, 300);
+            }
+        });
+
+        // 定時檢查機制
+        let checkCount = 0;
+        this.restoreTimer = setInterval(() => {
+            checkCount++;
+            if (state.artplayer && state.artplayer.duration > 0 &&
+                !this.isRestoring && state.artplayer.currentTime < PLAYER_CONFIG.HISTORY_TIME_THRESHOLD &&
+                historyItem.currentTime > PLAYER_CONFIG.HISTORY_TIME_THRESHOLD) {
+                restoreProgress();
+            }
+            if (checkCount >= PLAYER_CONFIG.RESTORE_CHECK_MAX || this.isRestoring ||
+                (state.artplayer && state.artplayer.currentTime > PLAYER_CONFIG.HISTORY_TIME_THRESHOLD)) {
+                clearInterval(this.restoreTimer);
+            }
+        }, PLAYER_CONFIG.RESTORE_CHECK_INTERVAL);
+    }
+
+    performRestore(targetTime) {
+        if (state.artplayer) {
+            state.artplayer.pause();
+            state.artplayer.currentTime = targetTime;
+
+            setTimeout(() => {
+                if (state.artplayer) {
+                    state.artplayer.play();
+                    this.isRestoring = true;
+                }
+            }, 800);
+        }
+    }
+
+    cleanup() {
+        this.stopProgressTracking();
+        if (this.restoreTimer) {
+            clearInterval(this.restoreTimer);
+            this.restoreTimer = null;
+        }
+        this.isRestoring = false;
+        this.restoreAttempts = 0;
+    }
+}
+
+// 鍵盤控制管理類
+class KeyboardController {
+    constructor(artplayer) {
+        this.artplayer = artplayer;
+        this.handler = null;
+        this.init();
+    }
+
+    init() {
+        this.handler = (event) => {
+            if (!state.artplayer || this.isInputFocused()) {
+                return;
+            }
+
+            switch (event.code) {
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    this.seekRelative(-PLAYER_CONFIG.JUMP_SECONDS);
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    this.seekRelative(PLAYER_CONFIG.JUMP_SECONDS);
+                    break;
+                case 'Space':
+                    event.preventDefault();
+                    this.artplayer.toggle();
+                    break;
+                case 'ArrowUp':
+                    event.preventDefault();
+                    this.adjustVolume(PLAYER_CONFIG.VOLUME_STEP);
+                    break;
+                case 'ArrowDown':
+                    event.preventDefault();
+                    this.adjustVolume(-PLAYER_CONFIG.VOLUME_STEP);
+                    break;
+            }
+        };
+
+        document.keyboardHandler = this.handler;
+        document.addEventListener('keydown', this.handler);
+    }
+
+    isInputFocused() {
+        return document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA';
+    }
+
+    seekRelative(seconds) {
+        if (this.artplayer) {
+            const newTime = Math.max(0, Math.min(this.artplayer.duration, this.artplayer.currentTime + seconds));
+            this.artplayer.currentTime = newTime;
+        }
+    }
+
+    adjustVolume(delta) {
+        if (this.artplayer) {
+            this.artplayer.volume = Math.max(0, Math.min(1, this.artplayer.volume + delta));
+        }
+    }
+
+    destroy() {
+        if (this.handler && document.keyboardHandler === this.handler) {
+            document.removeEventListener('keydown', this.handler);
+            document.keyboardHandler = null;
+        }
+    }
+}
+
+// 點擊控制器管理類（優化版）
+class ClickController {
+    constructor(playerContainer, artplayer) {
+        this.playerContainer = playerContainer;
+        this.artplayer = artplayer;
+        this.handlers = {};
+        this.timers = {};
+        this.state = {
+            clickCount: 0,
+            lastClickTime: 0,
+            isContinuousMode: false,
+            continuousDirection: null,
+            continuousCount: 0,
+            startTime: 0
+        };
+        this.init();
+    }
+
+    init() {
+        // 綁定處理器方法
+        this.handlers.click = this.handleClick.bind(this);
+        this.handlers.doubleClick = this.handleDoubleClick.bind(this);
+        this.handlers.continuousClick = this.handleContinuousClick.bind(this);
+
+        // 添加事件監聽器
+        this.playerContainer.addEventListener('click', this.handlers.click, true);
+        this.playerContainer.addEventListener('dblclick', this.handlers.doubleClick, true);
+    }
+
+    handleClick(event) {
+        if (this.isControlElement(event.target)) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const now = Date.now();
+        const timeDiff = now - this.state.lastClickTime;
+
+        if (this.timers.click) {
+            clearTimeout(this.timers.click);
+        }
+
+        if (timeDiff > PLAYER_CONFIG.CLICK_THRESHOLD) {
+            this.state.clickCount = 1;
+        } else {
+            this.state.clickCount++;
+        }
+
+        this.state.lastClickTime = now;
+
+        this.timers.click = setTimeout(() => {
+            if (this.state.clickCount === 1) {
+                this.togglePlayPause();
+            } else if (this.state.clickCount >= 2) {
+                this.startContinuousMode(event, this.state.clickCount);
+            }
+            this.state.clickCount = 0;
+        }, PLAYER_CONFIG.CLICK_THRESHOLD);
+    }
+
+    handleDoubleClick(event) {
+        if (this.isControlElement(event.target)) {
+            return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
+    handleContinuousClick(event) {
+        if (this.isControlElement(event.target)) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        this.state.continuousCount++;
+        this.executeTimeJump();
+
+        if (this.timers.continuous) {
+            clearTimeout(this.timers.continuous);
+        }
+
+        this.timers.continuous = setTimeout(() => {
+            this.stopContinuousMode();
+        }, PLAYER_CONFIG.CONTINUOUS_CLICK_TIMEOUT);
+    }
+
+    isControlElement(target) {
+        return target.closest('.art-controls') || target.closest('.art-control') || target.closest('.art-settings');
+    }
+
+    togglePlayPause() {
+        if (this.artplayer) {
+            this.artplayer.toggle();
+        }
+    }
+
+    startContinuousMode(event, initialCount = 1) {
+        if (this.state.isContinuousMode) return;
+
+        const rect = this.playerContainer.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const direction = clickX < rect.width / 2 ? 'left' : 'right';
+
+        this.state.isContinuousMode = true;
+        this.state.continuousDirection = direction;
+        this.state.continuousCount = initialCount;
+        this.state.startTime = this.artplayer.currentTime;
+
+        this.executeTimeJump();
+
+        this.timers.continuous = setTimeout(() => {
+            this.stopContinuousMode();
+        }, PLAYER_CONFIG.CONTINUOUS_CLICK_TIMEOUT);
+
+        this.playerContainer.addEventListener('click', this.handlers.continuousClick, true);
+    }
+
+    stopContinuousMode() {
+        if (!this.state.isContinuousMode) return;
+
+        this.state.isContinuousMode = false;
+        this.state.continuousDirection = null;
+        this.state.continuousCount = 0;
+        this.state.startTime = 0;
+
+        if (this.timers.continuous) {
+            clearTimeout(this.timers.continuous);
+            this.timers.continuous = null;
+        }
+
+        this.playerContainer.removeEventListener('click', this.handlers.continuousClick, true);
+    }
+
+    executeTimeJump() {
+        if (!this.artplayer || !this.state.isContinuousMode) return;
+
+        const totalJumpSeconds = (this.state.continuousCount - 1) * PLAYER_CONFIG.JUMP_SECONDS;
+        let newTime;
+
+        if (this.state.continuousDirection === 'left') {
+            newTime = Math.max(0, this.state.startTime - totalJumpSeconds);
+            this.showHint(`後退 ${totalJumpSeconds} 秒`, 'left');
+        } else {
+            newTime = Math.min(this.artplayer.duration, this.state.startTime + totalJumpSeconds);
+            this.showHint(`前進 ${totalJumpSeconds} 秒`, 'right');
+        }
+
+        if (newTime !== this.artplayer.currentTime) {
+            this.artplayer.currentTime = newTime;
+        }
+    }
+
+    showHint(text, position) {
+        this.removeExistingHints();
+
+        const hint = document.createElement('div');
+        hint.className = 'time-change-hint';
+        hint.textContent = text;
+        hint.style.cssText = `
+            position: absolute;
+            top: 50%;
+            ${position === 'left' ? 'left: 20px;' : 'right: 20px;'}
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 10000;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        `;
+
+        this.playerContainer.appendChild(hint);
+
+        setTimeout(() => {
+            hint.style.opacity = '0';
+            setTimeout(() => {
+                if (hint.parentNode) {
+                    hint.parentNode.removeChild(hint);
+                }
+            }, 300);
+        }, PLAYER_CONFIG.HINT_DISPLAY_TIME);
+    }
+
+    removeExistingHints() {
+        const existingHints = this.playerContainer.querySelectorAll('.time-change-hint');
+        existingHints.forEach(hint => hint.remove());
+    }
+
+    destroy() {
+        // 清理所有計時器
+        Object.values(this.timers).forEach(timer => {
+            if (timer) clearTimeout(timer);
+        });
+
+        // 移除所有事件監聽器
+        Object.values(this.handlers).forEach(handler => {
+            this.playerContainer.removeEventListener('click', handler, true);
+            this.playerContainer.removeEventListener('dblclick', handler, true);
+        });
+
+        this.removeExistingHints();
+        this.timers = {};
+        this.handlers = {};
+    }
+}
+
 export function playVideo(url, element, videoInfo = null, historyItem = null) {
     $$('.episode-item').forEach(el => el.classList.remove('playing'));
     if (element) element.classList.add('playing');
@@ -349,299 +757,10 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         hotkey: true, // 啟用鍵盤控制
     });
 
-    // 添加自定義鍵盤控制
-    const keyboardHandler = (event) => {
-        // 只有在播放器存在且焦點不在輸入框時才處理鍵盤事件
-        if (!state.artplayer || document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
-            return;
-        }
+    // 初始化鍵盤控制器
+    const keyboardController = new KeyboardController(state.artplayer);
 
-        switch (event.code) {
-            case 'ArrowLeft':
-                event.preventDefault();
-                state.artplayer.currentTime = Math.max(0, state.artplayer.currentTime - 10);
-                break;
-            case 'ArrowRight':
-                event.preventDefault();
-                state.artplayer.currentTime = Math.min(state.artplayer.duration, state.artplayer.currentTime + 10);
-                break;
-            case 'Space':
-                event.preventDefault();
-                state.artplayer.toggle();
-                break;
-            case 'ArrowUp':
-                event.preventDefault();
-                state.artplayer.volume = Math.min(1, state.artplayer.volume + 0.1);
-                break;
-            case 'ArrowDown':
-                event.preventDefault();
-                state.artplayer.volume = Math.max(0, state.artplayer.volume - 0.1);
-                break;
-        }
-    };
-
-    // 儲存鍵盤處理器引用以便後續清理
-    document.keyboardHandler = keyboardHandler;
-    document.addEventListener('keydown', keyboardHandler);
-
-    // 添加雙擊螢幕左右側控制播放進度功能
-    class ClickController {
-        constructor(playerContainer, artplayer) {
-            this.playerContainer = playerContainer;
-            this.artplayer = artplayer;
-
-            // 點擊狀態
-            this.clickState = {
-                lastClickTime: Date.now(),
-                clickCount: 0,
-                clickTimer: null,
-                isProcessing: false
-            };
-
-            // 連續點擊狀態
-            this.continuousState = {
-                isActive: false,
-                direction: null,
-                clickCount: 0,
-                stopTimer: null,
-                startTime: 0 // 記錄開始連續模式時的初始時間
-            };
-
-            this.init();
-        }
-
-        init() {
-            // 綁定方法到實例，確保事件監聽器能正確移除
-            this.boundHandleClick = this.handleClick.bind(this);
-            this.boundHandleDoubleClick = this.handleDoubleClick.bind(this);
-            this.boundHandleContinuousClick = this.handleContinuousClick.bind(this);
-
-            // 主要點擊事件處理
-            this.playerContainer.addEventListener('click', this.boundHandleClick, true);
-
-            // 阻止 ArtPlayer 的內建雙擊事件
-            this.playerContainer.addEventListener('dblclick', this.boundHandleDoubleClick, true);
-        }
-
-        handleClick(event) {
-            // 檢查是否點擊在控制欄或設定面板上
-            const target = event.target;
-            if (target.closest('.art-controls') || target.closest('.art-control') || target.closest('.art-settings')) {
-                return;
-            }
-
-            // 阻止事件冒泡
-            event.preventDefault();
-            event.stopPropagation();
-
-            const currentTime = new Date().getTime();
-            const timeDiff = currentTime - this.clickState.lastClickTime;
-
-            // 清除之前的計時器
-            if (this.clickState.clickTimer) {
-                clearTimeout(this.clickState.clickTimer);
-            }
-
-            // 重置點擊計數器
-            if (timeDiff > 300) {
-                this.clickState.clickCount = 1;
-            } else {
-                this.clickState.clickCount++;
-            }
-
-            this.clickState.lastClickTime = currentTime;
-
-
-
-            // 設置新的計時器
-            this.clickState.clickTimer = setTimeout(() => {
-                if (this.clickState.clickCount === 1) {
-                    // 單擊事件 - 播放/暫停
-                    this.togglePlayPause();
-                } else if (this.clickState.clickCount >= 2) {
-                    // 雙擊事件 - 開始連續點擊模式
-                    // 傳遞點擊計數給連續模式
-                    this.startContinuousMode(event, this.clickState.clickCount);
-                }
-
-                // 重置狀態
-                this.clickState.clickCount = 0;
-            }, 300);
-        }
-
-        handleDoubleClick(event) {
-            // 檢查是否點擊在控制欄或設定面板上
-            const target = event.target;
-            if (target.closest('.art-controls') || target.closest('.art-control') || target.closest('.art-settings')) {
-                return;
-            }
-
-            // 阻止 ArtPlayer 的內建雙擊事件
-            event.preventDefault();
-            event.stopPropagation();
-        }
-
-        handleContinuousClick(event) {
-            const target = event.target;
-            if (target.closest('.art-controls') || target.closest('.art-control') || target.closest('.art-settings')) {
-                return;
-            }
-
-            // 阻止事件冒泡，防止觸發 ArtPlayer 的內建功能
-            event.preventDefault();
-            event.stopPropagation();
-
-            this.continuousState.clickCount++;
-            this.executeTimeJump();
-
-            // 重置停止計時器
-            if (this.continuousState.stopTimer) {
-                clearTimeout(this.continuousState.stopTimer);
-            }
-
-            // 設置停止連續點擊的計時器
-            this.continuousState.stopTimer = setTimeout(() => {
-                this.stopContinuousMode();
-            }, 500);
-        }
-
-        togglePlayPause() {
-            if (!this.artplayer) return;
-
-            // 使用 ArtPlayer 的內建 toggle 方法，這比手動檢查 paused 狀態更可靠
-            this.artplayer.toggle();
-        }
-
-        startContinuousMode(event, initialClickCount = 1) {
-            if (this.continuousState.isActive) return;
-
-            const rect = this.playerContainer.getBoundingClientRect();
-            const clickX = event.clientX - rect.left;
-            const containerWidth = rect.width;
-
-            // 判斷點擊位置
-            const direction = clickX < containerWidth / 2 ? 'left' : 'right';
-
-
-
-            this.continuousState.isActive = true;
-            this.continuousState.direction = direction;
-            this.continuousState.clickCount = initialClickCount; // 使用傳入的初始點擊計數
-            this.continuousState.startTime = this.artplayer.currentTime; // 記錄開始時間
-
-            // 立即執行跳轉
-            this.executeTimeJump();
-
-            // 設置停止連續點擊的計時器
-            this.continuousState.stopTimer = setTimeout(() => {
-                this.stopContinuousMode();
-            }, 500);
-
-            // 添加連續點擊事件監聽器
-            this.playerContainer.addEventListener('click', this.boundHandleContinuousClick, true);
-        }
-
-        stopContinuousMode() {
-            if (!this.continuousState.isActive) return;
-
-            this.continuousState.isActive = false;
-            this.continuousState.direction = null;
-            this.continuousState.clickCount = 0;
-            this.continuousState.startTime = 0;
-
-            if (this.continuousState.stopTimer) {
-                clearTimeout(this.continuousState.stopTimer);
-                this.continuousState.stopTimer = null;
-            }
-
-            // 移除連續點擊事件監聽器
-            this.playerContainer.removeEventListener('click', this.boundHandleContinuousClick, true);
-        }
-
-        executeTimeJump() {
-            if (!this.artplayer || !this.continuousState.isActive) return;
-
-            // 根據點擊次數計算總跳轉秒數 (點擊次數-1)*10秒
-            const totalJumpSeconds = (this.continuousState.clickCount - 1) * 10;
-            let newTime;
-
-
-
-            if (this.continuousState.direction === 'left') {
-                // 後退 - 從開始時間計算
-                newTime = Math.max(0, this.continuousState.startTime - totalJumpSeconds);
-                this.showTimeChangeHint(`後退 ${totalJumpSeconds} 秒`, 'left');
-            } else {
-                // 前進 - 從開始時間計算
-                newTime = Math.min(this.artplayer.duration, this.continuousState.startTime + totalJumpSeconds);
-                this.showTimeChangeHint(`前進 ${totalJumpSeconds} 秒`, 'right');
-            }
-
-
-
-            // 確保時間跳轉有效
-            if (newTime !== this.artplayer.currentTime) {
-                this.artplayer.currentTime = newTime;
-            }
-        }
-
-        showTimeChangeHint(text, position) {
-            // 移除現有的提示
-            const existingHint = document.querySelector('.time-change-hint');
-            if (existingHint) {
-                existingHint.remove();
-            }
-
-            // 創建提示元素
-            const hint = document.createElement('div');
-            hint.className = 'time-change-hint';
-            hint.textContent = text;
-            hint.style.cssText = `
-                position: absolute;
-                top: 50%;
-                ${position === 'left' ? 'left: 20px;' : 'right: 20px;'}
-                transform: translateY(-50%);
-                background: rgba(0, 0, 0, 0.8);
-                color: white;
-                padding: 10px 15px;
-                border-radius: 5px;
-                font-size: 14px;
-                z-index: 10000;
-                pointer-events: none;
-                transition: opacity 0.3s ease;
-            `;
-
-            this.playerContainer.appendChild(hint);
-
-            // 2秒後淡出並移除
-            setTimeout(() => {
-                hint.style.opacity = '0';
-                setTimeout(() => {
-                    if (hint.parentNode) {
-                        hint.parentNode.removeChild(hint);
-                    }
-                }, 300);
-            }, 2000);
-        }
-
-        destroy() {
-            // 清理所有計時器
-            if (this.clickState.clickTimer) {
-                clearTimeout(this.clickState.clickTimer);
-            }
-            if (this.continuousState.stopTimer) {
-                clearTimeout(this.continuousState.stopTimer);
-            }
-
-            // 移除所有事件監聽器
-            if (this.playerContainer) {
-                this.playerContainer.removeEventListener('click', this.boundHandleClick, true);
-                this.playerContainer.removeEventListener('dblclick', this.boundHandleDoubleClick, true);
-                this.playerContainer.removeEventListener('click', this.boundHandleContinuousClick, true);
-            }
-        }
-    }
-
+    // 初始化優化的點擊控制器
     const playerContainer = document.getElementById('artplayer-container');
     const clickController = new ClickController(playerContainer, state.artplayer);
 
@@ -687,101 +806,26 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         }
     });
 
-    // 處理歷史進度恢復
-    // 只有當歷史進度大於2秒時才進行恢復，避免小進度造成的問題
-    if (historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 2) {
-        let progressRestored = false; // 標記是否已恢復進度
-        let restoreAttempts = 0; // 恢復嘗試次數
-        const maxRestoreAttempts = 3; // 最大嘗試次數
+    // 初始化狀態管理器並處理歷史進度恢復
+    const stateManager = new PlayerStateManager();
+    stateManager.startProgressRestore(historyItemToUse);
 
-        // 使用多個事件來確保進度恢復
-        const restoreProgress = () => {
-            // 如果已經恢復過進度或超過最大嘗試次數，則不再嘗試
-            if (progressRestored || restoreAttempts >= maxRestoreAttempts) {
-                return;
-            }
+    // 當影片可以播放時移除載入指示器並開始播放
+    state.artplayer.on('canplay', () => {
+        // 移除載入指示器
+        const container = document.getElementById('artplayer-container');
+        const loadingDiv = container.querySelector('div[style*="載入中"]');
+        if (loadingDiv) {
+            loadingDiv.remove();
+        }
 
-            if (state.artplayer && state.artplayer.duration > 0) {
-                const targetTime = Math.min(historyItemToUse.currentTime, state.artplayer.duration - 10);
-                if (targetTime > 0) {
-                    restoreAttempts++;
-
-                    // 先暫停播放
-                    state.artplayer.pause();
-                    // 跳到正確秒數
-                    state.artplayer.currentTime = targetTime;
-
-                    // 延遲一下再開始播放，讓用戶看到跳轉效果
-                    setTimeout(() => {
-                        if (state.artplayer) {
-                            state.artplayer.play();
-                            // 標記進度已恢復
-                            progressRestored = true;
-                        }
-                    }, 800);
-                }
-            }
-        };
-
-        // 在影片載入完成後恢復進度
-        state.artplayer.on('loadedmetadata', () => {
-            setTimeout(restoreProgress, 500);
-        });
-
-        // 在影片可以播放時再次嘗試恢復進度
-        state.artplayer.on('canplay', () => {
-            // 移除載入指示器
-            const container = document.getElementById('artplayer-container');
-            const loadingDiv = container.querySelector('div[style*="載入中"]');
-            if (loadingDiv) {
-                loadingDiv.remove();
-            }
-
-            // 如果還沒有恢復進度且歷史進度大於2秒，再次嘗試
-            if (!progressRestored && historyItemToUse.currentTime > 2) {
-                setTimeout(restoreProgress, 300);
-            }
-        });
-
-        // 在影片開始播放時檢查進度
-        state.artplayer.on('play', () => {
-            // 如果播放開始但時間不對且歷史進度大於2秒，重新設置
-            if (!progressRestored && state.artplayer.currentTime < 2 && historyItemToUse.currentTime > 2) {
-                setTimeout(restoreProgress, 200);
-            }
-        });
-
-        // 強制檢查 - 在播放器創建後的一段時間內多次檢查
-        let checkCount = 0;
-        const maxChecks = 5; // 減少檢查次數
-        const checkInterval = setInterval(() => {
-            checkCount++;
-            if (state.artplayer && state.artplayer.duration > 0 &&
-                !progressRestored && state.artplayer.currentTime < 2 &&
-                historyItemToUse.currentTime > 2) {
-                restoreProgress();
-            }
-            if (checkCount >= maxChecks || progressRestored ||
-                (state.artplayer && state.artplayer.currentTime > 2)) {
-                clearInterval(checkInterval);
-            }
-        }, 1000);
-    } else {
-        // 沒有歷史進度時，正常自動播放
-        state.artplayer.on('canplay', () => {
-            // 移除載入指示器
-            const container = document.getElementById('artplayer-container');
-            const loadingDiv = container.querySelector('div[style*="載入中"]');
-            if (loadingDiv) {
-                loadingDiv.remove();
-            }
-
-            // 自動開始播放
+        // 如果沒有歷史進度且應該自動播放，則開始播放
+        if (!historyItemToUse || !historyItemToUse.currentTime || historyItemToUse.currentTime <= PLAYER_CONFIG.HISTORY_TIME_THRESHOLD) {
             if (state.artplayer && !state.artplayer.paused) {
                 state.artplayer.play();
             }
-        });
-    }
+        }
+    });
 
     // 處理載入錯誤
     state.artplayer.on('error', (error) => {
@@ -968,7 +1012,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         }
     });
 
-    // 播放器銷毀時記錄進度並清理計時器
+    // 播放器銷毀時記錄進度並清理所有資源
     state.artplayer.on('destroy', () => {
         // 記錄最終進度
         if (state.currentVideoInfo && state.artplayer) {
@@ -985,15 +1029,31 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
             }
         }
 
-        if (progressTimer) {
-            clearInterval(progressTimer);
-            progressTimer = null;
+        // 清理狀態管理器
+        if (stateManager) {
+            stateManager.cleanup();
+        }
+
+        // 清理鍵盤控制器
+        if (keyboardController) {
+            keyboardController.destroy();
         }
 
         // 清理點擊控制器
         if (clickController) {
             clickController.destroy();
         }
+
+        // 清理進度記錄計時器
+        if (progressTimer) {
+            clearInterval(progressTimer);
+            progressTimer = null;
+        }
+
+        // 清理全域資源
+        cleanupPlayerResources();
+
+        console.log('播放器資源清理完成');
     });
 
     // 頁面卸載前保存進度
