@@ -267,6 +267,9 @@ export async function openModal(video) {
             $('#videoModal').style.display = 'flex';
             $('#playlistSources').innerHTML = '';
             $('#episodeList').innerHTML = '正在加載播放列表...';
+
+            // 使用統一方法隱藏來源數量標籤（單站點模式）
+            updateSourceCountDisplay();
         },
         revert: closeModal,
         context: video
@@ -322,10 +325,13 @@ export async function openMultiSourceModal(videoName, videoList) {
         id: 'videoModal',
         apply: () => {
             document.body.classList.add('modal-open');
-            $('.title-text').textContent = `${videoName} (${videoList.length} 個來源)`;
+            $('.title-text').textContent = videoName;
             $('#videoModal').style.display = 'flex';
             $('#playlistSources').innerHTML = '';
             $('#episodeList').innerHTML = '請選擇來源...';
+
+            // 使用統一方法顯示來源數量標籤（多來源模式）
+            updateSourceCountDisplay(videoList);
         },
         revert: closeModal,
         context: { videoName, videoList }
@@ -813,6 +819,9 @@ export function closeModal() {
     state.currentVideo = null; // 重置當前影片資訊
     state.multiSourceModalData = {}; // 清理多來源 modalData
 
+    // 使用統一方法清理來源數量標籤
+    updateSourceCountDisplay();
+
     if (historyManager.getCurrentState()?.id === 'videoModal') {
         historyManager.back();
     }
@@ -873,6 +882,22 @@ export function updateSelectedSitesDisplay() {
         display.textContent = `搜尋範圍: ${selectedNames}`;
     } else {
         display.textContent = '';
+    }
+}
+
+// 統一管理來源數量標籤顯示狀態的方法
+export function updateSourceCountDisplay(videoList) {
+    const sourceCountElement = $('#sourceCount');
+    if (!sourceCountElement) return;
+
+    if (videoList && videoList.length > 1) {
+        // 多來源模式：顯示來源數量
+        sourceCountElement.textContent = `(${videoList.length} 個來源)`;
+        sourceCountElement.style.display = 'inline-block';
+    } else {
+        // 單來源模式：隱藏來源數量
+        sourceCountElement.style.display = 'none';
+        sourceCountElement.textContent = '';
     }
 }
 

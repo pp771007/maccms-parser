@@ -347,6 +347,21 @@
     color: var(--text-color);
     font-size: 18px;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.source-count {
+    background: var(--purple-color);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .modal-body {
