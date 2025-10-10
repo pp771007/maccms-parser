@@ -846,10 +846,9 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         console.log('準備切換到下一集...');
         if (state.autoPlayNext()) {
             console.log('autoPlayNext 返回 true，準備播放下一集');
-            // 重置播放時間到0
-            state.artplayer.currentTime = 0;
+
             // 延遲一下再載入新集數，讓用戶有時間看到播放結束
-            setTimeout(() => {
+            setTimeout(async () => {
                 // 取得下一集的 URL
                 const nextEpisodeUrl = state.currentVideoInfo.episodeUrl;
                 console.log('下一集 URL:', nextEpisodeUrl);
@@ -887,9 +886,66 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                         elementText: nextEpisodeElement?.textContent
                     });
 
-                    // 直接使用 playVideo 播放下一集
-                    console.log('開始播放下一集');
-                    playVideo(nextEpisodeUrl, nextEpisodeElement, state.currentVideoInfo);
+                    // 保留全螢幕狀態，直接切換影片來源
+                    console.log('開始播放下一集（保留全螢幕狀態）');
+
+                    try {
+                        // 保存當前的播放器狀態
+                        const currentFullscreen = state.artplayer.fullscreen;
+                        const currentFullscreenWeb = state.artplayer.fullscreenWeb;
+                        const currentVolume = state.artplayer.volume;
+                        const currentMuted = state.artplayer.muted;
+
+                        // 設置標誌，表示我們正在進行自動切換
+                        state.artplayer.isAutoSwitching = true;
+
+                        // 監聽載入完成事件
+                        const onVideoLoad = async () => {
+                            console.log('下一集載入完成，恢復播放狀態');
+
+                            // 恢復播放器狀態
+                            if (currentMuted) {
+                                state.artplayer.muted = true;
+                            } else {
+                                state.artplayer.volume = currentVolume;
+                            }
+
+                            // 恢復全螢幕狀態
+                            if (currentFullscreenWeb) {
+                                state.artplayer.fullscreenWeb = true;
+                            } else if (currentFullscreen) {
+                                state.artplayer.fullscreen = true;
+                            }
+
+                            // 清除標誌
+                            state.artplayer.isAutoSwitching = false;
+
+                            // 開始播放下一集
+                            await state.artplayer.play();
+                            console.log('成功切換到下一集並保留全螢幕狀態');
+                        };
+
+                        // 監聽錯誤事件
+                        const onVideoError = (error) => {
+                            console.error('切換下一集時發生錯誤:', error);
+                            state.artplayer.isAutoSwitching = false;
+                            // 如果直接切換失敗，回退到傳統方法
+                            playVideo(nextEpisodeUrl, nextEpisodeElement, state.currentVideoInfo);
+                        };
+
+                        // 添加一次性事件監聽器
+                        state.artplayer.once('video:canplay', onVideoLoad);
+                        state.artplayer.once('video:error', onVideoError);
+
+                        // 切換到下一集的 URL（這會觸發載入）
+                        state.artplayer.url = nextEpisodeUrl;
+
+                    } catch (error) {
+                        console.error('設置下一集URL時發生錯誤，嘗試使用傳統方法:', error);
+                        state.artplayer.isAutoSwitching = false;
+                        // 如果直接切換失敗，回退到傳統方法
+                        playVideo(nextEpisodeUrl, nextEpisodeElement, state.currentVideoInfo);
+                    }
                 } else {
                     console.error('無法獲取下一集 URL');
                 }
