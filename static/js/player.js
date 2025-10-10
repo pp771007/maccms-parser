@@ -910,18 +910,12 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                                 state.artplayer.volume = currentVolume;
                             }
 
-                            // 恢復全螢幕狀態
-                            if (currentFullscreenWeb) {
-                                state.artplayer.fullscreenWeb = true;
-                            } else if (currentFullscreen) {
-                                state.artplayer.fullscreen = true;
-                            }
-
                             // 清除標誌
                             state.artplayer.isAutoSwitching = false;
 
                             // 開始播放下一集
                             await state.artplayer.play();
+
                             console.log('成功切換到下一集並保留全螢幕狀態');
                         };
 
@@ -944,6 +938,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                         console.error('設置下一集URL時發生錯誤，嘗試使用傳統方法:', error);
                         state.artplayer.isAutoSwitching = false;
                         // 如果直接切換失敗，回退到傳統方法
+                        console.log('回退到傳統方法播放下一集');
                         playVideo(nextEpisodeUrl, nextEpisodeElement, state.currentVideoInfo);
                     }
                 } else {
