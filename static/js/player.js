@@ -6,8 +6,19 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     $$('.episode-item').forEach(el => el.classList.remove('playing'));
     if (element) element.classList.add('playing');
 
+    // 清理舊的播放器實例和相關資源
     if (state.artplayer) {
+        // 清理舊的點擊控制器
+        if (state.artplayer.clickController) {
+            state.artplayer.clickController.destroy();
+        }
+
+        // 清理舊的事件監聽器和計時器
+        cleanupPlayerResources();
+
+        // 銷毀舊的播放器實例
         state.artplayer.destroy();
+        state.artplayer = null;
     }
 
     // 顯示載入指示器
@@ -339,7 +350,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     });
 
     // 添加自定義鍵盤控制
-    document.addEventListener('keydown', (event) => {
+    const keyboardHandler = (event) => {
         // 只有在播放器存在且焦點不在輸入框時才處理鍵盤事件
         if (!state.artplayer || document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
             return;
@@ -367,7 +378,11 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 state.artplayer.volume = Math.max(0, state.artplayer.volume - 0.1);
                 break;
         }
-    });
+    };
+
+    // 儲存鍵盤處理器引用以便後續清理
+    document.keyboardHandler = keyboardHandler;
+    document.addEventListener('keydown', keyboardHandler);
 
     // 添加雙擊螢幕左右側控制播放進度功能
     class ClickController {
@@ -629,6 +644,9 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
 
     const playerContainer = document.getElementById('artplayer-container');
     const clickController = new ClickController(playerContainer, state.artplayer);
+
+    // 將點擊控制器保存到播放器實例中，以便後續清理
+    state.artplayer.clickController = clickController;
 
     // 添加播放器事件監聽器用於除錯
     state.artplayer.on('ready', () => {
@@ -979,7 +997,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     });
 
     // 頁面卸載前保存進度
-    window.addEventListener('beforeunload', () => {
+    const beforeUnloadHandler = () => {
         if (state.currentVideoInfo && state.artplayer) {
             const currentTime = state.artplayer.currentTime;
             const duration = state.artplayer.duration;
@@ -993,10 +1011,10 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 );
             }
         }
-    });
+    };
 
     // 頁面隱藏時保存進度（切換標籤頁或最小化）
-    document.addEventListener('visibilitychange', () => {
+    const visibilityChangeHandler = () => {
         if (document.hidden && state.currentVideoInfo && state.artplayer) {
             const currentTime = state.artplayer.currentTime;
             const duration = state.artplayer.duration;
@@ -1010,5 +1028,56 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 );
             }
         }
+    };
+
+    // 儲存事件處理器引用以便後續清理
+    window.beforeUnloadHandler = beforeUnloadHandler;
+    document.visibilityChangeHandler = visibilityChangeHandler;
+
+    window.addEventListener('beforeunload', beforeUnloadHandler);
+    document.addEventListener('visibilitychange', visibilityChangeHandler);
+}
+
+// 資源清理函數，用於清理播放器相關的資源和事件監聽器
+function cleanupPlayerResources() {
+    // 清理鍵盤事件監聽器
+    const keyboardHandler = document.keyboardHandler;
+    if (keyboardHandler) {
+        document.removeEventListener('keydown', keyboardHandler);
+        document.keyboardHandler = null;
+    }
+
+    // 清理頁面事件監聽器
+    const beforeUnloadHandler = window.beforeUnloadHandler;
+    if (beforeUnloadHandler) {
+        window.removeEventListener('beforeunload', beforeUnloadHandler);
+        window.beforeUnloadHandler = null;
+    }
+
+    const visibilityChangeHandler = document.visibilityChangeHandler;
+    if (visibilityChangeHandler) {
+        document.removeEventListener('visibilitychange', visibilityChangeHandler);
+        document.visibilityChangeHandler = null;
+    }
+
+    // 清理全域計時器（如果有的話）
+    if (window.playerTimers) {
+        window.playerTimers.forEach(timer => {
+            if (timer) {
+                clearInterval(timer);
+                clearTimeout(timer);
+            }
+        });
+        window.playerTimers = [];
+    }
+
+    // 清理可能的記憶體洩漏元素
+    const timeChangeHints = document.querySelectorAll('.time-change-hint');
+    timeChangeHints.forEach(hint => {
+        if (hint && hint.parentNode) {
+            hint.parentNode.removeChild(hint);
+        }
     });
+
+    console.log('播放器資源清理完成');
 }
