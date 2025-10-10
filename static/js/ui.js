@@ -263,7 +263,7 @@ export async function openModal(video) {
         id: 'videoModal',
         apply: async () => {
             document.body.classList.add('modal-open');
-            $('#modalTitle').textContent = video.vod_name;
+            $('.title-text').textContent = video.vod_name;
             $('#videoModal').style.display = 'flex';
             $('#playlistSources').innerHTML = '';
             $('#episodeList').innerHTML = '正在加載播放列表...';
@@ -322,7 +322,7 @@ export async function openMultiSourceModal(videoName, videoList) {
         id: 'videoModal',
         apply: () => {
             document.body.classList.add('modal-open');
-            $('#modalTitle').textContent = `${videoName} (${videoList.length} 個來源)`;
+            $('.title-text').textContent = `${videoName} (${videoList.length} 個來源)`;
             $('#videoModal').style.display = 'flex';
             $('#playlistSources').innerHTML = '';
             $('#episodeList').innerHTML = '請選擇來源...';
@@ -1127,7 +1127,7 @@ export function openHistoryVideoModal(historyItem, modalData) {
         id: 'videoModal',
         apply: () => {
             document.body.classList.add('modal-open');
-            $('#modalTitle').textContent = historyItem.videoName;
+            $('.title-text').textContent = historyItem.videoName;
             $('#videoModal').style.display = 'flex';
             $('#playlistSources').innerHTML = '';
             $('#episodeList').innerHTML = '正在載入...';

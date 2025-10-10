@@ -70,6 +70,9 @@ function setupEventListeners() {
         if (e.target === $('#videoModal')) ui.closeModal();
     });
 
+    // Copy title button
+    $('#copyTitleBtn').addEventListener('click', handleCopyTitle);
+
     // Site Selection Modal
     $('#multiSiteSelectBtn').addEventListener('click', ui.openSiteSelectionModal);
     $('#siteSelectionModal .close-btn').addEventListener('click', ui.closeSiteSelectionModal);
@@ -129,6 +132,57 @@ function initScrollButtons() {
 }
 
 let t2s; // 儲存轉換函數
+
+// 處理複製標題功能
+async function handleCopyTitle() {
+    try {
+        const titleTextElement = $('.title-text');
+        if (!titleTextElement) {
+            showToast('無法找到標題元素', 'error');
+            return;
+        }
+
+        const titleText = titleTextElement.textContent.trim();
+        if (!titleText) {
+            showToast('標題為空，無法複製', 'warning');
+            return;
+        }
+
+        // 使用現代 Clipboard API
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(titleText);
+            showToast('標題已複製到剪貼簿', 'success');
+        } else {
+            // 降級處理：使用傳統方法
+            const textArea = document.createElement('textarea');
+            textArea.value = titleText;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast('標題已複製到剪貼簿', 'success');
+                } else {
+                    showToast('複製失敗，請手動選擇並複製', 'error');
+                }
+            } catch (err) {
+                console.error('複製失敗:', err);
+                showToast('複製失敗，請手動選擇並複製', 'error');
+            }
+
+            document.body.removeChild(textArea);
+        }
+    } catch (err) {
+        console.error('複製標題時發生錯誤:', err);
+        showToast('複製失敗，請稍後再試', 'error');
+    }
+}
+
 async function handleToSimp() {
     const searchInput = $('#searchInput');
     if (!t2s) {
