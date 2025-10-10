@@ -146,6 +146,116 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 },
             },
             {
+                width: 150,
+                html: 'Chromecast',
+                tooltip: 'Chromecast 投放',
+                switch: true,
+                onSwitch: function (item) {
+                    const player = state.artplayer;
+
+                    // 載入 Chromecast SDK（如果還沒載入）
+                    if (!window.chrome || !window.chrome.cast) {
+                        // 動態載入 Chromecast SDK
+                        return new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+                            script.onload = () => {
+                                window.__onGCastApiAvailable = function (isAvailable) {
+                                    if (isAvailable) {
+                                        window.cast.framework.CastContext.getInstance().setOptions({
+                                            receiverApplicationId: window.chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+                                            autoJoinPolicy: window.chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED
+                                        });
+
+                                        // 嘗試連接到 Chromecast
+                                        connectToChromecast(player);
+                                        resolve('SDK 已載入，連線中...');
+                                    } else {
+                                        player.notice.show = 'Chromecast 無法使用';
+                                        resolve('Chromecast 無法使用');
+                                    }
+                                };
+                            };
+                            script.onerror = () => {
+                                player.notice.show = '載入 Chromecast SDK 失敗';
+                                resolve('載入失敗');
+                            };
+                            document.body.appendChild(script);
+                        });
+                    } else {
+                        // SDK 已經載入，直接連接到 Chromecast
+                        connectToChromecast(player);
+                        return '連接到 Chromecast';
+                    }
+
+                    function connectToChromecast(player) {
+                        const castContext = window.cast.framework.CastContext.getInstance();
+
+                        // 檢查是否有現有的投放會話
+                        const currentSession = castContext.getCurrentSession();
+
+                        if (currentSession) {
+                            // 如果有現有的會話，直接載入媒體
+                            loadMediaToChromecast(currentSession, player.url);
+                            player.notice.show = '媒體已載入到 Chromecast';
+                        } else {
+                            // 請求新的投放會話
+                            castContext.requestSession()
+                                .then(function (session) {
+                                    loadMediaToChromecast(session, player.url);
+                                    player.notice.show = '已連接到 Chromecast';
+                                })
+                                .catch(function (error) {
+                                    player.notice.show = '連接到 Chromecast 失敗';
+                                    console.error('Chromecast 連線失敗:', error);
+                                });
+                        }
+                    }
+
+                    function loadMediaToChromecast(session, url) {
+                        try {
+                            // 判斷媒體類型
+                            const mimeType = getMimeType(url);
+                            const mediaInfo = new window.chrome.cast.media.MediaInfo(url, mimeType);
+                            const request = new window.chrome.cast.media.LoadRequest(mediaInfo);
+
+                            session.loadMedia(request)
+                                .then(function () {
+                                    console.log('媒體已成功載入到 Chromecast');
+                                })
+                                .catch(function (error) {
+                                    console.error('載入媒體到 Chromecast 失敗:', error);
+                                    player.notice.show = '載入媒體失敗';
+                                });
+                        } catch (error) {
+                            console.error('準備 Chromecast 媒體時發生錯誤:', error);
+                            player.notice.show = '準備媒體時發生錯誤';
+                        }
+                    }
+
+                    function getMimeType(url) {
+                        const extension = url.split('?')[0].split('#')[0].split('.').pop().toLowerCase();
+                        const mimeTypes = {
+                            'mp4': 'video/mp4',
+                            'webm': 'video/webm',
+                            'ogg': 'video/ogg',
+                            'ogv': 'video/ogg',
+                            'mp3': 'audio/mp3',
+                            'wav': 'audio/wav',
+                            'flv': 'video/x-flv',
+                            'mov': 'video/quicktime',
+                            'avi': 'video/x-msvideo',
+                            'wmv': 'video/x-ms-wmv',
+                            'mpd': 'application/dash+xml',
+                            'm3u8': 'application/x-mpegURL'
+                        };
+                        return mimeTypes[extension] || 'application/octet-stream';
+                    }
+
+                    return '處理中...';
+                },
+            },
+            {
                 html: '播放速度',
                 width: 150,
                 tooltip: '正常',
@@ -178,12 +288,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         ],
         airplay: true,
         theme: '#23ade5',
-        plugins: [
-            artplayerPluginChromecast({
-                // sdk: '', // The URL of the Cast SDK
-                // mimeType: '', // The MIME type of the media
-            }),
-        ],
+        plugins: [],
         i18n: {
             'zh-tw': {
                 "Video Info": "統計資訊",
