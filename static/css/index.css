@@ -1594,3 +1594,29 @@ body.modal-open {
         /* 向右移動並向右傾斜 */
     }
 }
+
+/* Footer樣式 */
+.footer {
+    margin-top: auto;
+    padding: 15px 0;
+    border-top: 1px solid var(--border-color);
+    background: var(--card-background);
+    text-align: center;
+}
+
+.footer .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.footer p {
+    margin: 0;
+    color: var(--text-secondary-color);
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.footer-version {
+    color: var(--text-secondary-color);
+}

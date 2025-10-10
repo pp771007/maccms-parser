@@ -8,11 +8,12 @@ main_bp = Blueprint('main', __name__)
 
 @main_bp.route('/')
 def index():
+    from web_app import VERSION
     site_title = get_config_value('site_title', '資源站點管理器')
     favicon_ext = get_config_value('favicon_ext', 'svg')
     favicon_version = get_config_value('favicon_version', '')
     favicon_url = f"/favicon?v={favicon_version}"
-    return render_template('index.html', site_title=site_title, favicon_url=favicon_url)
+    return render_template('index.html', site_title=site_title, favicon_url=favicon_url, version=VERSION)
 
 @main_bp.route('/setup')
 def site_setup():

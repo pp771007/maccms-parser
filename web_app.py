@@ -13,8 +13,11 @@ cli.show_server_banner = lambda *x: None
 app = Flask(__name__)
 logger = setup_logger()
 
+# --- Version Configuration ---
+VERSION = "v6.6"
+
 logger.info("==============================================")
-logger.info("   資源站點管理器 v6.6 啟動！")
+logger.info(f"   資源站點管理器 {VERSION} 啟動！")
 logger.info("==============================================")
 
 # --- Initialize Secret Key ---
