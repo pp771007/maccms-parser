@@ -112,8 +112,8 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/artplayer@5.2.2/dist/artplayer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js/dist/hls.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/artplayer-plugin-chromecast/dist/artplayer-plugin-chromecast.js"></script>
+<script src="{{ url_for('static', filename='js/artplayer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/hls.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/artplayer-plugin-chromecast.js') }}"></script>
 <script type="module" src="{{ url_for('static', filename='js/index.js') }}"></script>
 {% endblock %}

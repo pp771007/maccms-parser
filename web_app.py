@@ -14,7 +14,7 @@ app = Flask(__name__)
 logger = setup_logger()
 
 logger.info("==============================================")
-logger.info("   資源站點管理器 v6.4 啟動！")
+logger.info("   資源站點管理器 v6.5 啟動！")
 logger.info("==============================================")
 
 # --- Initialize Secret Key ---
