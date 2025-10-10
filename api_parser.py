@@ -1,6 +1,7 @@
 # api_parser.py
 import requests
 import json
+from config import get_timeout_config
 
 def process_api_request(base_url, params, logger, ssl_verify=True, site_name=None):
     site_info = f"站點 [{site_name}] " if site_name else ""
@@ -17,7 +18,7 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
     
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
-        timeout_seconds = 10
+        timeout_seconds = get_timeout_config()
         list_response = requests.get(api_url, headers=headers, params=params, timeout=timeout_seconds, verify=ssl_verify)
         
         # 檢查響應內容，如果是 "暂不支持搜索" 等特殊情況，直接返回錯誤
@@ -126,7 +127,7 @@ def get_details_from_api(base_url, vod_id, logger, ssl_verify=True, site_name=No
     
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
-        timeout_seconds = 10
+        timeout_seconds = get_timeout_config()
         response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=ssl_verify)
         
         # 檢查響應內容，如果是特殊情況，直接返回錯誤

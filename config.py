@@ -29,3 +29,11 @@ def set_config_value(key, value):
     config = load_config()
     config[key] = value
     save_config(config)
+
+def get_timeout_config():
+    """取得超時設定，預設為5秒"""
+    return get_config_value('request_timeout', 5)
+
+def set_timeout_config(timeout_seconds):
+    """設定超時時間"""
+    set_config_value('request_timeout', timeout_seconds)

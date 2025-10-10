@@ -6,6 +6,7 @@ import time
 import requests
 from datetime import datetime, timedelta, timezone
 from logger_config import setup_logger
+from config import get_timeout_config
 
 DATA_DIR = 'data'
 SITES_DB_FILE = os.path.join(DATA_DIR, 'sites.json')
@@ -41,9 +42,10 @@ def check_site_health(site):
         
         headers = {'User-Agent': 'Mozilla/5.0'}
         ssl_verify = site.get('ssl_verify', True)
-        
-        # 使用10秒timeout
-        response = requests.get(api_url, headers=headers, timeout=10, verify=ssl_verify)
+
+        # 使用統一的超時設定
+        timeout_seconds = get_timeout_config()
+        response = requests.get(api_url, headers=headers, timeout=timeout_seconds, verify=ssl_verify)
         response.raise_for_status()
         
         # 檢查API回應格式
