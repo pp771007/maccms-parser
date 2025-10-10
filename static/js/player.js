@@ -76,9 +76,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     // 只有當歷史進度大於2秒時才不自動播放，避免小進度造成的問題
     const shouldAutoplay = !(historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 2);
 
-    // 檢測螢幕尺寸，判斷是否為小螢幕設備
-    const isSmallScreen = window.innerWidth < 768;
-
     state.artplayer = new Artplayer({
         container: '#artplayer-container',
         url: url,
@@ -94,17 +91,62 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 }
             },
         },
-        // 手機端優化設定
-        fullscreenWeb: !isSmallScreen, // 小螢幕設備不顯示網路全螢幕
+        fullscreenWeb: window.innerWidth >= 500,
         fullscreen: true,
         mini: true,
         autoplay: shouldAutoplay, // 根據是否有歷史進度決定是否自動播放
         setting: true,
         // 移除自定義控制按鈕，因為現在有雙擊左右側功能
         controls: [],
+        // 取消手機手勢左右滑動切動進度條功能
+        gesture: false,
         settings: [
             {
-                html: '速度',
+                width: 150,
+                html: '網頁全螢幕',
+                tooltip: '網頁全螢幕',
+                switch: true,
+                onSwitch: function (item) {
+                    const player = state.artplayer;
+                    player.fullscreenWeb = !player.fullscreenWeb;
+                    return player.fullscreenWeb ? '網頁全螢幕開啟' : '網頁全螢幕關閉';
+                },
+            },
+            {
+                width: 150,
+                html: '全螢幕',
+                tooltip: '全螢幕',
+                switch: true,
+                onSwitch: function (item) {
+                    const player = state.artplayer;
+                    player.fullscreen = !player.fullscreen;
+                    return player.fullscreen ? '全螢幕開啟' : '全螢幕關閉';
+                },
+            },
+            {
+                width: 150,
+                html: '截圖',
+                tooltip: '截圖',
+                switch: true,
+                onSwitch: function (item) {
+                    const player = state.artplayer;
+                    player.screenshot();
+                    return '截圖完成';
+                },
+            },
+            {
+                width: 150,
+                html: '投影投放',
+                tooltip: '投影投放',
+                switch: true,
+                onSwitch: function (item) {
+                    const player = state.artplayer;
+                    player.airplay();
+                    return '開啟投影投放';
+                },
+            },
+            {
+                html: '播放速度',
                 width: 150,
                 tooltip: '正常',
                 selector: [
@@ -121,7 +163,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 },
             },
             {
-                html: '比例',
+                html: '畫面比例',
                 selector: [
                     { html: '原始比例', url: 'default' },
                     { html: '16:9', url: '16:9' },
@@ -133,9 +175,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                     return item.html;
                 },
             },
-
         ],
-        screenshot: !isSmallScreen, // 小螢幕設備不顯示截圖功能
         airplay: true,
         theme: '#23ade5',
         plugins: [
