@@ -702,6 +702,61 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                     return item.html;
                 },
             },
+            {
+                width: 150,
+                html: '畫中畫模式',
+                tooltip: '畫中畫模式',
+                switch: false, // 初始狀態設為播放器的當前 PIP 狀態
+                mounted: function ($item, item) {
+                    const player = this;
+                    // 初始化開關狀態
+                    item.switch = player.pip; 
+                    
+                    // 監聽播放器的 pip 事件，以同步開關狀態
+                    player.on('pip', (status) => {
+                        item.switch = status;
+                    });
+                },
+                onSwitch: function (item) {
+                    const player = this;
+                    // 觸發播放器的 pip 功能
+                    player.pip = !player.pip;
+                    // 返回當前狀態，onSwitch 會自動更新 item.switch
+                    return player.pip; 
+                },
+            },
+            {
+                width: 150,
+                html: '鎖定螢幕',
+                tooltip: '鎖定螢幕',
+                switch: false, // 初始狀態設為播放器的當前鎖定狀態
+                mounted: function ($item, item) {
+                    const player = this;
+                    
+                    // 這個插件是動態加入的，需要確認它是否存在
+                    if (player.plugins.lock) {
+                        // 初始化開關狀態
+                        item.switch = player.plugins.lock.state;
+
+                        // 監聽播放器的 lock 事件，以同步開關狀態
+                        player.on('lock', (status) => {
+                            item.switch = status;
+                        });
+                    } else {
+                        // 如果不是在行動裝置或 lock 功能未啟用，直接隱藏這個選項
+                        $item.style.display = 'none';
+                    }
+                },
+                onSwitch: function (item) {
+                    const player = this;
+                    // 觸發鎖定插件的功能
+                    if (player.plugins.lock) {
+                        player.plugins.lock.state = !player.plugins.lock.state;
+                        return player.plugins.lock.state;
+                    }
+                    return false;
+                },
+            },
         ],
         airplay: true,
         theme: '#23ade5',
@@ -753,7 +808,8 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         },
         gesture: false, // 停用內建手勢操作，避免與自定義雙擊功能衝突
         hotkey: true, // 啟用鍵盤控制
-        autoOrientation: true, //啟用自動轉向
+        autoOrientation: true, // 啟用自動轉向
+        miniProgressBar: true, // 啟用迷你進度條
     });
 
     // 初始化鍵盤控制器
