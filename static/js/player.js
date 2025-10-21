@@ -517,8 +517,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         setting: true,
         // 移除自定義控制按鈕，因為現在有雙擊左右側功能
         controls: [],
-        // 取消手機手勢左右滑動切動進度條功能
-        gesture: false,
         settings: [
             {
                 width: 150,
@@ -755,6 +753,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         },
         gesture: false, // 停用內建手勢操作，避免與自定義雙擊功能衝突
         hotkey: true, // 啟用鍵盤控制
+        autoOrientation: true, //啟用自動轉向
     });
 
     // 初始化鍵盤控制器
