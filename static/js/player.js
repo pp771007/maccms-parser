@@ -808,7 +808,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         },
         gesture: false, // 停用內建手勢操作，避免與自定義雙擊功能衝突
         hotkey: true, // 啟用鍵盤控制
-        autoOrientation: true, // 啟用自動轉向
         miniProgressBar: true, // 啟用迷你進度條
     });
 
