@@ -436,6 +436,31 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     // 如果有影片資訊，記錄到歷史紀錄
     if (videoInfo) {
         state.currentVideoInfo = videoInfo;
+        
+        // 計算總集數
+        let totalEpisodes = 0;
+        if (state.modalData && state.modalData.length > 0) {
+            state.modalData.forEach(source => {
+                if (source.episodes && source.episodes.length > 0) {
+                    totalEpisodes += source.episodes.length;
+                }
+            });
+        } else if (state.multiSourceModalData && Object.keys(state.multiSourceModalData).length > 0) {
+            const sourceData = state.multiSourceModalData[state.currentSourceIndex];
+            if (sourceData && sourceData.length > 0) {
+                sourceData.forEach(source => {
+                    if (source.episodes && source.episodes.length > 0) {
+                        totalEpisodes += source.episodes.length;
+                    }
+                });
+            }
+        }
+        
+        // 將總集數添加到 videoInfo
+        if (totalEpisodes > 0) {
+            videoInfo.totalEpisodes = totalEpisodes;
+        }
+        
         state.addToHistory(videoInfo);
 
         // 檢查 currentVideo 是否需要從 multiSourceVideos 中更新

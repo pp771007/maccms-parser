@@ -1193,6 +1193,15 @@ body.modal-open {
     color: var(--text-secondary-color);
 }
 
+.history-total-episodes {
+    font-size: 12px;
+    color: var(--primary-color);
+    background: rgba(52, 152, 219, 0.1);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
 .history-site {
     font-size: 12px;
     color: var(--text-secondary-color);

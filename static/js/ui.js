@@ -1039,6 +1039,7 @@ export function renderWatchHistory() {
                 <div class="history-details">
                     <span class="history-episode">${item.episodeName || '未知劇集'}</span>
                     <span class="history-site">${item.siteName || (item.siteId ? (state.sites.find(s => s.id === item.siteId)?.name || state.sites.find(s => s.name === item.siteName)?.name || '未知站台') : (state.sites.find(s => s.name === item.siteName)?.name || '未知站台'))}</span>
+                    ${item.totalEpisodes ? `<span class="history-total-episodes" title="目前共有${item.totalEpisodes}集">共 ${item.totalEpisodes} 集</span>` : ''}
                     <span class="history-time">${formatDate(item.lastWatched || item.timestamp)}</span>
                 </div>
                 <div class="history-bottom">
