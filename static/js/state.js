@@ -15,6 +15,29 @@ export default {
     currentVideoInfo: null, // 當前播放的影片資訊
     currentVideo: null, // 當前選擇的影片資訊
     onHistoryUpdate: null, // 歷史記錄更新回調函數
+    historyUpdateInfo: {}, // 存儲歷史記錄的更新信息 {videoId_siteId: {hasUpdate: bool, newEpisodesCount: number}}
+
+    // 檢查是否需要檢查歷史記錄更新（10分鐘內不重複檢查）
+    shouldCheckHistoryUpdates() {
+        const lastCheck = localStorage.getItem('lastHistoryUpdateCheck');
+        if (!lastCheck) return true;
+        
+        const lastCheckTime = parseInt(lastCheck);
+        const now = Date.now();
+        const tenMinutes = 10 * 60 * 1000; // 10分鐘
+        
+        return (now - lastCheckTime) > tenMinutes;
+    },
+
+    // 更新最後檢查時間
+    updateLastCheckTime() {
+        localStorage.setItem('lastHistoryUpdateCheck', Date.now().toString());
+    },
+
+    // 清除歷史記錄更新信息
+    clearHistoryUpdateInfo() {
+        this.historyUpdateInfo = {};
+    },
 
     // 從localStorage載入多選站台設定
     loadMultiSiteSelection() {

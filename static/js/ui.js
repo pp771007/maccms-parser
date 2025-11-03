@@ -1053,6 +1053,36 @@ export function renderWatchHistory() {
             </div>
         `;
 
+        // 檢查是否有更新並添加標記
+        const key = `${item.videoId}_${item.siteId}`;
+        if (state.historyUpdateInfo[key]?.hasUpdate) {
+            const updateBadge = document.createElement('div');
+            updateBadge.className = 'update-badge';
+            updateBadge.innerHTML = `
+                <span style="animation: pulse 2s ease-in-out infinite;">🔴</span>
+                <span>新增 ${state.historyUpdateInfo[key].newEpisodesCount} 集</span>
+            `;
+            updateBadge.style.cssText = `
+                position: absolute;
+                top: 8px;
+                left: 8px;
+                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+                color: white;
+                padding: 4px 10px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+                z-index: 10;
+            `;
+            historyItem.querySelector('.history-pic-wrapper').appendChild(updateBadge);
+            historyItem.classList.add('has-update');
+        }
+
+
         // 繼續觀看按鈕事件
         const continueBtn = historyItem.querySelector('.continue-btn');
         continueBtn.addEventListener('click', async () => {
@@ -1270,7 +1300,7 @@ function findTargetSourceIndex(historyItem, modalData) {
 export function showHistoryPanel() {
     historyManager.add({
         id: 'historyPanel',
-        apply: () => {
+        apply: async () => {
             const historyPanel = $('#historyPanel');
             const historyOverlay = $('#historyOverlay');
             if (historyPanel && historyOverlay) {
@@ -1302,6 +1332,11 @@ export function showHistoryPanel() {
                     historyContainer.addEventListener('touchmove', (e) => {
                         e.stopPropagation();
                     }, { passive: false });
+                }
+
+                // 檢查是否需要檢查更新（10分鐘內不重複檢查）
+                if (state.shouldCheckHistoryUpdates()) {
+                    await checkHistoryUpdates();
                 }
             }
         },
@@ -1346,3 +1381,119 @@ export function clearAllHistory() {
         showToast('已清除所有觀看歷史');
     }, '請確認', 'warning');
 }
+
+// 檢查歷史記錄更新
+async function checkHistoryUpdates() {
+    if (!state.watchHistory || state.watchHistory.length === 0) {
+        return;
+    }
+
+    // 清除舊的更新信息
+    state.clearHistoryUpdateInfo();
+
+    // 顯示檢查提示
+    const historyContainer = $('#watchHistoryContainer');
+    const checkingToast = document.createElement('div');
+    checkingToast.className = 'checking-updates-toast';
+    checkingToast.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="spinner"></div>
+            <span>正在檢查更新...</span>
+        </div>
+    `;
+    checkingToast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        z-index: 10001;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    `;
+    document.body.appendChild(checkingToast);
+
+    let updatedCount = 0;
+    let checkedCount = 0;
+
+    try {
+        // 批量檢查前5個歷史記錄（避免一次請求太多）
+        const itemsToCheck = state.watchHistory.slice(0, 5);
+        
+        for (const item of itemsToCheck) {
+            try {
+                // 查找對應的站台
+                let site = state.sites.find(s => s.id === item.siteId);
+                if (!site && item.siteName) {
+                    site = state.sites.find(s => s.name === item.siteName);
+                }
+
+                if (!site || !site.url) {
+                    checkedCount++;
+                    continue;
+                }
+
+                // 獲取最新的影片詳情
+                const result = await fetchVideoDetails(site.url, item.videoId);
+                if (result && result.data && result.data.length > 0) {
+                    // 計算總劇集數
+                    let totalEpisodes = 0;
+                    result.data.forEach(source => {
+                        if (source.episodes && source.episodes.length > 0) {
+                            totalEpisodes += source.episodes.length;
+                        }
+                    });
+
+                    // 與歷史記錄比較（如果有儲存的劇集數）
+                    const key = `${item.videoId}_${item.siteId}`;
+                    
+                    // 暫時儲存當前的劇集數供未來比較
+                    // 這裡我們簡單標記為有新內容（實際實現可以更複雜）
+                    if (!item.totalEpisodes) {
+                        // 如果歷史記錄中沒有總劇集數，記錄當前值
+                        item.totalEpisodes = totalEpisodes;
+                        state.saveWatchHistory();
+                    } else if (totalEpisodes > item.totalEpisodes) {
+                        // 有新劇集
+                        const newEpisodesCount = totalEpisodes - item.totalEpisodes;
+                        state.historyUpdateInfo[key] = {
+                            hasUpdate: true,
+                            newEpisodesCount: newEpisodesCount
+                        };
+                        updatedCount++;
+                        
+                        // 更新歷史記錄中的總劇集數
+                        item.totalEpisodes = totalEpisodes;
+                        state.saveWatchHistory();
+                    }
+                }
+                
+                checkedCount++;
+            } catch (err) {
+                console.error(`檢查影片 ${item.videoName} 更新失敗:`, err);
+                checkedCount++;
+            }
+        }
+
+        // 更新最後檢查時間
+        state.updateLastCheckTime();
+
+        // 移除檢查提示
+        document.body.removeChild(checkingToast);
+
+        // 顯示結果
+        if (updatedCount > 0) {
+            showToast(`發現 ${updatedCount} 部影片有更新！`, 'success');
+            // 重新渲染歷史記錄以顯示更新標記
+            renderWatchHistory();
+        } else if (checkedCount > 0) {
+            showToast('已檢查更新，暫無新內容', 'info');
+        }
+    } catch (err) {
+        console.error('檢查更新失敗:', err);
+        document.body.removeChild(checkingToast);
+    }
+}
+
