@@ -1422,7 +1422,7 @@ async function checkHistoryUpdates() {
     try {
         // 批量檢查前5個歷史記錄（避免一次請求太多）
         const itemsToCheck = state.watchHistory.slice(0, 5);
-        
+
         for (const item of itemsToCheck) {
             try {
                 // 查找對應的站台
@@ -1439,17 +1439,17 @@ async function checkHistoryUpdates() {
                 // 獲取最新的影片詳情
                 const result = await fetchVideoDetails(site.url, item.videoId);
                 if (result && result.data && result.data.length > 0) {
-                    // 計算總劇集數
+                    // 計算總劇集數 - 取各來源最大值避免重複計數
                     let totalEpisodes = 0;
                     result.data.forEach(source => {
-                        if (source.episodes && source.episodes.length > 0) {
-                            totalEpisodes += source.episodes.length;
+                        if (source.episodes && source.episodes.length > totalEpisodes) {
+                            totalEpisodes = source.episodes.length;
                         }
                     });
 
                     // 與歷史記錄比較（如果有儲存的劇集數）
                     const key = `${item.videoId}_${item.siteId}`;
-                    
+
                     // 暫時儲存當前的劇集數供未來比較
                     // 這裡我們簡單標記為有新內容（實際實現可以更複雜）
                     if (!item.totalEpisodes) {
@@ -1464,13 +1464,13 @@ async function checkHistoryUpdates() {
                             newEpisodesCount: newEpisodesCount
                         };
                         updatedCount++;
-                        
+
                         // 更新歷史記錄中的總劇集數
                         item.totalEpisodes = totalEpisodes;
                         state.saveWatchHistory();
                     }
                 }
-                
+
                 checkedCount++;
             } catch (err) {
                 console.error(`檢查影片 ${item.videoName} 更新失敗:`, err);
@@ -1497,4 +1497,3 @@ async function checkHistoryUpdates() {
         document.body.removeChild(checkingToast);
     }
 }
-
