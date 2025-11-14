@@ -436,31 +436,31 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     // 如果有影片資訊，記錄到歷史紀錄
     if (videoInfo) {
         state.currentVideoInfo = videoInfo;
-        
-        // 計算總集數
+
+        // 計算總集數 - 取各來源最大值避免重複計數
         let totalEpisodes = 0;
         if (state.modalData && state.modalData.length > 0) {
             state.modalData.forEach(source => {
-                if (source.episodes && source.episodes.length > 0) {
-                    totalEpisodes += source.episodes.length;
+                if (source.episodes && source.episodes.length > totalEpisodes) {
+                    totalEpisodes = source.episodes.length;
                 }
             });
         } else if (state.multiSourceModalData && Object.keys(state.multiSourceModalData).length > 0) {
             const sourceData = state.multiSourceModalData[state.currentSourceIndex];
             if (sourceData && sourceData.length > 0) {
                 sourceData.forEach(source => {
-                    if (source.episodes && source.episodes.length > 0) {
-                        totalEpisodes += source.episodes.length;
+                    if (source.episodes && source.episodes.length > totalEpisodes) {
+                        totalEpisodes = source.episodes.length;
                     }
                 });
             }
         }
-        
+
         // 將總集數添加到 videoInfo
         if (totalEpisodes > 0) {
             videoInfo.totalEpisodes = totalEpisodes;
         }
-        
+
         state.addToHistory(videoInfo);
 
         // 檢查 currentVideo 是否需要從 multiSourceVideos 中更新
@@ -735,8 +735,8 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 mounted: function ($item, item) {
                     const player = this;
                     // 初始化開關狀態
-                    item.switch = player.pip; 
-                    
+                    item.switch = player.pip;
+
                     // 監聽播放器的 pip 事件，以同步開關狀態
                     player.on('pip', (status) => {
                         item.switch = status;
@@ -747,7 +747,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                     // 觸發播放器的 pip 功能
                     player.pip = !player.pip;
                     // 返回當前狀態，onSwitch 會自動更新 item.switch
-                    return player.pip; 
+                    return player.pip;
                 },
             },
             {
@@ -757,7 +757,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 switch: false, // 初始狀態設為播放器的當前鎖定狀態
                 mounted: function ($item, item) {
                     const player = this;
-                    
+
                     // 這個插件是動態加入的，需要確認它是否存在
                     if (player.plugins.lock) {
                         // 初始化開關狀態
