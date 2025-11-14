@@ -160,6 +160,7 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
         except Exception as debug_error:
             return {'status': 'error', 'message': f"返回的不是有效的JSON格式: {e}"}
     except Exception as e:
+        logger.error(f"站點檢查發生未知錯誤: {site_info} ({full_url})", exc_info=True)
         return {'status': 'error', 'message': f"發生未知錯誤: {e}"}
 
 
