@@ -1653,18 +1653,30 @@ body.modal-open {
 .update-badge {
     position: absolute;
     top: 8px;
-    left: 8px;
-    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    right: 8px;
+    background: linear-gradient(135deg, #ff3b3b 0%, #ff1744 100%);
     color: white;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(255, 23, 68, 0.5);
     z-index: 10;
+    animation: pulse-badge 2s ease-in-out infinite;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+@keyframes pulse-badge {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(255, 23, 68, 0.5);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(255, 23, 68, 0.8);
+    }
 }
 
 .history-item.has-update {

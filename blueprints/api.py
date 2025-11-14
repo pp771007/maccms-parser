@@ -318,3 +318,131 @@ def check_single_site(site_id):
     except Exception as e:
         logger.error(f"檢查站點 {site_id} 失敗: {e}")
         return jsonify({'status': 'error', 'message': f'檢查失敗: {e}'}), 500
+
+@api_bp.route('/history/check_updates', methods=['POST'])
+def check_history_updates():
+    """批量檢查歷史記錄更新"""
+    try:
+        data = request.json
+        history_items = data.get('history_items', [])
+        
+        if not history_items:
+            return jsonify({'status': 'error', 'message': '沒有要檢查的歷史記錄'}), 400
+        
+        # 限制最多檢查10個，避免過度請求
+        history_items = history_items[:10]
+        
+        all_sites = get_sites()
+        results = []
+        updated_count = 0
+        failed_count = 0
+        
+        for item in history_items:
+            try:
+                video_id = item.get('videoId')
+                site_id = item.get('siteId')
+                site_name = item.get('siteName')
+                old_total_episodes = item.get('totalEpisodes', 0)
+                video_name = item.get('videoName', '未知影片')
+                
+                # 查找對應的站點
+                site = next((s for s in all_sites if s['id'] == site_id), None)
+                if not site and site_name:
+                    site = next((s for s in all_sites if s['name'] == site_name), None)
+                
+                # 跳過不存在、無URL或已停用的站點
+                if not site or not site.get('url') or not site.get('enabled', True):
+                    results.append({
+                        'videoId': video_id,
+                        'siteId': site_id,
+                        'status': 'skipped',
+                        'reason': '站台不存在、無URL或已停用'
+                    })
+                    continue
+                
+                # 獲取影片詳情
+                ssl_verify = site.get('ssl_verify', True)
+                detail_result = get_details_from_api(site['url'], video_id, logger, ssl_verify=ssl_verify, site_name=site['name'])
+                
+                if detail_result.get('status') != 'success' or not detail_result.get('data'):
+                    results.append({
+                        'videoId': video_id,
+                        'siteId': site_id,
+                        'status': 'failed',
+                        'reason': detail_result.get('message', '獲取詳情失敗')
+                    })
+                    failed_count += 1
+                    continue
+                
+                # 計算總集數（取各來源最大值）
+                total_episodes = 0
+                for source in detail_result['data']:
+                    if source.get('episodes'):
+                        episode_count = len(source['episodes'])
+                        if episode_count > total_episodes:
+                            total_episodes = episode_count
+                
+                # 比較集數變化
+                has_update = False
+                new_episodes_count = 0
+                
+                if old_total_episodes == 0:
+                    # 首次記錄集數
+                    results.append({
+                        'videoId': video_id,
+                        'siteId': site_id,
+                        'status': 'success',
+                        'totalEpisodes': total_episodes,
+                        'hasUpdate': False
+                    })
+                elif total_episodes > old_total_episodes:
+                    # 有新集數
+                    has_update = True
+                    new_episodes_count = total_episodes - old_total_episodes
+                    updated_count += 1
+                    
+                    results.append({
+                        'videoId': video_id,
+                        'siteId': site_id,
+                        'status': 'success',
+                        'totalEpisodes': total_episodes,
+                        'hasUpdate': True,
+                        'newEpisodesCount': new_episodes_count
+                    })
+                    
+                    logger.info(f"發現更新: {video_name} 新增 {new_episodes_count} 集 (從 {old_total_episodes} 到 {total_episodes})")
+                else:
+                    # 無變化
+                    results.append({
+                        'videoId': video_id,
+                        'siteId': site_id,
+                        'status': 'success',
+                        'totalEpisodes': total_episodes,
+                        'hasUpdate': False
+                    })
+                
+            except Exception as e:
+                logger.error(f"檢查影片 {item.get('videoName', '未知')} 更新失敗: {e}")
+                results.append({
+                    'videoId': item.get('videoId'),
+                    'siteId': item.get('siteId'),
+                    'status': 'error',
+                    'reason': str(e)
+                })
+                failed_count += 1
+        
+        logger.info(f"批量檢查完成: 檢查 {len(history_items)} 個，更新 {updated_count} 個，失敗 {failed_count} 個")
+        
+        return jsonify({
+            'status': 'success',
+            'results': results,
+            'summary': {
+                'total': len(history_items),
+                'updated': updated_count,
+                'failed': failed_count
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"批量檢查歷史更新失敗: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500

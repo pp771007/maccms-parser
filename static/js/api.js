@@ -201,3 +201,36 @@ export async function checkSingleSite(siteId) {
     }
     return response.json();
 }
+
+export async function checkHistoryUpdates(historyItems) {
+    try {
+        const response = await fetch('/api/history/check_updates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ history_items: historyItems })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('檢查更新API響應錯誤:', {
+                status: response.status,
+                statusText: response.statusText,
+                responseText: errorText
+            });
+            throw new Error(`檢查更新失敗 (${response.status}): ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (result.status !== 'success') {
+            console.error('檢查更新API返回錯誤狀態:', result);
+            throw new Error(result.message || '檢查更新失敗');
+        }
+        return result;
+    } catch (error) {
+        console.error('checkHistoryUpdates 失敗:', {
+            error: error.message,
+            stack: error.stack
+        });
+        throw error;
+    }
+}

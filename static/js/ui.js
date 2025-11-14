@@ -1,6 +1,6 @@
 import state from './state.js';
 import { playVideo } from './player.js';
-import { fetchVideoDetails } from './api.js';
+import { fetchVideoDetails, checkHistoryUpdates } from './api.js';
 import { $, $$ } from './utils.js';
 import { showModal, showConfirm, showToast } from './modal.js';
 import historyManager from './historyStateManager.js';
@@ -1059,26 +1059,8 @@ export function renderWatchHistory() {
         if (state.historyUpdateInfo[key]?.hasUpdate) {
             const updateBadge = document.createElement('div');
             updateBadge.className = 'update-badge';
-            updateBadge.innerHTML = `
-                <span style="animation: pulse 2s ease-in-out infinite;">🔴</span>
-                <span>新增 ${state.historyUpdateInfo[key].newEpisodesCount} 集</span>
-            `;
-            updateBadge.style.cssText = `
-                position: absolute;
-                top: 8px;
-                left: 8px;
-                background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
-                color: white;
-                padding: 4px 10px;
-                border-radius: 12px;
-                font-size: 12px;
-                font-weight: bold;
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                box-shadow: 0 2px 8px rgba(255, 107, 107, 0.4);
-                z-index: 10;
-            `;
+            updateBadge.innerHTML = `NEW`;
+            updateBadge.title = `新增 ${state.historyUpdateInfo[key].newEpisodesCount} 集`;
             historyItem.querySelector('.history-pic-wrapper').appendChild(updateBadge);
             historyItem.classList.add('has-update');
         }
@@ -1393,7 +1375,6 @@ async function checkHistoryUpdates() {
     state.clearHistoryUpdateInfo();
 
     // 顯示檢查提示
-    const historyContainer = $('#watchHistoryContainer');
     const checkingToast = document.createElement('div');
     checkingToast.className = 'checking-updates-toast';
     checkingToast.innerHTML = `
@@ -1416,66 +1397,56 @@ async function checkHistoryUpdates() {
     `;
     document.body.appendChild(checkingToast);
 
-    let updatedCount = 0;
-    let checkedCount = 0;
-
     try {
-        // 批量檢查前5個歷史記錄（避免一次請求太多）
-        const itemsToCheck = state.watchHistory.slice(0, 5);
+        // 準備前5個歷史記錄的數據（後端會再次限制最多10個）
+        const itemsToCheck = state.watchHistory.slice(0, 5).map(item => ({
+            videoId: item.videoId,
+            videoName: item.videoName,
+            siteId: item.siteId,
+            siteName: item.siteName,
+            totalEpisodes: item.totalEpisodes || 0
+        }));
 
-        for (const item of itemsToCheck) {
-            try {
-                // 查找對應的站台
-                let site = state.sites.find(s => s.id === item.siteId);
-                if (!site && item.siteName) {
-                    site = state.sites.find(s => s.name === item.siteName);
-                }
+        // 調用後端API批量檢查
+        const result = await checkHistoryUpdates(itemsToCheck);
+        
+        let updatedCount = 0;
+        let historyModified = false;
 
-                if (!site || !site.url) {
-                    checkedCount++;
-                    continue;
-                }
+        // 處理檢查結果
+        if (result.results && Array.isArray(result.results)) {
+            result.results.forEach(checkResult => {
+                if (checkResult.status === 'success') {
+                    // 找到對應的歷史記錄項目
+                    const historyItem = state.watchHistory.find(item => 
+                        item.videoId === checkResult.videoId && 
+                        item.siteId === checkResult.siteId
+                    );
 
-                // 獲取最新的影片詳情
-                const result = await fetchVideoDetails(site.url, item.videoId);
-                if (result && result.data && result.data.length > 0) {
-                    // 計算總劇集數 - 取各來源最大值避免重複計數
-                    let totalEpisodes = 0;
-                    result.data.forEach(source => {
-                        if (source.episodes && source.episodes.length > totalEpisodes) {
-                            totalEpisodes = source.episodes.length;
+                    if (historyItem) {
+                        // 更新總集數
+                        if (checkResult.totalEpisodes !== undefined) {
+                            historyItem.totalEpisodes = checkResult.totalEpisodes;
+                            historyModified = true;
                         }
-                    });
 
-                    // 與歷史記錄比較（如果有儲存的劇集數）
-                    const key = `${item.videoId}_${item.siteId}`;
-
-                    // 暫時儲存當前的劇集數供未來比較
-                    // 這裡我們簡單標記為有新內容（實際實現可以更複雜）
-                    if (!item.totalEpisodes) {
-                        // 如果歷史記錄中沒有總劇集數，記錄當前值
-                        item.totalEpisodes = totalEpisodes;
-                        state.saveWatchHistory();
-                    } else if (totalEpisodes > item.totalEpisodes) {
-                        // 有新劇集
-                        const newEpisodesCount = totalEpisodes - item.totalEpisodes;
-                        state.historyUpdateInfo[key] = {
-                            hasUpdate: true,
-                            newEpisodesCount: newEpisodesCount
-                        };
-                        updatedCount++;
-
-                        // 更新歷史記錄中的總劇集數
-                        item.totalEpisodes = totalEpisodes;
-                        state.saveWatchHistory();
+                        // 如果有更新，記錄更新信息
+                        if (checkResult.hasUpdate) {
+                            const key = `${checkResult.videoId}_${checkResult.siteId}`;
+                            state.historyUpdateInfo[key] = {
+                                hasUpdate: true,
+                                newEpisodesCount: checkResult.newEpisodesCount
+                            };
+                            updatedCount++;
+                        }
                     }
                 }
+            });
+        }
 
-                checkedCount++;
-            } catch (err) {
-                console.error(`檢查影片 ${item.videoName} 更新失敗:`, err);
-                checkedCount++;
-            }
+        // 批量保存歷史記錄（只在有修改時保存一次）
+        if (historyModified) {
+            state.saveWatchHistory();
         }
 
         // 更新最後檢查時間
@@ -1485,15 +1456,29 @@ async function checkHistoryUpdates() {
         document.body.removeChild(checkingToast);
 
         // 顯示結果
-        if (updatedCount > 0) {
-            showToast(`發現 ${updatedCount} 部影片有更新！`, 'success');
+        const summary = result.summary || { updated: updatedCount, failed: 0 };
+        
+        if (summary.updated > 0) {
+            showToast(`發現 ${summary.updated} 部影片有更新！`, 'success');
             // 重新渲染歷史記錄以顯示更新標記
             renderWatchHistory();
-        } else if (checkedCount > 0) {
+        } else if (summary.total > 0) {
             showToast('已檢查更新，暫無新內容', 'info');
+        }
+        
+        // 如果有檢查失敗的項目，顯示警告
+        if (summary.failed > 0) {
+            // 延遲顯示失敗提示，避免覆蓋成功訊息
+            setTimeout(() => {
+                showToast(`${summary.failed} 部影片檢查失敗，可能是站台暫時無法連接`, 'warning');
+            }, summary.updated > 0 ? 2000 : 500);
         }
     } catch (err) {
         console.error('檢查更新失敗:', err);
-        document.body.removeChild(checkingToast);
+        // 移除檢查提示
+        if (document.body.contains(checkingToast)) {
+            document.body.removeChild(checkingToast);
+        }
+        showToast('檢查更新失敗，請稍後再試', 'error');
     }
 }
