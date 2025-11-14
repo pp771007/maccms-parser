@@ -1319,7 +1319,7 @@ export function showHistoryPanel() {
 
                 // 檢查是否需要檢查更新（10分鐘內不重複檢查）
                 if (state.shouldCheckHistoryUpdates()) {
-                    await checkHistoryUpdates();
+                    await performHistoryUpdateCheck();
                 }
             }
         },
@@ -1366,7 +1366,7 @@ export function clearAllHistory() {
 }
 
 // 檢查歷史記錄更新
-async function checkHistoryUpdates() {
+async function performHistoryUpdateCheck() {
     if (!state.watchHistory || state.watchHistory.length === 0) {
         return;
     }
