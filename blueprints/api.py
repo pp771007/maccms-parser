@@ -83,7 +83,11 @@ def add_or_get_sites():
             parsed_raw = urlparse(raw_url)
             if not all([parsed_raw.scheme, parsed_raw.netloc]):
                 raise ValueError("無效的URL格式，請確保包含 http:// 或 https://")
-            
+
+            # 檢查是否新增自己的伺服器作為外部站點，防止無限遞歸
+            if parsed_raw.scheme == request.scheme and parsed_raw.netloc == request.host:
+                return jsonify({'status': 'error', 'message': '不能新增自己的伺服器作為外部站點'}), 400
+
             cleaned_url = clean_base_url(raw_url)
             
         except ValueError as e:

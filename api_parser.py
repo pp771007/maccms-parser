@@ -49,7 +49,36 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
         if list_response.status_code != 200:
             return {'status': 'error', 'message': f"站台返回HTTP {list_response.status_code} 錯誤"}
         
-        list_data = list_response.json()
+        try:
+            list_data = list_response.json()
+        except json.JSONDecodeError:
+            # 獲取響應內容以便調試
+            try:
+                response_text = list_response.text if 'list_response' in locals() else "無法獲取響應內容"
+                response_status = list_response.status_code if 'list_response' in locals() else "未知"
+
+                # 提供更詳細的錯誤信息
+                if response_text.strip() == "":
+                    error_msg = "API返回空響應，可能是站點已失效或API端點錯誤"
+                elif response_text.startswith('<'):
+                    error_msg = "API返回HTML頁面而非JSON，可能是站點已失效或需要登錄"
+                elif len(response_text) < 10:
+                    error_msg = f"API返回內容過短: '{response_text}'，可能是站點已失效"
+                elif "暂不支持搜索" in response_text:
+                    error_msg = "該站台暫不支持搜尋功能"
+                elif "不支持" in response_text:
+                    error_msg = "該站台不支持此功能"
+                else:
+                    error_msg = f"API返回無效JSON格式，響應內容: {response_text[:100]}..."
+
+                return {
+                    'status': 'error',
+                    'message': error_msg
+                }
+            except Exception as debug_error:
+                return {'status': 'error', 'message': f"返回的不是有效的JSON格式: {e}"}
+        except RecursionError:
+            return {'status': 'error', 'message': 'API 返回的 JSON 結構過於複雜，無法解析'}
 
         if list_data.get('code') != 1:
             if 'wd' in params and list_data.get('total') == 0:
@@ -69,7 +98,11 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
         session = get_session()
         detail_response = session.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=ssl_verify)
         detail_response.raise_for_status()
-        detail_data = detail_response.json()
+        try:
+            detail_data = detail_response.json()
+        except RecursionError:
+            logger.error(f"{site_info}詳情 API 返回複雜 JSON，略過圖片更新")
+            detail_data = None
         
         detail_videos_map = {}
         if detail_data.get('code') == 1:
@@ -161,8 +194,12 @@ def get_details_from_api(base_url, vod_id, logger, ssl_verify=True, site_name=No
         if response.status_code != 200:
             logger.error(f"{site_info}HTTP狀態碼錯誤: {response.status_code}")
             return {'status': 'error', 'message': f"站台返回HTTP {response.status_code} 錯誤"}
-        
-        result_data = response.json()
+
+        try:
+            result_data = response.json()
+        except RecursionError:
+            logger.error(f"{site_info}詳情 API 返回複雜 JSON，無法解析")
+            return {'status': 'error', 'message': 'API 返回的 JSON 結構過於複雜，無法解析'}
 
         if 'list' in result_data and isinstance(result_data['list'], list) and result_data['list']:
             item = result_data['list'][0]
