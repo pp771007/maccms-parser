@@ -207,36 +207,6 @@
     box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
 }
 
-/* 直向模式 (預設) */
-#videoGrid.mode-portrait .video-pic-wrapper {
-    aspect-ratio: 2/3;
-}
-
-#videoGrid.mode-portrait .video-pic {
-    object-fit: cover;
-    object-position: center;
-}
-
-/* 橫向模式 */
-#videoGrid.mode-landscape .video-pic-wrapper {
-    aspect-ratio: 16/9;
-}
-
-#videoGrid.mode-landscape .video-pic {
-    object-fit: cover;
-    object-position: center;
-}
-
-/* 方形模式 (1:1) */
-#videoGrid.mode-square .video-pic-wrapper {
-    aspect-ratio: 1/1;
-}
-
-#videoGrid.mode-square .video-pic {
-    object-fit: cover;
-    object-position: center;
-}
-
 #searchInput {
     flex-grow: 1;
     min-width: 0;
@@ -257,6 +227,25 @@
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 20px;
     min-height: 300px;
+}
+
+/* 直向模式 - 窄卡片 */
+#videoGrid.mode-portrait {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+/* 橫向模式 - 寬卡片 */
+#videoGrid.mode-landscape {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+#videoGrid.mode-landscape .video-pic-wrapper {
+    aspect-ratio: 16/9;
+}
+
+/* 方形模式 - 中等卡片 */
+#videoGrid.mode-square {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
 .video-card {
@@ -282,6 +271,21 @@
     aspect-ratio: 3 / 4;
     background-color: var(--light-gray);
     position: relative;
+    overflow: hidden;
+}
+
+/* 直向模式 (預設) - 放在 .video-pic-wrapper 之後以確保覆蓋 */
+#videoGrid.mode-portrait .video-pic-wrapper {
+    aspect-ratio: 2/3;
+}
+
+/* 方形模式 (1:1) - 圖片拉伸填滿 */
+#videoGrid.mode-square .video-pic-wrapper {
+    aspect-ratio: 1/1;
+}
+
+#videoGrid.mode-square .video-pic {
+    object-fit: fill;
 }
 
 .video-site-name {

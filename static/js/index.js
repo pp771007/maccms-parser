@@ -24,7 +24,11 @@ let currentViewMode = localStorage.getItem('viewMode') || 'portrait';
 // 初始化視圖模式
 function initViewMode() {
     const videoGrid = document.getElementById('videoGrid');
-    videoGrid.className = `mode-${currentViewMode}`;
+    
+    // 移除所有現有的視圖模式 class
+    videoGrid.classList.remove('mode-portrait', 'mode-landscape', 'mode-square');
+    // 添加當前視圖模式的 class
+    videoGrid.classList.add(`mode-${currentViewMode}`);
     
     // 更新按鈕狀態
     document.querySelectorAll('.btn-view-mode').forEach(btn => {
