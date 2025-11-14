@@ -11,11 +11,42 @@ import historyManager from './historyStateManager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
+    initViewMode();
     loadSitesAndAutoLoadLast();
     registerServiceWorker();
 });
 
 // The popstate event is now handled by historyStateManager.js
+
+// 視圖模式管理
+let currentViewMode = localStorage.getItem('viewMode') || 'portrait';
+
+// 初始化視圖模式
+function initViewMode() {
+    const videoGrid = document.getElementById('videoGrid');
+    videoGrid.className = `mode-${currentViewMode}`;
+    
+    // 更新按鈕狀態
+    document.querySelectorAll('.btn-view-mode').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const activeBtn = document.getElementById(`viewMode${capitalize(currentViewMode)}`);
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+    }
+}
+
+// 切換視圖模式
+function setViewMode(mode) {
+    currentViewMode = mode;
+    localStorage.setItem('viewMode', mode);
+    initViewMode();
+}
+
+// 輔助函數：首字母大寫
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 // 處理 ESC 鍵的邏輯
 function handleEscKey(e) {
@@ -89,6 +120,11 @@ function setupEventListeners() {
     $('#historyCloseBtn').addEventListener('click', ui.hideHistoryPanel);
     $('#clearHistoryBtn').addEventListener('click', ui.clearAllHistory);
     $('#historyOverlay').addEventListener('click', ui.hideHistoryPanel);
+
+    // View Mode Buttons
+    $('#viewModePortrait').addEventListener('click', () => setViewMode('portrait'));
+    $('#viewModeLandscape').addEventListener('click', () => setViewMode('landscape'));
+    $('#viewModeSquare').addEventListener('click', () => setViewMode('square'));
 
     // 添加 ESC 鍵處理邏輯
     document.addEventListener('keydown', handleEscKey);

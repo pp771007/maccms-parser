@@ -176,6 +176,67 @@
     /* 防止換行 */
 }
 
+/* 視圖模式按鈕 */
+.view-mode-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    justify-content: center;
+}
+
+.btn-view-mode {
+    padding: 8px 16px;
+    border: 2px solid #ddd;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.btn-view-mode:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+}
+
+.btn-view-mode.active {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+
+/* 直向模式 (預設) */
+#videoGrid.mode-portrait .video-pic-wrapper {
+    aspect-ratio: 2/3;
+}
+
+#videoGrid.mode-portrait .video-pic {
+    object-fit: cover;
+    object-position: center;
+}
+
+/* 橫向模式 */
+#videoGrid.mode-landscape .video-pic-wrapper {
+    aspect-ratio: 16/9;
+}
+
+#videoGrid.mode-landscape .video-pic {
+    object-fit: cover;
+    object-position: center;
+}
+
+/* 方形模式 (1:1) */
+#videoGrid.mode-square .video-pic-wrapper {
+    aspect-ratio: 1/1;
+}
+
+#videoGrid.mode-square .video-pic {
+    object-fit: cover;
+    object-position: center;
+}
+
 #searchInput {
     flex-grow: 1;
     min-width: 0;
@@ -600,6 +661,15 @@
         max-width: none;
         padding: 0 10px;
         flex-wrap: wrap;
+    }
+
+    .view-mode-buttons {
+        margin-top: 8px;
+    }
+
+    .btn-view-mode {
+        padding: 6px 12px;
+        font-size: 16px;
     }
 
     #searchInput {
