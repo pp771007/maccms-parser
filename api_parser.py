@@ -3,6 +3,24 @@ import requests
 import json
 from config import get_timeout_config
 
+# 創建全局 Session 對象，使用連接池管理，防止連接洩漏
+_session = None
+
+def get_session():
+    """獲取或創建全局 requests.Session 對象"""
+    global _session
+    if _session is None:
+        _session = requests.Session()
+        # 設置連接池大小 - 針對小型伺服器優化 (512MB RAM + 0.5 CPU)
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=6,   # 適中的連接池大小
+            pool_maxsize=12,      # 適中的最大連接數
+            max_retries=0         # 禁用自動重試，由應用層處理
+        )
+        _session.mount('http://', adapter)
+        _session.mount('https://', adapter)
+    return _session
+
 def process_api_request(base_url, params, logger, ssl_verify=True, site_name=None):
     site_info = f"站點 [{site_name}] " if site_name else ""
     if not base_url.startswith('http'):
@@ -19,7 +37,8 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         timeout_seconds = get_timeout_config()
-        list_response = requests.get(api_url, headers=headers, params=params, timeout=timeout_seconds, verify=ssl_verify)
+        session = get_session()
+        list_response = session.get(api_url, headers=headers, params=params, timeout=timeout_seconds, verify=ssl_verify)
         
         # 檢查響應內容，如果是 "暂不支持搜索" 等特殊情況，直接返回錯誤
         response_text = list_response.text.strip()
@@ -47,7 +66,8 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
         vod_ids = [str(video['vod_id']) for video in videos]
         ids_string = ','.join(vod_ids)
         detail_params = {'ac': 'videolist', 'ids': ids_string}
-        detail_response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=ssl_verify)
+        session = get_session()
+        detail_response = session.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=ssl_verify)
         detail_response.raise_for_status()
         detail_data = detail_response.json()
         
@@ -128,7 +148,8 @@ def get_details_from_api(base_url, vod_id, logger, ssl_verify=True, site_name=No
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         timeout_seconds = get_timeout_config()
-        response = requests.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=ssl_verify)
+        session = get_session()
+        response = session.get(api_url, headers=headers, params=detail_params, timeout=timeout_seconds, verify=ssl_verify)
         
         # 檢查響應內容，如果是特殊情況，直接返回錯誤
         response_text = response.text.strip()

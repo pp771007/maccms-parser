@@ -12,11 +12,41 @@ logger = setup_logger()
 
 @api_bp.route('/health', methods=['GET'])
 def health_check():
-    """健康檢查端點"""
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': int(time.time())
-    })
+    """健康檢查端點 - 檢查應用程式和依賴服務狀態"""
+    try:
+        # 檢查資料目錄是否可訪問
+        from site_manager import DATA_DIR
+        import os
+        
+        if not os.path.exists(DATA_DIR):
+            return jsonify({
+                'status': 'unhealthy',
+                'reason': 'data directory not accessible',
+                'timestamp': int(time.time())
+            }), 503
+        
+        # 檢查是否能讀取站點配置
+        try:
+            sites = get_sites()
+        except Exception as e:
+            return jsonify({
+                'status': 'unhealthy',
+                'reason': f'cannot read sites config: {str(e)}',
+                'timestamp': int(time.time())
+            }), 503
+        
+        return jsonify({
+            'status': 'healthy',
+            'sites_count': len(sites),
+            'timestamp': int(time.time())
+        })
+    except Exception as e:
+        logger.error(f"健康檢查失敗: {e}")
+        return jsonify({
+            'status': 'unhealthy',
+            'reason': str(e),
+            'timestamp': int(time.time())
+        }), 503
 
 def clean_base_url(raw_url):
     try:
@@ -215,7 +245,9 @@ def multi_site_search():
             logger.error(f"站台 {site['name']} 搜尋異常: {type(e).__name__}: {str(e)}")
             return [], 0
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(sites_to_search)) as executor:
+    # 限制最大併發數，防止資源耗盡 - 針對小型伺服器 (512MB RAM + 0.5 CPU)
+    max_workers = min(len(sites_to_search), 6)  # 最多同時 6 個請求（適中配置）
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_site = {executor.submit(search_site, site): site for site in sites_to_search}
         for future in concurrent.futures.as_completed(future_to_site):
             try:

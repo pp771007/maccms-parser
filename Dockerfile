@@ -20,5 +20,26 @@ VOLUME /app/data
 # 宣告容器對外的連接埠
 EXPOSE 5000
 
-# 設定 Gunicorn 啟動參數，避免卡死
-CMD ["gunicorn", "--worker-class", "gevent", "--workers", "2", "--bind", "0.0.0.0:5000", "web_app:app"]
+# 設定 Gunicorn 啟動參數 - 針對小型雲端伺服器優化 (512MB RAM + 0.5 CPU)
+# --workers: 2 個 worker（平衡效能和記憶體）
+# --worker-connections: 每個 worker 的最大連接數
+# --timeout: 請求處理超時時間（秒）
+# --graceful-timeout: 優雅關閉超時時間（秒）
+# --max-requests: 每個 worker 處理請求數後重啟，防止記憶體洩漏
+# --max-requests-jitter: 隨機抖動，避免所有 worker 同時重啟
+# --keep-alive: 保持連接時間（秒）
+# --preload: 預載入應用程式以節省記憶體
+CMD ["gunicorn", \
+     "--worker-class", "gevent", \
+     "--workers", "2", \
+     "--worker-connections", "75", \
+     "--timeout", "120", \
+     "--graceful-timeout", "25", \
+     "--max-requests", "800", \
+     "--max-requests-jitter", "80", \
+     "--keep-alive", "4", \
+     "--preload", \
+     "--bind", "0.0.0.0:5000", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-", \
+     "web_app:app"]

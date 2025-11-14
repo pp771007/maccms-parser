@@ -12,6 +12,24 @@ DATA_DIR = 'data'
 SITES_DB_FILE = os.path.join(DATA_DIR, 'sites.json')
 logger = setup_logger()
 
+# 創建全局 Session 對象用於站點檢查
+_check_session = None
+
+def get_check_session():
+    """獲取或創建用於站點檢查的 Session 對象"""
+    global _check_session
+    if _check_session is None:
+        _check_session = requests.Session()
+        # 針對小型伺服器優化 (512MB RAM + 0.5 CPU)
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=4,   # 適中的連接池
+            pool_maxsize=8,       # 適中的最大連接數
+            max_retries=0
+        )
+        _check_session.mount('http://', adapter)
+        _check_session.mount('https://', adapter)
+    return _check_session
+
 
 def get_sites():
     if not os.path.exists(SITES_DB_FILE):
@@ -43,9 +61,10 @@ def check_site_health(site):
         headers = {'User-Agent': 'Mozilla/5.0'}
         ssl_verify = site.get('ssl_verify', True)
 
-        # 使用統一的超時設定
+        # 使用統一的超時設定和 Session
         timeout_seconds = get_timeout_config()
-        response = requests.get(api_url, headers=headers, timeout=timeout_seconds, verify=ssl_verify)
+        session = get_check_session()
+        response = session.get(api_url, headers=headers, timeout=timeout_seconds, verify=ssl_verify)
         response.raise_for_status()
         
         # 檢查API回應格式
