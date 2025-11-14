@@ -1,3 +1,5 @@
+# web_app.py
+
 import os
 from flask import Flask, cli
 from config import get_config_value, set_config_value
@@ -14,7 +16,7 @@ app = Flask(__name__)
 logger = setup_logger()
 
 # --- Version Configuration ---
-VERSION = "v7.7"
+VERSION = "v7.11"
 
 logger.info("==============================================")
 logger.info(f"   資源站點管理器 {VERSION} 啟動！")
