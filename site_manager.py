@@ -103,10 +103,10 @@ def check_site_health(site):
         logger.error(f"站點檢查超時: {site['name']} ({url})")
         return False
     except requests.exceptions.RequestException as e:
-        logger.error(f"站點檢查失敗: {site['name']} ({url}) - {e}")
+        logger.error(f"站點檢查失敗: {site['name']} ({url})", exc_info=True)
         return False
     except Exception as e:
-        logger.error(f"站點檢查發生未知錯誤: {site['name']} ({url}) - {e}")
+        logger.error(f"站點檢查發生未知錯誤: {site['name']} ({url})", exc_info=True)
         return False
 
 
