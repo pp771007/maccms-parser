@@ -4,6 +4,8 @@ import os
 import threading
 import time
 import requests
+import tempfile
+import shutil
 from datetime import datetime, timedelta, timezone
 from logger_config import setup_logger
 from config import get_timeout_config
@@ -11,6 +13,9 @@ from config import get_timeout_config
 DATA_DIR = 'data'
 SITES_DB_FILE = os.path.join(DATA_DIR, 'sites.json')
 logger = setup_logger()
+
+# 文件鎖，防止併發寫入衝突
+_file_lock = threading.Lock()
 
 # 創建全局 Session 對象用於站點檢查
 _check_session = None
@@ -41,9 +46,27 @@ def get_sites():
         return []
 
 def save_sites(sites):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with open(SITES_DB_FILE, 'w', encoding='utf-8') as f:
-        json.dump(sites, f, ensure_ascii=False, indent=4)
+    """儲存站點資料 - 使用文件鎖和原子寫入防止數據損壞"""
+    with _file_lock:  # 防止併發寫入
+        os.makedirs(DATA_DIR, exist_ok=True)
+        
+        # 使用臨時文件 + 原子重命名，防止寫入過程中斷導致文件損壞
+        temp_fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, suffix='.tmp', text=True)
+        try:
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                json.dump(sites, f, ensure_ascii=False, indent=4)
+                f.flush()  # 確保寫入磁碟
+                os.fsync(f.fileno())  # 強制同步到磁碟
+            
+            # 原子重命名（在大多數系統上是原子操作）
+            shutil.move(temp_path, SITES_DB_FILE)
+            logger.info(f"成功保存 {len(sites)} 個站點資料")
+        except Exception as e:
+            # 如果失敗，清理臨時文件
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            logger.error(f"保存站點資料失敗: {e}")
+            raise e
 
 def check_site_health(site):
     """檢查單一站點的健康狀態"""

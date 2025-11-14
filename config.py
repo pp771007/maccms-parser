@@ -1,5 +1,7 @@
 import os
 import json
+import tempfile
+import shutil
 
 DATA_DIR = 'data'
 CONFIG_FILE = os.path.join(DATA_DIR, 'config.json')
@@ -15,10 +17,24 @@ def load_config():
         return {}
 
 def save_config(config):
-    """儲存設定檔"""
+    """儲存設定檔 - 使用原子寫入防止文件損壞"""
     os.makedirs(DATA_DIR, exist_ok=True)
-    with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
-        json.dump(config, f, indent=4, ensure_ascii=False)
+    
+    # 使用臨時文件 + 原子重命名，防止寫入過程中斷導致文件損壞
+    temp_fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, suffix='.tmp', text=True)
+    try:
+        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+            f.flush()  # 確保寫入磁碟
+            os.fsync(f.fileno())  # 強制同步到磁碟
+        
+        # 原子重命名（在大多數系統上是原子操作）
+        shutil.move(temp_path, CONFIG_FILE)
+    except Exception as e:
+        # 如果失敗，清理臨時文件
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise e
 
 def get_config_value(key, default=None):
     """取得特定鍵值的設定"""
