@@ -1,5 +1,5 @@
 import os
-import json
+import ujson as json
 import tempfile
 import shutil
 
@@ -13,7 +13,7 @@ def load_config():
     try:
         with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError):
+    except (ValueError, IOError):
         return {}
 
 def save_config(config):

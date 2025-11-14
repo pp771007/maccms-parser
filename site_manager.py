@@ -1,5 +1,5 @@
 # site_manager.py
-import json
+import ujson as json
 import os
 import threading
 import time
@@ -42,7 +42,7 @@ def get_sites():
     try:
         with open(SITES_DB_FILE, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
+    except (ValueError, FileNotFoundError):
         return []
 
 def save_sites(sites):

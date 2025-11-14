@@ -1,6 +1,6 @@
 # api_parser.py
 import requests
-import json
+import ujson as json
 from config import get_timeout_config
 
 # 創建全局 Session 對象，使用連接池管理，防止連接洩漏
@@ -51,7 +51,7 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
         
         try:
             list_data = list_response.json()
-        except json.JSONDecodeError:
+        except ValueError:
             # 獲取響應內容以便調試
             try:
                 response_text = list_response.text if 'list_response' in locals() else "無法獲取響應內容"
@@ -136,7 +136,7 @@ def process_api_request(base_url, params, logger, ssl_verify=True, site_name=Non
     except requests.exceptions.RequestException as e:
         # 不記錄詳細錯誤，讓上層處理
         return {'status': 'error', 'message': f"網絡連接失敗，請檢查URL或您的網絡連接。"}
-    except json.JSONDecodeError as e:
+    except ValueError as e:
         # 獲取響應內容以便調試
         try:
             response_text = list_response.text if 'list_response' in locals() else "無法獲取響應內容"
@@ -229,7 +229,7 @@ def get_details_from_api(base_url, vod_id, logger, ssl_verify=True, site_name=No
     except requests.exceptions.RequestException as e:
         logger.error(f"{site_info}獲取詳情時網絡請求失敗: {e} (URL: {full_url})")
         return {'status': 'error', 'message': f"獲取詳情時網絡連接失敗，請檢查站點是否可用。"}
-    except json.JSONDecodeError as e:
+    except ValueError as e:
         # 獲取響應內容以便調試
         try:
             response_text = response.text if 'response' in locals() else "無法獲取響應內容"

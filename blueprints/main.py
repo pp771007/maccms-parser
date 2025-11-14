@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, send_file, Response
 import os
 import time
-import json
+import ujson as json
 from config import get_config_value, set_config_value
 
 main_bp = Blueprint('main', __name__)

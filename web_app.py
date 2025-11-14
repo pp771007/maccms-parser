@@ -14,7 +14,7 @@ app = Flask(__name__)
 logger = setup_logger()
 
 # --- Version Configuration ---
-VERSION = "v7.3"
+VERSION = "v7.4"
 
 logger.info("==============================================")
 logger.info(f"   資源站點管理器 {VERSION} 啟動！")

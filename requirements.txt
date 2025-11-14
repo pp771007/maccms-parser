@@ -3,3 +3,4 @@ Flask
 requests
 gunicorn
 gevent
+ujson
