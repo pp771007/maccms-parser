@@ -90,6 +90,11 @@ def add_or_get_sites():
             logger.warning(f"POST /api/sites - 400 Bad Request (無效URL: {raw_url}), 錯誤: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 400
         
+        # 檢查站台URL是否已存在
+        if any(s.get('url') == cleaned_url for s in sites):
+            logger.warning(f"POST /api/sites - 400 Bad Request (站台URL已存在: {cleaned_url})")
+            return jsonify({'status': 'error', 'message': '此站點URL已存在，無法重複新增'}), 400
+        
         if not name:
             try:
                 domain = urlparse(cleaned_url).netloc
