@@ -1,7 +1,5 @@
 "use strict";
 
-"use strict";
-
 import state from './state.js';
 import * as api from './api.js';
 import * as ui from './ui.js';
@@ -12,6 +10,7 @@ import historyManager from './historyStateManager.js';
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     initViewMode();
+    initAutoOrientation();
     loadSitesAndAutoLoadLast();
     registerServiceWorker();
 });
@@ -21,15 +20,18 @@ document.addEventListener('DOMContentLoaded', () => {
 // 視圖模式管理
 let currentViewMode = localStorage.getItem('viewMode') || 'portrait';
 
+// 自動方向管理
+let autoOrientationEnabled = localStorage.getItem('autoOrientation') === 'true';
+
 // 初始化視圖模式
 function initViewMode() {
     const videoGrid = document.getElementById('videoGrid');
-    
+
     // 移除所有現有的視圖模式 class
     videoGrid.classList.remove('mode-portrait', 'mode-landscape', 'mode-square');
     // 添加當前視圖模式的 class
     videoGrid.classList.add(`mode-${currentViewMode}`);
-    
+
     // 更新按鈕狀態
     document.querySelectorAll('.btn-view-mode').forEach(btn => {
         btn.classList.remove('active');
@@ -37,6 +39,14 @@ function initViewMode() {
     const activeBtn = document.getElementById(`viewMode${capitalize(currentViewMode)}`);
     if (activeBtn) {
         activeBtn.classList.add('active');
+    }
+}
+
+// 初始化自動方向設定
+function initAutoOrientation() {
+    const checkbox = $('#autoOrientationToggle');
+    if (checkbox) {
+        checkbox.checked = autoOrientationEnabled;
     }
 }
 
@@ -129,6 +139,12 @@ function setupEventListeners() {
     $('#viewModePortrait').addEventListener('click', () => setViewMode('portrait'));
     $('#viewModeLandscape').addEventListener('click', () => setViewMode('landscape'));
     $('#viewModeSquare').addEventListener('click', () => setViewMode('square'));
+
+    // Auto Orientation Toggle
+    $('#autoOrientationToggle').addEventListener('change', (e) => {
+        autoOrientationEnabled = e.target.checked;
+        localStorage.setItem('autoOrientation', autoOrientationEnabled.toString());
+    });
 
     // 添加 ESC 鍵處理邏輯
     document.addEventListener('keydown', handleEscKey);
