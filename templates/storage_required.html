@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}需要設定資料儲存{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}">
+<style>
+    .storage-required {
+        max-width: 720px;
+        margin: 40px auto;
+    }
+
+    .storage-required .lead {
+        color: var(--text-secondary-color);
+        line-height: 1.7;
+        font-size: 15px;
+    }
+
+    .storage-required ol {
+        line-height: 1.9;
+        padding-left: 22px;
+    }
+
+    .storage-required code {
+        background: var(--input-background);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-size: 13px;
+    }
+
+    .storage-required .danger-tag {
+        display: inline-block;
+        background: rgba(255, 77, 79, 0.12);
+        color: var(--danger-color);
+        border: 1px solid rgba(255, 77, 79, 0.35);
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 14px;
+    }
+
+    .storage-required .note {
+        margin-top: 18px;
+        font-size: 13px;
+        color: var(--text-secondary-color);
+    }
+
+    .storage-required a {
+        color: var(--primary-color);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container storage-required">
+    <div class="card">
+        <span class="danger-tag">⚠ 尚未設定資料儲存</span>
+        <h1 style="margin-top:0;">這個部署還不能用</h1>
+        <p class="lead">
+            目前跑在<strong>唯讀的 serverless 環境</strong>（例如 Vercel），而且<strong>沒有連結資料庫（KV）</strong>。
+            站點清單、管理員密碼這些資料沒地方存，所以還不能開始用。請先完成下面設定。
+        </p>
+
+        <h2>請完成這兩步</h2>
+        <ol>
+            <li>
+                <strong>連結 KV 資料庫</strong>：到 Vercel 專案的
+                <strong>Storage</strong> 分頁 → <strong>Create Database</strong> →
+                選 <strong>Upstash for Redis</strong> → 建好後按 <strong>Connect</strong> 連到此專案。
+                （會自動帶入 <code>KV_REST_API_URL</code> / <code>KV_REST_API_TOKEN</code>，不用手動加。）
+            </li>
+            <li>
+                <strong>重新部署</strong>（最容易漏）：環境變數只對新部署生效。到
+                <strong>Deployments</strong> → 最新那筆右邊 <strong>⋯</strong> → <strong>Redeploy</strong>。
+            </li>
+        </ol>
+
+        <p class="lead">
+            完成後重新整理這頁，就會進到設定管理員密碼的畫面。
+        </p>
+
+        <p class="note">
+            💡 不想處理這些設定的話，用 <strong>Docker</strong> 部署最省事：一行指令、資料存本機資料夾、完全不用碰 KV。
+            詳見
+            <a href="https://github.com/pp771007/maccms-parser#readme" target="_blank" rel="noopener">README</a>。
+        </p>
+    </div>
+</div>
+{% endblock %}

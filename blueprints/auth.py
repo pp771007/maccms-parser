@@ -3,6 +3,7 @@ import time
 from flask import Blueprint, request, render_template, session, redirect, url_for, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import load_config, save_config, get_config_value, set_config_value
+import storage
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -93,11 +94,23 @@ def init_auth_check(app):
     
     @app.before_request
     def require_login():
+        # 靜態資源、favicon、manifest 一律放行（設定說明頁也要靠這些才能正常顯示）
+        if request.endpoint == 'static' or request.path in ['/manifest.json', '/favicon']:
+            return
+
+        # 沒有可用儲存（serverless 唯讀又沒連 KV）→ 任何資料都存不住。
+        # 直接擋在最前面給設定說明頁，不要放使用者進到會中途失敗的登入 / 設密碼流程。
+        if not storage.is_writable():
+            if request.path.startswith('/api/'):
+                return jsonify({
+                    'status': 'error',
+                    'message': '此部署尚未設定資料儲存（KV），無法保存資料。請依說明連結 Upstash KV 後重新部署。',
+                    'action': 'storage_required'
+                }), 503
+            return render_template('storage_required.html'), 503
+
         # Public endpoints that don't require any checks
         public_endpoints = ['auth.setup_password', 'static']
-        # 新增 manifest.json 與 favicon 為公開路徑
-        if request.path in ['/manifest.json', '/favicon']:
-            return
 
         if not is_password_set():
             if request.endpoint not in public_endpoints:

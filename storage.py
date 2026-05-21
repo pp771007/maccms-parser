@@ -29,6 +29,32 @@ _KV_TIMEOUT = 10
 _file_lock = threading.Lock()
 
 
+_writable_cache = None
+
+def is_writable():
+    """這個部署能不能持久化資料？連了 KV 就算可用；否則實際探測 data/ 能不能寫。
+
+    用來在 serverless 唯讀環境（如未連 KV 的 Vercel）擋下使用者，給設定說明頁，
+    避免他進到登入 / 設密碼流程後才在寫入時失敗。結果快取，不必每個請求都探測。
+    """
+    global _writable_cache
+    if _writable_cache is not None:
+        return _writable_cache
+    if USE_KV:
+        _writable_cache = True
+        return _writable_cache
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        probe = os.path.join(DATA_DIR, '.write_probe')
+        with open(probe, 'w', encoding='utf-8') as f:
+            f.write('ok')
+        os.remove(probe)
+        _writable_cache = True
+    except OSError:
+        _writable_cache = False
+    return _writable_cache
+
+
 def _kv_command(*args):
     """對 Upstash REST API 送一個 Redis 指令（命令陣列形式）。"""
     resp = requests.post(

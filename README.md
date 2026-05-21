@@ -120,8 +120,9 @@ Vercel 的檔案系統是**唯讀的**，而且每次冷啟動可能換一台機
 
 **疑難排解：**
 
-- **每個頁面都 `500: FUNCTION_INVOCATION_FAILED`**：幾乎都是「KV 沒連」或「連了但沒重新部署」。照上面第 2、3 步把 KV 連好並 **Redeploy**。
-- **網站開得起來，但新增站點 / 設密碼時報「資料寫入失敗」**：同樣是 KV 沒接到，程式抓不到 KV 變數，請確認第 2 步的環境變數有出現在 **Settings → Environment Variables**，且已 Redeploy。
+- **開啟網址看到「尚未設定資料儲存 / 這個部署還不能用」**：表示 KV 沒連到。這是正常的引導頁（不是錯誤），照頁面上或上面第 2、3 步把 Upstash KV 連好並 **Redeploy** 即可。
+- **每個頁面都 `500: FUNCTION_INVOCATION_FAILED`**：舊版在唯讀環境會在啟動時直接崩；目前版本已改為顯示上面的引導頁。若仍出現 500，到該 deployment 的 **Logs** 看實際 traceback。
+- **設定 KV 後仍進不去**：確認第 2 步的 KV 變數有出現在 **Settings → Environment Variables**，而且**連完有 Redeploy**（環境變數只對新部署生效）。
 
 ## 📝 使用說明
 
