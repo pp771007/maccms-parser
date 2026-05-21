@@ -14,18 +14,7 @@ logger = setup_logger()
 def health_check():
     """健康檢查端點 - 檢查應用程式和依賴服務狀態"""
     try:
-        # 檢查資料目錄是否可訪問
-        from site_manager import DATA_DIR
-        import os
-        
-        if not os.path.exists(DATA_DIR):
-            return jsonify({
-                'status': 'unhealthy',
-                'reason': 'data directory not accessible',
-                'timestamp': int(time.time())
-            }), 503
-        
-        # 檢查是否能讀取站點配置
+        # 檢查是否能讀取站點配置（同時驗證儲存後端可用）
         try:
             sites = get_sites()
         except Exception as e:
@@ -34,7 +23,7 @@ def health_check():
                 'reason': f'cannot read sites config: {str(e)}',
                 'timestamp': int(time.time())
             }), 503
-        
+
         return jsonify({
             'status': 'healthy',
             'sites_count': len(sites),

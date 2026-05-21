@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, send_file, Respo
 import os
 import time
 import ujson as json
+import storage
 from config import get_config_value, set_config_value
 
 main_bp = Blueprint('main', __name__)
@@ -38,9 +39,7 @@ def site_settings():
     if request.args.get('reset_favicon') == '1':
         # 刪除自訂 favicon，回復預設
         for ext in ['svg', 'png']:
-            path = os.path.join('data', f'favicon.{ext}')
-            if os.path.exists(path):
-                os.remove(path)
+            storage.delete(f'favicon.{ext}')
         set_config_value('favicon_ext', 'svg')
         set_config_value('favicon_version', str(int(time.time())))
         return jsonify({'status': 'success'})
@@ -62,12 +61,9 @@ def site_settings():
                 return jsonify({'status': 'error', 'message': 'PNG 檔案格式錯誤'}), 400
             # 刪除舊檔案
             for old_ext in ['svg', 'png']:
-                old_path = os.path.join('data', f'favicon.{old_ext}')
-                if os.path.exists(old_path):
-                    os.remove(old_path)
-            # 儲存新檔案
-            save_path = os.path.join('data', f'favicon{ext}')
-            file.save(save_path)
+                storage.delete(f'favicon.{old_ext}')
+            # 儲存新檔案（ext 含點，例如 ".svg"）
+            storage.set_blob(f'favicon{ext}', file.read())
             set_config_value('favicon_ext', ext[1:])
             set_config_value('favicon_version', str(int(time.time())))
     return jsonify({'status': 'success'})
@@ -75,14 +71,12 @@ def site_settings():
 @main_bp.route('/favicon')
 def serve_favicon():
     ext = get_config_value('favicon_ext', 'svg')
-    path = os.path.join('data', f'favicon.{ext}')
-    if not os.path.exists(path):
-        # fallback to預設
-        path = os.path.join('static', 'img', 'favicon.svg')
-        mimetype = 'image/svg+xml'
-    else:
-        mimetype = 'image/svg+xml' if ext == 'svg' else 'image/png'
-    return send_file(path, mimetype=mimetype)
+    data = storage.get_blob(f'favicon.{ext}')
+    if data is None:
+        # fallback 到內建預設圖示
+        return send_file(os.path.join('static', 'img', 'favicon.svg'), mimetype='image/svg+xml')
+    mimetype = 'image/svg+xml' if ext == 'svg' else 'image/png'
+    return Response(data, mimetype=mimetype)
 
 @main_bp.route('/manifest.json', strict_slashes=False)
 def manifest():

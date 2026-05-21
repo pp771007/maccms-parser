@@ -91,6 +91,29 @@ docker run -d -p 5000:5000 -v ./maccms_data:/app/data --name maccms-parser smp77
 
 4. 打開瀏覽器訪問：`http://127.0.0.1:5000`
 
+### 部署到 Vercel
+
+本專案支援部署到 [Vercel](https://vercel.com)（serverless），與 Docker / 本機部署**並存**：同一份程式碼，靠環境變數自動判斷資料存哪。
+
+> ⚠️ Vercel 的檔案系統是唯讀的（資料無法寫進 `data/`），所以**必須**搭配一個外部 KV 資料庫，否則新增的站點、設定的密碼都存不住。設定方式如下。
+
+**步驟：**
+
+1. 把專案推到 GitHub，在 Vercel 點 **Add New → Project** 匯入這個 repo。
+2. 進專案後到 **Storage** 分頁，建立一個 **Upstash for Redis**（或 Vercel KV）並連結到此專案。連結後 Vercel 會自動注入 `UPSTASH_REDIS_REST_URL` 與 `UPSTASH_REDIS_REST_TOKEN` 兩個環境變數，程式偵測到就會自動改用 KV 儲存。
+3. 到 **Settings → Environment Variables** 新增一個 `SECRET_KEY`，值填一串夠長的隨機字串（用來簽章登入 cookie，**設定後不要更動**，否則所有人會被登出）。
+4. 按 **Deploy**。部署完成後開啟網址，第一次會要你設定管理員密碼，之後操作和本機版完全相同。
+
+**環境變數一覽：**
+
+| 變數 | 必填 | 說明 |
+|------|------|------|
+| `UPSTASH_REDIS_REST_URL` | 是（Vercel） | 連結 KV 後自動帶入 |
+| `UPSTASH_REDIS_REST_TOKEN` | 是（Vercel） | 連結 KV 後自動帶入 |
+| `SECRET_KEY` | 建議 | 固定 session 簽章金鑰，避免冷啟動後登入失效 |
+
+> 沒有設定 KV 環境變數時（例如 Docker / 本機），程式會自動沿用原本的 `data/` 檔案儲存，行為不變。
+
 ## 📝 使用說明
 
 1. **首次設定**：第一次打開時，系統會叫你設定管理員密碼

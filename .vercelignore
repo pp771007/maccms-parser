@@ -1,0 +1,21 @@
+# 不要上傳到 Vercel 的東西（縮小部署體積、避免塞爆 lambda）
+.git
+.gitignore
+.vs
+.venv
+env/
+venv/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Docker 相關（Vercel 用不到）
+Dockerfile
+.dockerignore
+docker-compose.yml
+build_and_push.bat
+
+# 本機資料夾（Vercel 走 KV，不用這份；也避免把本機密碼 hash 上傳）
+data/

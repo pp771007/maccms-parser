@@ -1,40 +1,22 @@
-import os
 import ujson as json
-import tempfile
-import shutil
+import storage
 
-DATA_DIR = 'data'
-CONFIG_FILE = os.path.join(DATA_DIR, 'config.json')
+# 儲存層的 key（檔案後端時即為 data/ 下的檔名，與舊版相容）
+CONFIG_KEY = 'config.json'
 
 def load_config():
     """載入設定檔"""
-    if not os.path.exists(CONFIG_FILE):
+    raw = storage.get_text(CONFIG_KEY)
+    if not raw:
         return {}
     try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (ValueError, IOError):
+        return json.loads(raw)
+    except ValueError:
         return {}
 
 def save_config(config):
-    """儲存設定檔 - 使用原子寫入防止文件損壞"""
-    os.makedirs(DATA_DIR, exist_ok=True)
-    
-    # 使用臨時文件 + 原子重命名，防止寫入過程中斷導致文件損壞
-    temp_fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, suffix='.tmp', text=True)
-    try:
-        with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=4, ensure_ascii=False)
-            f.flush()  # 確保寫入磁碟
-            os.fsync(f.fileno())  # 強制同步到磁碟
-        
-        # 原子重命名（在大多數系統上是原子操作）
-        shutil.move(temp_path, CONFIG_FILE)
-    except Exception as e:
-        # 如果失敗，清理臨時文件
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        raise e
+    """儲存設定檔"""
+    storage.set_text(CONFIG_KEY, json.dumps(config, indent=4, ensure_ascii=False))
 
 def get_config_value(key, default=None):
     """取得特定鍵值的設定"""
