@@ -61,6 +61,13 @@ header .find-sites-link {
     margin: 0;
 }
 
+.add-site-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
 #addSiteBtn {
     width: 100%;
 }

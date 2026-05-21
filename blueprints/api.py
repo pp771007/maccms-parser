@@ -44,6 +44,26 @@ def clean_base_url(raw_url):
     except Exception:
         return raw_url
 
+# 自動命名時用來判斷哪些是 TLD（取倒數第二段當站名）
+COMMON_TLDS = ['com', 'net', 'org', 'xyz', 'top', 'cn', 'cc']
+
+def derive_site_name(cleaned_url):
+    """從網址自動推導站點名稱（未大寫，由呼叫端決定是否 capitalize）"""
+    try:
+        domain = urlparse(cleaned_url).netloc
+        if domain.startswith('www.'):
+            domain = domain[4:]
+        elif domain.startswith('api.'):
+            domain = domain[4:]
+
+        parts = domain.split('.')
+        if len(parts) > 1 and parts[-1] in COMMON_TLDS:
+            return parts[-2]
+        return parts[0] if parts and parts[0] else '未命名站點'
+    except Exception as e:
+        logger.error(f"自動命名失敗: {e}")
+        return '未命名站點'
+
 @api_bp.route('/sites', methods=['GET', 'POST'])
 def add_or_get_sites():
     sites = get_sites()
@@ -89,20 +109,7 @@ def add_or_get_sites():
             return jsonify({'status': 'error', 'message': '此站點URL已存在，無法重複新增'}), 400
         
         if not name:
-            try:
-                domain = urlparse(cleaned_url).netloc
-                if domain.startswith('www.'): domain = domain[4:]
-                elif domain.startswith('api.'): domain = domain[4:]
-                
-                parts = domain.split('.')
-                common_tlds = ['com', 'net', 'org', 'xyz', 'top', 'cn', 'cc']
-                if len(parts) > 1 and parts[-1] in common_tlds:
-                    name = parts[-2]
-                else:
-                    name = parts[0]
-            except Exception as e:
-                logger.error(f"自動命名失敗: {e}")
-                name = "未命名站點"
+            name = derive_site_name(cleaned_url)
         
         new_site = {
             'id': int(time.time() * 1000),
@@ -165,6 +172,64 @@ def move_site(site_id):
         
     save_sites(sites)
     return jsonify({'status': 'success', 'sites': sites})
+
+@api_bp.route('/sites/probe_batch', methods=['POST'])
+def probe_batch():
+    """批次驗證一組候選網址，回傳每個的健康狀態與建議站名（不寫入，只驗證）"""
+    from site_manager import check_site_health
+
+    data = request.json or {}
+    raw_urls = data.get('urls', [])
+    if not isinstance(raw_urls, list):
+        return jsonify({'status': 'error', 'message': 'urls 必須是陣列'}), 400
+
+    sites = get_sites()
+    existing_urls = {s.get('url', '').lower() for s in sites}
+
+    seen = set()
+    candidates = []
+    for raw in raw_urls:
+        if not isinstance(raw, str) or not raw.strip():
+            continue
+        cleaned = clean_base_url(raw.strip())
+        parsed = urlparse(cleaned)
+        if not all([parsed.scheme, parsed.netloc]):
+            continue
+        low = cleaned.lower()
+        if low in seen:
+            continue
+        seen.add(low)
+        candidates.append({
+            'url': cleaned,
+            'name': derive_site_name(cleaned).capitalize(),
+            'exists': low in existing_urls,
+            'is_self': parsed.scheme == request.scheme and parsed.netloc == request.host,
+        })
+
+    def probe(c):
+        if c['is_self']:
+            return {**c, 'healthy': False, 'message': '這是本站，略過'}
+        if c['exists']:
+            return {**c, 'healthy': False, 'message': '已在站點清單中'}
+        site = {'name': c['name'], 'url': c['url'], 'enabled': True, 'ssl_verify': True}
+        try:
+            healthy = check_site_health(site)
+        except Exception as e:
+            return {**c, 'healthy': False, 'message': f'檢查失敗: {e}'}
+        return {**c, 'healthy': healthy, 'message': '可用' if healthy else '無回應或非 MacCMS 介面'}
+
+    results = []
+    if candidates:
+        max_workers = min(len(candidates), 6)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(probe, c) for c in candidates]
+            for future in concurrent.futures.as_completed(futures):
+                results.append(future.result())
+
+    # 可用的排前面，方便直接勾選
+    results.sort(key=lambda r: (not r['healthy'], r['url']))
+    logger.info(f"POST /api/sites/probe_batch - 候選 {len(candidates)} 個，可用 {sum(1 for r in results if r['healthy'])} 個")
+    return jsonify({'status': 'success', 'results': results, 'total': len(results)})
 
 @api_bp.route('/list', methods=['POST'])
 def api_get_list_route():

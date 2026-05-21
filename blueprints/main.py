@@ -24,6 +24,14 @@ def site_setup():
     favicon_url = f"/favicon?v={favicon_version}"
     return render_template('setup.html', site_title=site_title, favicon_url=favicon_url)
 
+@main_bp.route('/scan_import')
+def scan_import():
+    site_title = get_config_value('site_title', '資源站點管理器')
+    favicon_version = get_config_value('favicon_version', '')
+    favicon_url = f"/favicon?v={favicon_version}"
+    origin = request.host_url.rstrip('/')
+    return render_template('scan_import.html', site_title=site_title, favicon_url=favicon_url, origin=origin)
+
 @main_bp.route('/settings', methods=['GET', 'POST'])
 def site_settings():
     if request.method == 'GET':

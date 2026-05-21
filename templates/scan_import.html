@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}批次匯入站點 - {{ site_title }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scan_import.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container" data-origin="{{ origin }}">
+    <header>
+        <h1>批次匯入站點</h1>
+        <a href="/setup" class="find-sites-link return-setup-link">(返回站點設定)</a>
+    </header>
+
+    <div class="card bookmarklet-card">
+        <div class="card-header">
+            <h2>① 安裝書籤工具</h2>
+        </div>
+        <p class="hint">
+            把下面這顆按鈕<strong>拖曳到瀏覽器的書籤列</strong>（只需做一次）。之後在
+            <a href="https://www.google.com/search?q=inurl:/api.php/provide/vod/" target="_blank">Google 搜尋頁</a>
+            點一下它，就會自動抓出本頁所有 MacCMS 站點連結並帶回這裡驗證。
+        </p>
+        <div class="bookmarklet-row">
+            <a id="bookmarklet" class="bookmarklet" href="#" onclick="return false;">📥 抓站點到匯入頁</a>
+            <span class="bookmarklet-tip">↑ 拖我到書籤列</span>
+        </div>
+        <p class="hint hint-small">
+            手機版 Chrome 不能拖曳：請先把任一頁加進書籤，再到書籤管理把網址換成
+            <button id="copyBookmarklet" type="button" class="btn btn-secondary btn-xs">複製書籤程式碼</button>
+        </p>
+    </div>
+
+    <div class="card paste-card">
+        <div class="card-header">
+            <h2>② 或直接貼上網址</h2>
+        </div>
+        <p class="hint">每行一個網址，按驗證後會逐一檢查是否為可用的 MacCMS 站點。</p>
+        <textarea id="urlInput" rows="5" placeholder="https://example.com/api.php/provide/vod/&#10;https://another.com/"></textarea>
+        <button id="probeBtn" class="btn btn-info">驗證這些網址</button>
+    </div>
+
+    <div class="card result-card">
+        <div class="card-header">
+            <h2>候選站點</h2>
+            <div class="result-actions">
+                <span id="resultSummary" class="result-summary"></span>
+                <button id="addSelectedBtn" class="btn btn-success" disabled>加入所選 (0)</button>
+            </div>
+        </div>
+        <ul id="candidateList">
+            <li class="empty-hint">尚未驗證 — 用上面的書籤抓取，或貼上網址後按「驗證」。</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/modal.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/scan_import.js') }}"></script>
+{% endblock %}
+
+<div id="customModal"></div>

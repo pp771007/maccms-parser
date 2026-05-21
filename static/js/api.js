@@ -64,6 +64,19 @@ export async function moveSite(siteId, direction) {
     return await response.json();
 }
 
+export async function probeSites(urls) {
+    const response = await fetch('/api/sites/probe_batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls })
+    });
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || '驗證失敗');
+    }
+    return await response.json();
+}
+
 export async function fetchMultiSiteVideoList(siteIds, page, keyword) {
     const response = await fetch('/api/multi_site_search', {
         method: 'POST',
