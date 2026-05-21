@@ -69,13 +69,25 @@ def get_text(key):
         return f.read()
 
 
+def _write_file(key, data):
+    """檔案後端的寫入；唯讀環境（未連 KV 的 serverless）會給出明確訊息而非裸 OSError。"""
+    with _file_lock:
+        try:
+            _atomic_write(os.path.join(DATA_DIR, key), data)
+        except OSError as e:
+            raise RuntimeError(
+                "資料寫入失敗：偵測到唯讀檔案系統且未設定 KV。"
+                "若部署在 Vercel 等 serverless 平台，請依 README 連結 Upstash KV 後重新部署。"
+                f"（原始錯誤：{e}）"
+            ) from e
+
+
 def set_text(key, value):
     """寫文字（UTF-8）。"""
     if USE_KV:
         _kv_command('SET', _KV_PREFIX + key, value)
         return
-    with _file_lock:
-        _atomic_write(os.path.join(DATA_DIR, key), value.encode('utf-8'))
+    _write_file(key, value.encode('utf-8'))
 
 
 def get_blob(key):
@@ -95,8 +107,7 @@ def set_blob(key, data):
     if USE_KV:
         _kv_command('SET', _KV_PREFIX + key, base64.b64encode(data).decode('ascii'))
         return
-    with _file_lock:
-        _atomic_write(os.path.join(DATA_DIR, key), data)
+    _write_file(key, data)
 
 
 def delete(key):

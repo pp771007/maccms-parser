@@ -91,28 +91,37 @@ docker run -d -p 5000:5000 -v ./maccms_data:/app/data --name maccms-parser smp77
 
 4. 打開瀏覽器訪問：`http://127.0.0.1:5000`
 
-### 部署到 Vercel
+### 部署到 Vercel（進階）
 
-本專案支援部署到 [Vercel](https://vercel.com)（serverless），與 Docker / 本機部署**並存**：同一份程式碼，靠環境變數自動判斷資料存哪。
+> 💡 **想最省事的話直接用上面的 Docker**：一行指令、資料存本機資料夾、不用設定任何環境變數。Vercel 是 serverless，必須額外連一個資料庫才能保存資料（見下方說明），步驟比較多。
 
-> ⚠️ Vercel 的檔案系統是唯讀的（資料無法寫進 `data/`），所以**必須**搭配一個外部 KV 資料庫，否則新增的站點、設定的密碼都存不住。設定方式如下。
+Vercel 的檔案系統是**唯讀的**，而且每次冷啟動可能換一台機器，所以資料（站點清單、密碼）**沒辦法存在本機檔案**，一定要接一個外部 KV 資料庫（用免費的 Upstash Redis 即可）。沒接 KV 的話，網站仍開得起來，但**新增站點、設定密碼都會失敗**。
 
-**步驟：**
+**設定步驟（只需做一次）：**
 
-1. 把專案推到 GitHub，在 Vercel 點 **Add New → Project** 匯入這個 repo。
-2. 進專案後到 **Storage** 分頁，建立一個 **Upstash for Redis**（或 Vercel KV）並連結到此專案。連結後 Vercel 會自動注入 `UPSTASH_REDIS_REST_URL` 與 `UPSTASH_REDIS_REST_TOKEN` 兩個環境變數，程式偵測到就會自動改用 KV 儲存。
-3. 到 **Settings → Environment Variables** 新增一個 `SECRET_KEY`，值填一串夠長的隨機字串（用來簽章登入 cookie，**設定後不要更動**，否則所有人會被登出）。
-4. 按 **Deploy**。部署完成後開啟網址，第一次會要你設定管理員密碼，之後操作和本機版完全相同。
+1. **匯入專案**：把這個 repo 推到 GitHub，在 Vercel 點 **Add New → Project** 匯入。
+2. **連 KV 資料庫**：進專案 → **Storage** 分頁 → **Create Database** → 選 **Upstash for Redis** → 建好後按 **Connect** 連到這個專案。連結後 Vercel 會自動注入連線用的環境變數（名稱通常是 `KV_REST_API_URL` / `KV_REST_API_TOKEN`，舊版整合則是 `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`）—— **兩種命名程式都支援，不用自己手動加。**
+3. **重新部署（關鍵步驟，最容易漏）**：環境變數只會套用到「之後的新部署」。連完 KV 後，到 **Deployments** → 最新那筆右邊 **⋯** → **Redeploy**，舊的部署不會自動帶到新變數。
+4. 打開網址，第一次會要你設定管理員密碼，之後操作就和本機版一樣。
+
+**可選：固定登入狀態**
+
+不設也能用。若想讓登入在冷啟動後不要失效，到 **Settings → Environment Variables** 加一個 `SECRET_KEY`，值填一串夠長的隨機字串（設定後別再改，改了大家會被登出）。連了 KV 之後其實可省略（金鑰會存進 KV）。
 
 **環境變數一覽：**
 
 | 變數 | 必填 | 說明 |
 |------|------|------|
-| `UPSTASH_REDIS_REST_URL` | 是（Vercel） | 連結 KV 後自動帶入 |
-| `UPSTASH_REDIS_REST_TOKEN` | 是（Vercel） | 連結 KV 後自動帶入 |
-| `SECRET_KEY` | 建議 | 固定 session 簽章金鑰，避免冷啟動後登入失效 |
+| `KV_REST_API_URL` / `UPSTASH_REDIS_REST_URL` | Vercel 必須 | 連結 Upstash KV 後自動帶入，二選一即可 |
+| `KV_REST_API_TOKEN` / `UPSTASH_REDIS_REST_TOKEN` | Vercel 必須 | 連結 Upstash KV 後自動帶入，二選一即可 |
+| `SECRET_KEY` | 可選 | 固定 session 簽章金鑰，避免冷啟動後登入失效；連了 KV 可省略 |
 
-> 沒有設定 KV 環境變數時（例如 Docker / 本機），程式會自動沿用原本的 `data/` 檔案儲存，行為不變。
+> Docker / 本機沒有上述 KV 變數時，程式會自動沿用 `data/` 檔案儲存，行為不變。
+
+**疑難排解：**
+
+- **每個頁面都 `500: FUNCTION_INVOCATION_FAILED`**：幾乎都是「KV 沒連」或「連了但沒重新部署」。照上面第 2、3 步把 KV 連好並 **Redeploy**。
+- **網站開得起來，但新增站點 / 設密碼時報「資料寫入失敗」**：同樣是 KV 沒接到，程式抓不到 KV 變數，請確認第 2 步的環境變數有出現在 **Settings → Environment Variables**，且已 Redeploy。
 
 ## 📝 使用說明
 

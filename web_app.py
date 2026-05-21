@@ -33,7 +33,17 @@ else:
     secret_key = get_config_value('secret_key')
     if not secret_key:
         secret_key = os.urandom(24).hex()
-        set_config_value('secret_key', secret_key)
+        try:
+            set_config_value('secret_key', secret_key)
+        except Exception as e:
+            # 唯讀環境（如未連 KV 的 Vercel）寫不進設定檔。早期版本會在這裡直接拋例外，
+            # 導致整個 serverless function 在 import 階段就崩潰、每個請求都 500。
+            # 改成退而求其次：用這把記憶體裡的臨時金鑰，至少讓網站起得來。
+            # 代價：冷啟動換機器後金鑰會變、需要重新登入。要穩定就設 SECRET_KEY 環境變數或連 KV。
+            logger.warning(
+                f"無法保存 secret_key（可能是唯讀檔案系統且未設定 KV）: {e}。"
+                "改用記憶體臨時金鑰，冷啟動後需重新登入；要穩定請設定 SECRET_KEY 環境變數或連結 KV。"
+            )
     app.secret_key = bytes.fromhex(secret_key)
 
 # --- Register Blueprints ---
