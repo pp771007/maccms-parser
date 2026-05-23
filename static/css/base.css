@@ -562,9 +562,73 @@ input[type="radio"] {
     opacity: 1;
 }
 
+/* ---- 全站頂列(首頁 / 設定 / 掃描匯入共用) ---- */
+.topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(14, 15, 19, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.topbar-inner {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 10px var(--sp-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-width: 0;
+    text-decoration: none;
+}
+
+.brand-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    flex-shrink: 0;
+}
+
+.brand-name {
+    font-size: var(--fs-lg);
+    font-weight: 700;
+    color: var(--text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
     .container {
         margin: 0;
         padding: var(--sp-3);
+    }
+
+    .topbar-inner {
+        padding: 8px var(--sp-3);
+    }
+
+    .topbar-actions .label-text {
+        display: none;
+    }
+
+    .topbar-actions .btn {
+        padding: 0 8px;
     }
 }

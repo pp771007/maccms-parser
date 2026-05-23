@@ -8,10 +8,24 @@
 {% endblock %}
 
 {% block content %}
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">
+            <img class="brand-logo" src="{{ favicon_url }}" alt="">
+            <span class="brand-name">{{ site_title }}</span>
+        </a>
+        <div class="topbar-actions">
+            <a href="/" class="btn btn-ghost btn-sm" title="返回主頁">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/></svg>
+                <span class="label-text">主頁</span>
+            </a>
+        </div>
+    </div>
+</header>
+
 <div class="container">
     <header>
         <h1>站點設定</h1>
-        <a href="/" class="find-sites-link">(返回主頁)</a>
     </header>
 
     <div class="card add-site-card">

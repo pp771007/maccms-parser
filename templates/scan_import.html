@@ -9,10 +9,24 @@
 {% endblock %}
 
 {% block content %}
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">
+            <img class="brand-logo" src="{{ favicon_url }}" alt="">
+            <span class="brand-name">{{ site_title }}</span>
+        </a>
+        <div class="topbar-actions">
+            <a href="/setup" class="btn btn-ghost btn-sm" title="返回站點設定">
+                <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+                <span class="label-text">站點設定</span>
+            </a>
+        </div>
+    </div>
+</header>
+
 <div class="container" data-origin="{{ origin }}">
     <header>
         <h1>批次匯入站點</h1>
-        <a href="/setup" class="find-sites-link return-setup-link">(返回站點設定)</a>
     </header>
 
     <div class="card bookmarklet-card">
