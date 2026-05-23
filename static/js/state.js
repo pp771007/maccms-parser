@@ -11,7 +11,9 @@ export default {
     modalData: null,
     searchSiteIds: [], // 多來源影片列表
     currentSourceIndex: 0, // 當前選擇的來源索引
-    watchHistory: [], // 觀看歷史紀錄
+    watchHistory: [], // 觀看歷史紀錄(綁帳號、存伺服器端)
+    _historyDirty: false,      // 記憶體有變動、尚未寫回伺服器
+    _historyFlushTimer: null,  // 寫回伺服器的 debounce 計時器
     currentVideoInfo: null, // 當前播放的影片資訊
     currentVideo: null, // 當前選擇的影片資訊
     onHistoryUpdate: null, // 歷史記錄更新回調函數
@@ -57,16 +59,13 @@ export default {
         localStorage.setItem('multiSiteSelection', JSON.stringify(this.searchSiteIds));
     },
 
-    // 載入觀看歷史紀錄
-    loadWatchHistory() {
-        const saved = localStorage.getItem('watchHistory');
-        if (saved) {
-            try {
-                this.watchHistory = JSON.parse(saved);
-            } catch (e) {
-                this.watchHistory = [];
-            }
-        } else {
+    // 載入觀看歷史紀錄(改從伺服器讀,綁帳號、跨裝置同步)。每次開頁只讀一次。
+    async loadWatchHistory() {
+        try {
+            const res = await fetch('/api/history');
+            const data = res.ok ? await res.json() : [];
+            this.watchHistory = Array.isArray(data) ? data : [];
+        } catch (e) {
             this.watchHistory = [];
         }
     },
@@ -117,10 +116,27 @@ export default {
         this.saveSearchHistory();
     },
 
-    // 儲存觀看歷史紀錄
+    // 標記有變動 + 防抖寫回伺服器(把連續變動合併成一次寫入,少打伺服器)。
+    // 用在「離散事件」:新增/換集、清除、刪一筆。播放中的進度 tick 不走這裡(見 updateProgress)。
     saveWatchHistory() {
-        const dataToSave = JSON.stringify(this.watchHistory);
-        localStorage.setItem('watchHistory', dataToSave);
+        this._historyDirty = true;
+        if (this._historyFlushTimer) clearTimeout(this._historyFlushTimer);
+        this._historyFlushTimer = setTimeout(() => this.flushWatchHistory(), 2500);
+    },
+
+    // 真正寫回伺服器,只有 dirty 時才打。供 debounce / 關閉播放器 / 每分鐘保險 / 關分頁 呼叫。
+    flushWatchHistory() {
+        if (this._historyFlushTimer) {
+            clearTimeout(this._historyFlushTimer);
+            this._historyFlushTimer = null;
+        }
+        if (!this._historyDirty) return;
+        this._historyDirty = false;
+        fetch('/api/history', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.watchHistory),
+        }).catch(() => { this._historyDirty = true; });
     },
 
     // 添加觀看歷史紀錄
@@ -192,7 +208,9 @@ export default {
             historyItem.currentTime = currentTime;
             historyItem.duration = duration;
             historyItem.lastWatched = Date.now();
-            this.saveWatchHistory();
+            // 進度每幾秒更新一次:只標記 dirty、更新記憶體,不立即打伺服器。
+            // 實際寫回交給「關閉播放器 / 每分鐘保險 / 關分頁」,避免播放中狂寫。
+            this._historyDirty = true;
 
             // 觸發歷史記錄更新回調
             if (this.onHistoryUpdate) {
@@ -220,6 +238,8 @@ export default {
                     currentTime,
                     duration
                 );
+                // 關閉播放器時把最後進度立刻寫回(這是最重要的「續看點」時機)
+                this.flushWatchHistory();
             }
         }
     },

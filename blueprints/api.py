@@ -1,11 +1,15 @@
 import time
+import json
 import concurrent.futures
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, session
 from urllib.parse import urlparse, urlunparse
 
 from logger_config import setup_logger
 from site_manager import get_sites, save_sites
 from api_parser import process_api_request, get_details_from_api
+import storage
+
+MAX_HISTORY_ITEMS = 50  # 跟前端一致,單一帳號最多保留 50 筆觀看歷史
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 logger = setup_logger()
@@ -308,6 +312,34 @@ def probe_batch():
     results.sort(key=lambda r: (not r['healthy'], r['url']))
     logger.info(f"POST /api/sites/probe_batch - 候選 {len(candidates)} 個，可用 {sum(1 for r in results if r['healthy'])} 個")
     return jsonify({'status': 'success', 'results': results, 'total': len(results)})
+
+@api_bp.route('/history', methods=['GET', 'POST'])
+def account_history():
+    """觀看歷史綁帳號、存伺服器端(storage:Docker 檔案 / Vercel KV)→ 跨裝置同步。
+    寫入由前端嚴格節流(只在關閉播放器 / 換集 / 清除 / 關分頁 / 每 60 秒有變動時),避免狂打。"""
+    account_id = session.get('account_id')
+    if not account_id:
+        return jsonify([]) if request.method == 'GET' else (jsonify({'status': 'error', 'message': '未登入'}), 401)
+
+    key = f'history_{account_id}'
+
+    if request.method == 'GET':
+        raw = storage.get_text(key)
+        if not raw:
+            return jsonify([])
+        try:
+            data = json.loads(raw)
+            return jsonify(data if isinstance(data, list) else [])
+        except ValueError:
+            return jsonify([])
+
+    # POST:整包覆寫(前端維護順序與上限)
+    data = request.get_json(silent=True)
+    if not isinstance(data, list):
+        return jsonify({'status': 'error', 'message': '格式錯誤:預期陣列'}), 400
+    storage.set_text(key, json.dumps(data[:MAX_HISTORY_ITEMS], ensure_ascii=False))
+    return jsonify({'status': 'success'})
+
 
 @api_bp.route('/list', methods=['POST'])
 def api_get_list_route():

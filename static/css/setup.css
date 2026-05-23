@@ -297,6 +297,35 @@
     align-items: center;
 }
 
+/* 會員列表 */
+.member-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+}
+
+.member-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.member-note {
+    color: var(--text-color);
+    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* 外觀設定 */
 .site-settings-card input[type="text"] {
     width: 100%;

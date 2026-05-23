@@ -9,6 +9,7 @@ from logger_config import setup_logger
 from blueprints.auth import auth_bp, init_auth_check
 from blueprints.api import api_bp
 from blueprints.main import main_bp
+from blueprints.members import members_bp
 
 # --- Flask App Initialization ---
 cli.show_server_banner = lambda *x: None
@@ -50,6 +51,7 @@ else:
 app.register_blueprint(auth_bp)
 app.register_blueprint(api_bp)
 app.register_blueprint(main_bp)
+app.register_blueprint(members_bp)
 
 # --- Initialize Request Hooks ---
 init_auth_check(app)

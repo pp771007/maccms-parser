@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}會員管理 - {{ site_title }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
+{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">
+            <img class="brand-logo" src="{{ favicon_url }}" alt="">
+            <span class="brand-name">{{ site_title }}</span>
+        </a>
+        <div class="topbar-actions">
+            <a href="/setup" class="btn btn-ghost btn-sm" title="站點設定">
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span class="label-text">設定</span>
+            </a>
+            <a href="/" class="btn btn-ghost btn-sm" title="返回主頁">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/></svg>
+                <span class="label-text">主頁</span>
+            </a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <header>
+        <h1>會員管理</h1>
+    </header>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>新增會員</h2>
+            <span class="card-subtitle">會員只用密碼登入,只能使用 app(進不了設定 / 會員頁)</span>
+        </div>
+        <div class="form-group">
+            <label for="memberPassword">密碼</label>
+            <input type="text" id="memberPassword" placeholder="設定會員密碼(不可與管理員或其他會員重複)" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label for="memberNote">備註</label>
+            <input type="text" id="memberNote" placeholder="例如:小明、客廳電視" autocomplete="off">
+        </div>
+        <button id="addMemberBtn" class="btn btn-primary">新增會員</button>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>會員列表</h2>
+        </div>
+        <ul id="memberList" class="member-list">
+            <li class="empty-hint">載入中…</li>
+        </ul>
+    </div>
+</div>
+
+<div id="customModal"></div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/modal.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/members.js') }}"></script>
+{% endblock %}

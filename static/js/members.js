@@ -1,0 +1,90 @@
+"use strict";
+
+import { $ } from './utils.js';
+import { showModal, showConfirm, showToast } from './modal.js';
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadMembers();
+    $('#addMemberBtn').addEventListener('click', addMember);
+    $('#memberNote').addEventListener('keyup', (e) => { if (e.key === 'Enter') addMember(); });
+});
+
+async function loadMembers() {
+    const list = $('#memberList');
+    try {
+        const res = await fetch('/api/members');
+        if (!res.ok) throw new Error();
+        renderMembers(await res.json());
+    } catch (e) {
+        list.innerHTML = '<li class="empty-hint">載入失敗,請重新整理</li>';
+    }
+}
+
+function renderMembers(members) {
+    const list = $('#memberList');
+    list.innerHTML = '';
+    if (!members || members.length === 0) {
+        list.innerHTML = '<li class="empty-hint">還沒有任何會員 — 在上面新增一個</li>';
+        return;
+    }
+    members.forEach(m => {
+        const li = document.createElement('li');
+        li.className = 'member-item';
+
+        const note = document.createElement('span');
+        note.className = 'member-note';
+        note.textContent = m.note || '(無備註)';
+        li.appendChild(note);
+
+        const del = document.createElement('button');
+        del.className = 'btn btn-outline-danger btn-sm';
+        del.textContent = '刪除';
+        del.addEventListener('click', () => removeMember(m.id, m.note));
+        li.appendChild(del);
+
+        list.appendChild(li);
+    });
+}
+
+async function addMember() {
+    const password = $('#memberPassword').value.trim();
+    const note = $('#memberNote').value.trim();
+    if (!password) {
+        showModal('請輸入會員密碼', 'warning');
+        return;
+    }
+    try {
+        const res = await fetch('/api/members', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password, note }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            showModal(data.message || '新增失敗', 'error');
+            return;
+        }
+        $('#memberPassword').value = '';
+        $('#memberNote').value = '';
+        showToast('已新增會員', 'success');
+        loadMembers();
+    } catch (e) {
+        showModal('新增失敗,請稍後再試', 'error');
+    }
+}
+
+function removeMember(id, note) {
+    showConfirm(`確定刪除會員「${note || '(無備註)'}」?該會員的觀看歷史也會一併刪除。`, async () => {
+        try {
+            const res = await fetch(`/api/members/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('已刪除會員', 'success');
+                loadMembers();
+            } else {
+                showModal('刪除失敗', 'error');
+            }
+        } catch (e) {
+            showModal('刪除失敗,請稍後再試', 'error');
+        }
+    });
+}

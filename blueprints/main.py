@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, send_file, Response
+from flask import Blueprint, render_template, request, jsonify, send_file, Response, session
 import os
 import time
 import ujson as json
@@ -14,7 +14,8 @@ def index():
     favicon_ext = get_config_value('favicon_ext', 'svg')
     favicon_version = get_config_value('favicon_version', '')
     favicon_url = f"/favicon?v={favicon_version}"
-    return render_template('index.html', site_title=site_title, favicon_url=favicon_url, version=VERSION)
+    return render_template('index.html', site_title=site_title, favicon_url=favicon_url, version=VERSION,
+                           is_admin=(session.get('role') == 'admin'))
 
 @main_bp.route('/setup')
 def site_setup():

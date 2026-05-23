@@ -11,6 +11,17 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     loadSitesAndAutoLoadLast();
     registerServiceWorker();
+
+    // 觀看歷史寫回伺服器的「保險」:每 60 秒、且真的有變動才寫(平時靠關閉播放器/換集寫)
+    setInterval(() => state.flushWatchHistory(), 60000);
+    // 關分頁前把尚未寫回的進度用 sendBeacon 送出(不阻塞關閉、不另開請求迴圈)
+    window.addEventListener('beforeunload', () => {
+        if (state._historyDirty && navigator.sendBeacon) {
+            const blob = new Blob([JSON.stringify(state.watchHistory)], { type: 'application/json' });
+            navigator.sendBeacon('/api/history', blob);
+            state._historyDirty = false;
+        }
+    });
 });
 
 // 版面（直/方/寬卡）改由 CSS 依裝置寬度自動決定，不再手動切換（對齊 kazi）。
@@ -249,8 +260,8 @@ async function loadSitesAndAutoLoadLast() {
         // 載入多選站台設定
         state.loadMultiSiteSelection();
 
-        // 載入觀看歷史紀錄
-        state.loadWatchHistory();
+        // 載入觀看歷史紀錄(從伺服器,綁帳號)
+        await state.loadWatchHistory();
 
         // 載入搜尋關鍵字歷史記錄
         state.loadSearchHistory();

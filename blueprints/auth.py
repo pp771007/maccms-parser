@@ -114,6 +114,52 @@ def check_password(password):
     config = load_config()
     return check_password_hash(config.get('password_hash', ''), password)
 
+# --- 會員(非管理員帳號)---
+# 管理員 = config 裡的 password_hash(一開始設定的那組,唯一,可進設定 / 會員管理)。
+# 會員 = members 清單,每個只有 {id, password_hash, note},只能用 app。
+# 登入頁只輸入密碼:先比管理員、再比每個會員的 hash;登入後 session 記 role 與 account_id
+# (account_id 綁定觀看歷史:管理員固定 'admin',會員用 'm<id>')。
+_MEMBERS_KEY = 'members'
+
+
+def get_members():
+    raw = storage.get_text(_MEMBERS_KEY)
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, list) else []
+    except ValueError:
+        return []
+
+
+def save_members(members):
+    storage.set_text(_MEMBERS_KEY, json.dumps(members, ensure_ascii=False))
+
+
+def password_in_use(password):
+    """密碼是否已被管理員或某個會員使用(新增會員時擋重複,避免登入身分撞號)。"""
+    if check_password_hash(load_config().get('password_hash', ''), password):
+        return True
+    return any(check_password_hash(m.get('password_hash', ''), password) for m in get_members())
+
+
+def authenticate(password):
+    """只用密碼辨識身分。回傳 (role, account_id);失敗回 (None, None)。先比管理員再比會員。"""
+    if not password:
+        return None, None
+    if check_password_hash(load_config().get('password_hash', ''), password):
+        return 'admin', 'admin'
+    for m in get_members():
+        if check_password_hash(m.get('password_hash', ''), password):
+            return 'member', f"m{m['id']}"
+    return None, None
+
+
+def is_admin():
+    return session.get('role') == 'admin'
+
+
 @auth_bp.route('/setup-password', methods=['GET', 'POST'])
 def setup_password():
     if is_password_set():
@@ -125,6 +171,8 @@ def setup_password():
         password = request.form['password']
         set_password(password)
         session['logged_in'] = True
+        session['role'] = 'admin'
+        session['account_id'] = 'admin'
         session.permanent = True  # 設定session為永久性
         return redirect(url_for('main.index'))
     site_title = get_config_value('site_title', '資源站點管理器')
@@ -147,9 +195,12 @@ def login():
         return _render_login(f'嘗試次數過多，請在 {minutes} 分 {seconds} 秒後再試。')
 
     if request.method == 'POST':
-        if check_password(request.form.get('password', '')):
+        role, account_id = authenticate(request.form.get('password', ''))
+        if role:
             _clear_login_failures(ip)
             session['logged_in'] = True
+            session['role'] = role
+            session['account_id'] = account_id
             session.permanent = True
             return redirect(url_for('main.index'))
 
@@ -163,6 +214,8 @@ def login():
 @auth_bp.route('/logout')
 def logout():
     session.pop('logged_in', None)
+    session.pop('role', None)
+    session.pop('account_id', None)
     return redirect(url_for('auth.login'))
 
 def init_auth_check(app):
@@ -201,3 +254,25 @@ def init_auth_check(app):
             if request.path.startswith('/api/'):
                 return jsonify({'status': 'error', 'message': '需要登入', 'action': 'login'}), 401
             return redirect(url_for('auth.login'))
+
+        # 舊 session(改版前只有單一密碼)補上身分欄位,視為管理員
+        if 'logged_in' in session and 'role' not in session:
+            session['role'] = 'admin'
+            session['account_id'] = 'admin'
+
+        # 已登入但非管理員 → 擋掉「設定 / 掃描匯入 / 會員管理」頁與站台 / 會員管理 API
+        if 'logged_in' in session and session.get('role') != 'admin':
+            ep = request.endpoint or ''
+            admin_only = (
+                ep in ('main.site_setup', 'main.scan_import')
+                or ep.startswith('members.')
+                or ep in ('api.manage_site', 'api.move_site', 'api.probe_batch',
+                          'api.import_sites', 'api.export_sites',
+                          'api.check_sites_now', 'api.check_single_site')
+                or (ep == 'api.add_or_get_sites' and request.method == 'POST')
+                or (ep == 'main.site_settings' and request.method == 'POST')
+            )
+            if admin_only:
+                if request.path.startswith('/api/'):
+                    return jsonify({'status': 'error', 'message': '需要管理員權限'}), 403
+                return redirect(url_for('main.index'))
