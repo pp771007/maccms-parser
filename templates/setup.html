@@ -52,16 +52,18 @@
         <button id="addSiteBtn" class="btn btn-success">新增站點</button>
     </div>
 
-    <div class="site-list-manager">
-        <h2>管理現有站點</h2>
-        <div class="site-controls">
-            <button id="checkAllSitesBtn" class="btn btn-info">檢查所有站點</button>
-            <label class="checkbox-label">
-                <input type="checkbox" id="includeDisabledCheckbox">
-                <span>包含未啟用站點</span>
-            </label>
-            <div id="checkStatus" class="check-status"></div>
+    <div class="card site-list-manager">
+        <div class="card-header">
+            <h2>管理現有站點</h2>
+            <div class="manage-tools">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="includeDisabledCheckbox">
+                    <span>含未啟用</span>
+                </label>
+                <button id="checkAllSitesBtn" class="btn btn-secondary btn-sm">檢查所有站點</button>
+            </div>
         </div>
+        <div id="checkStatus" class="check-status"></div>
         <ul id="siteList">
             <!-- 站點列表將由 JavaScript 動態生成 -->
         </ul>

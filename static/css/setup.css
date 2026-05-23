@@ -58,27 +58,21 @@
 }
 
 /* 管理現有站點 */
-.site-list-manager {
-    margin-bottom: var(--sp-5);
-}
-
-.site-list-manager > h2 {
-    font-size: var(--fs-lg);
-    color: var(--text-color);
-    margin: 0 0 var(--sp-4);
-}
-
-.site-controls {
+.manage-tools {
     display: flex;
     align-items: center;
     gap: var(--sp-3);
     flex-wrap: wrap;
-    margin-bottom: var(--sp-4);
 }
 
 .check-status {
     font-size: var(--fs-body);
     color: var(--text-secondary-color);
+    margin-bottom: var(--sp-3);
+}
+
+.check-status:empty {
+    display: none;
 }
 
 #siteList {
@@ -91,14 +85,18 @@
 }
 
 .site-item {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--sp-3) var(--sp-4);
-    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
     padding: var(--sp-4);
-    background: var(--card-background);
+    background: var(--surface-2);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
+    transition: border-color var(--ease);
+}
+
+.site-item:hover {
+    border-color: var(--border-strong);
 }
 
 .site-info {
@@ -108,26 +106,39 @@
     min-width: 0;
 }
 
+.site-info input {
+    background: var(--card-background);
+}
+
 .site-name-input {
-    width: 160px;
+    width: 180px;
     flex-shrink: 0;
 }
 
 .site-url-input {
     flex: 1;
-    min-width: 200px;
+    min-width: 220px;
 }
 
 .site-note-input {
-    width: 140px;
+    width: 150px;
+}
+
+/* 狀態 + 控制鈕同一列;啟用/SSL 在左,動作鈕推到右 */
+.site-item .site-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
 }
 
 .site-status {
-    grid-column: 1 / -1;
     font-size: var(--fs-caption);
+}
+
+.check-info {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--sp-3);
+    gap: var(--sp-2);
     align-items: center;
 }
 
@@ -149,15 +160,23 @@
     color: var(--text-muted-color);
 }
 
-.site-item .site-controls {
-    grid-column: 2;
-    grid-row: 1;
-    margin-bottom: 0;
-    justify-content: flex-end;
+.site-item .site-controls label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--fs-body);
+    color: var(--text-secondary-color);
+    cursor: pointer;
+    user-select: none;
 }
 
-.site-item label.checkbox-label {
-    font-size: var(--fs-caption);
+.site-item .site-controls label + label {
+    margin-right: var(--sp-2);
+}
+
+/* 第一顆動作鈕往右推,讓 啟用/SSL 與動作鈕分兩邊 */
+.site-item .btn-check-site {
+    margin-left: auto;
 }
 
 /* 站點列裡的控制鈕 */
@@ -298,14 +317,9 @@
 }
 
 @media (max-width: 768px) {
-    .site-item {
-        grid-template-columns: 1fr;
-    }
-
-    .site-item .site-controls {
-        grid-column: 1;
-        grid-row: auto;
-        justify-content: flex-start;
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .site-name-input,
@@ -313,5 +327,10 @@
     .site-note-input {
         width: 100%;
         flex: 1 1 100%;
+    }
+
+    /* 手機上動作鈕不右推,自然由左排;啟用/SSL 與動作鈕各自成行 */
+    .site-item .btn-check-site {
+        margin-left: 0;
     }
 }
