@@ -6,6 +6,7 @@ import * as ui from './ui.js';
 import { $ } from './utils.js';
 import { showModal, showToast } from './modal.js';
 import historyManager from './historyStateManager.js';
+import { attachSwipePager } from './swipePager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
@@ -21,6 +22,14 @@ document.addEventListener('DOMContentLoaded', () => {
             navigator.sendBeacon('/api/history', blob);
             state._historyDirty = false;
         }
+    });
+
+    // 手機左右滑換頁:左滑下一頁、右滑上一頁(只攔觸控、只在水平為主時接管)
+    attachSwipePager($('.content-area'), $('#videoGrid'), {
+        canPrev: () => state.totalPages > 1 && state.currentPage > 1,
+        canNext: () => state.totalPages > 1 && state.currentPage < state.totalPages,
+        onPrev: () => goRelativePage(-1),
+        onNext: () => goRelativePage(1),
     });
 });
 

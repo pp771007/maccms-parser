@@ -158,6 +158,31 @@
 /* ---- 內容區 / 影片網格 ---- */
 .content-area {
     width: 100%;
+    position: relative;
+    overflow-x: clip;  /* 左右滑換頁時內容位移不造成整頁橫向捲動 */
+}
+
+/* 左右滑換頁的邊緣提示 */
+.swipe-hint {
+    position: absolute;
+    top: 38%;
+    display: none;
+    padding: 9px 15px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-3);
+    border: 1px solid var(--border-strong);
+    color: var(--text-color);
+    font-size: var(--fs-body);
+    font-weight: 600;
+    z-index: 40;
+    pointer-events: none;
+    box-shadow: var(--shadow-2);
+}
+
+.swipe-hint.ready {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
 }
 
 #videoGrid {

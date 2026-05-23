@@ -520,9 +520,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     // 只有當歷史進度大於2秒時才不自動播放，避免小進度造成的問題
     const shouldAutoplay = !(historyItemToUse && historyItemToUse.currentTime && historyItemToUse.currentTime > 2);
 
-    // 讀取自動方向設定
-    const autoOrientationEnabled = localStorage.getItem('autoOrientation') === 'true';
-
     state.artplayer = new Artplayer({
         container: '#artplayer-container',
         url: url,
@@ -542,7 +539,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         fullscreen: true,
         mini: true,
         autoplay: shouldAutoplay, // 根據是否有歷史進度決定是否自動播放
-        autoOrientation: autoOrientationEnabled, // 根據設定啟用自動方向
+        autoOrientation: true, // 手機全螢幕播放時自動轉成橫向(ArtPlayer 內建,直式才轉、不影響桌機)
         setting: true,
         // 移除自定義控制按鈕，因為現在有雙擊左右側功能
         controls: [],
