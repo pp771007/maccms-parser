@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 from flask import Blueprint, request, render_template, session, redirect, url_for, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import load_config, save_config, get_config_value, set_config_value
@@ -11,6 +12,64 @@ auth_bp = Blueprint('auth', __name__)
 MAX_LOGIN_ATTEMPTS = 10
 LOGIN_LOCKOUT_MINUTES = 15
 LOGIN_LOCKOUT_TIME = LOGIN_LOCKOUT_MINUTES * 60  # seconds
+
+# --- 以「來源 IP」為 key 的登入失敗計數(伺服器端記憶體,不靠 cookie)---
+# 舊版只把計數放 session/cookie,攻擊者每次請求丟掉 cookie 就能重置計數、無限猜。
+# 改成記在伺服器端、以 IP 區分,腳本丟 cookie 也躲不掉。
+# 注意:這是單一程序的記憶體狀態 → Docker / 本機單程序有效;serverless 多冷啟動不共享
+# (但 serverless 每次冷啟本身就拖慢暴力破解,且本專案主要部署在 Docker)。
+_login_attempts = {}          # ip -> {'count': int, 'lock_until': float}
+_login_attempts_lock = threading.Lock()
+# 預設用 TCP 對端 IP(remote_addr),避免攻擊者偽造 X-Forwarded-For 繞過。
+# 若部署在反向代理後面(nginx/Traefik),設環境變數 TRUST_PROXY=1 改用 XFF 第一段。
+_TRUST_PROXY = os.environ.get('TRUST_PROXY', '').lower() in ('1', 'true', 'yes')
+
+
+def _client_ip():
+    if _TRUST_PROXY:
+        xff = request.headers.get('X-Forwarded-For', '')
+        if xff:
+            return xff.split(',')[0].strip()
+    return request.remote_addr or 'unknown'
+
+
+def _login_lock_remaining(ip):
+    """這個 IP 還要鎖幾秒?0 表示沒被鎖。順手清掉過期紀錄,避免 dict 無限長大。"""
+    now = time.time()
+    with _login_attempts_lock:
+        for k in [k for k, v in _login_attempts.items()
+                  if v.get('lock_until', 0) < now and v.get('count', 0) == 0]:
+            _login_attempts.pop(k, None)
+        rec = _login_attempts.get(ip)
+        if rec and rec.get('lock_until', 0) > now:
+            return int(rec['lock_until'] - now)
+    return 0
+
+
+def _record_login_failure(ip):
+    """記一次失敗,回傳 (剩餘可試次數, 是否剛觸發鎖定)。"""
+    with _login_attempts_lock:
+        rec = _login_attempts.setdefault(ip, {'count': 0, 'lock_until': 0})
+        rec['count'] += 1
+        if rec['count'] >= MAX_LOGIN_ATTEMPTS:
+            rec['lock_until'] = time.time() + LOGIN_LOCKOUT_TIME
+            rec['count'] = 0  # 重置計數,進入鎖定視窗
+            return 0, True
+        return MAX_LOGIN_ATTEMPTS - rec['count'], False
+
+
+def _clear_login_failures(ip):
+    with _login_attempts_lock:
+        _login_attempts.pop(ip, None)
+
+
+def _render_login(error=None):
+    return render_template(
+        'login.html',
+        error=error,
+        site_title=get_config_value('site_title', '資源站點管理器'),
+        favicon_url=f"/favicon?v={get_config_value('favicon_version', '')}",
+    )
 
 def is_password_set():
     return 'password_hash' in load_config()
@@ -48,40 +107,27 @@ def login():
     if 'logged_in' in session:
         return redirect(url_for('main.index'))
 
-    if session.get('login_attempts', 0) >= MAX_LOGIN_ATTEMPTS:
-        last_attempt_time = session.get('last_attempt_time', 0)
-        if time.time() - last_attempt_time < LOGIN_LOCKOUT_TIME:
-            remaining_time = int(LOGIN_LOCKOUT_TIME - (time.time() - last_attempt_time))
-            minutes, seconds = divmod(remaining_time, 60)
-            error_msg = f'嘗試次數過多，請在 {minutes} 分 {seconds} 秒後再試。'
-            return render_template('login.html', error=error_msg)
-        else:
-            session.pop('login_attempts', None)
-            session.pop('last_attempt_time', None)
+    ip = _client_ip()
+
+    # 鎖定中:不管帶不帶 cookie 都擋(以 IP 計)
+    locked = _login_lock_remaining(ip)
+    if locked > 0:
+        minutes, seconds = divmod(locked, 60)
+        return _render_login(f'嘗試次數過多，請在 {minutes} 分 {seconds} 秒後再試。')
 
     if request.method == 'POST':
-        if check_password(request.form['password']):
+        if check_password(request.form.get('password', '')):
+            _clear_login_failures(ip)
             session['logged_in'] = True
-            session.permanent = True  # 設定session為永久性
-            session.pop('login_attempts', None)
-            session.pop('last_attempt_time', None)
+            session.permanent = True
             return redirect(url_for('main.index'))
-        else:
-            session['login_attempts'] = session.get('login_attempts', 0) + 1
-            session['last_attempt_time'] = time.time()
-            
-            attempts_left = MAX_LOGIN_ATTEMPTS - session.get('login_attempts', 0)
-            if attempts_left > 0:
-                error_msg = f'密碼錯誤，還剩下 {attempts_left} 次嘗試機會。'
-            else:
-                error_msg = f'嘗試次數過多，帳戶已鎖定 {LOGIN_LOCKOUT_MINUTES} 分鐘。'
-            return render_template('login.html', error=error_msg)
-            
-    site_title = get_config_value('site_title', '資源站點管理器')
-    favicon_ext = get_config_value('favicon_ext', 'svg')
-    favicon_version = get_config_value('favicon_version', '')
-    favicon_url = f"/favicon?v={favicon_version}"
-    return render_template('login.html', error=locals().get('error', None), site_title=site_title, favicon_url=favicon_url)
+
+        attempts_left, just_locked = _record_login_failure(ip)
+        if just_locked:
+            return _render_login(f'嘗試次數過多，帳戶已鎖定 {LOGIN_LOCKOUT_MINUTES} 分鐘。')
+        return _render_login(f'密碼錯誤，還剩下 {attempts_left} 次嘗試機會。')
+
+    return _render_login()
 
 @auth_bp.route('/logout')
 def logout():

@@ -1,56 +1,52 @@
-.bookmarklet-card,
-.paste-card,
-.result-card {
-    margin-bottom: 24px;
-}
-
+/* 掃描 / 批次匯入頁 */
 .hint {
     color: var(--text-secondary-color);
-    font-size: 14px;
-    line-height: 1.6;
-    margin: 0 0 16px 0;
+    font-size: var(--fs-body);
+    line-height: 1.7;
+    margin: 0 0 var(--sp-4);
 }
 
 .hint a {
     color: var(--primary-color);
+    text-decoration: none;
+}
+
+.hint a:hover {
+    text-decoration: underline;
 }
 
 .hint-small {
-    font-size: 13px;
-    margin-top: 14px;
-    margin-bottom: 0;
-}
-
-.btn-xs {
-    padding: 3px 10px;
-    font-size: 12px;
-    border-radius: 5px;
-    vertical-align: middle;
-}
-
-/* 書籤工具按鈕 — 做成明顯可拖曳的樣子 */
-.bookmarklet-row {
+    font-size: var(--fs-caption);
+    color: var(--text-muted-color);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--sp-2);
     flex-wrap: wrap;
 }
 
+.bookmarklet-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-4);
+}
+
+/* 書籤本身：做成醒目、可拖曳的按鈕 */
 .bookmarklet {
-    display: inline-block;
-    padding: 10px 18px;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 0 20px;
+    height: 44px;
+    border-radius: var(--radius-sm);
     background: var(--primary-color);
     color: #fff;
-    border-radius: 8px;
     font-weight: 600;
-    font-size: 15px;
     text-decoration: none;
     cursor: grab;
-    box-shadow: 0 2px 8px rgba(24, 144, 255, 0.25);
-    border: 1px dashed rgba(255, 255, 255, 0.5);
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    user-select: none;
+    box-shadow: var(--shadow-1);
+    border: 1px solid var(--primary-color);
 }
 
 .bookmarklet:active {
@@ -58,112 +54,73 @@
 }
 
 .bookmarklet-tip {
-    color: var(--text-secondary-color);
-    font-size: 13px;
+    color: var(--text-muted-color);
+    font-size: var(--fs-caption);
 }
 
-/* 貼上網址 */
-#urlInput {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 12px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background: var(--input-background);
-    color: var(--text-color);
-    font-size: 14px;
-    font-family: monospace;
-    resize: vertical;
-    margin-bottom: 14px;
-}
-
-#urlInput:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-    outline: none;
-}
-
-/* 結果區 */
 .result-actions {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: var(--sp-3);
     flex-wrap: wrap;
 }
 
 .result-summary {
-    font-size: 13px;
+    font-size: var(--fs-caption);
     color: var(--text-secondary-color);
 }
 
 #candidateList {
     list-style: none;
-    padding: 0;
     margin: 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: var(--sp-2);
 }
 
 .empty-hint {
-    color: var(--text-secondary-color);
-    font-size: 14px;
-    padding: 20px;
+    color: var(--text-muted-color);
     text-align: center;
+    padding: 28px 16px;
+    font-size: var(--fs-body);
 }
 
 .candidate-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    background: var(--card-background);
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    transition: border-color 0.2s;
-}
-
-.candidate-item:hover {
-    border-color: var(--primary-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
 }
 
 .candidate-item.is-unavailable {
     opacity: 0.6;
 }
 
-.candidate-check input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    cursor: pointer;
-}
-
-.candidate-check input[type="checkbox"]:disabled {
-    cursor: not-allowed;
+.candidate-check {
+    display: flex;
+    align-items: center;
 }
 
 .candidate-info {
-    flex-grow: 1;
     min-width: 0;
+    flex: 1;
 }
 
 .candidate-name {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-2);
     font-weight: 600;
     color: var(--text-color);
 }
 
-.candidate-name .name-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .dot {
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -177,22 +134,14 @@
 }
 
 .candidate-url {
-    font-size: 12px;
-    color: var(--text-secondary-color);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.candidate-msg {
-    font-size: 12px;
-    color: var(--danger-color);
+    font-size: var(--fs-caption);
+    color: var(--text-muted-color);
+    word-break: break-all;
     margin-top: 2px;
 }
 
-@media (max-width: 768px) {
-    .result-actions {
-        width: 100%;
-        justify-content: space-between;
-    }
+.candidate-msg {
+    font-size: var(--fs-caption);
+    color: var(--danger-hover);
+    margin-top: 2px;
 }

@@ -64,15 +64,35 @@ export async function moveSite(siteId, direction) {
     return await response.json();
 }
 
-export async function probeSites(urls) {
+// items: [{url, name?}]（書籤會連連結文字一起帶回來）
+export async function probeSites(items) {
     const response = await fetch('/api/sites/probe_batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls })
+        body: JSON.stringify({ items })
     });
     if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.message || '驗證失敗');
+    }
+    return await response.json();
+}
+
+export async function exportSites() {
+    const response = await fetch('/api/sites/export');
+    if (!response.ok) throw new Error('匯出失敗');
+    return await response.json();
+}
+
+export async function importSites(items) {
+    const response = await fetch('/api/sites/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(items)
+    });
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.message || '匯入失敗');
     }
     return await response.json();
 }

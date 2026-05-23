@@ -1,113 +1,86 @@
+/* 登入 / 設定密碼頁 */
 body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    background-color: var(--background-color);
+    min-height: 100vh;
     margin: 0;
     padding: 20px;
-    box-sizing: border-box;
 }
 
-.login-container {
+.auth-card {
     background: var(--card-background);
-    padding: 40px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    padding: 40px 36px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-3);
     width: 100%;
     max-width: 400px;
     text-align: center;
     border: 1px solid var(--border-color);
 }
 
-.login-container h1 {
-    margin-bottom: 25px;
+.auth-brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: var(--sp-6);
+}
+
+.auth-logo {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+}
+
+.auth-app {
+    font-size: var(--fs-lg);
+    font-weight: 700;
     color: var(--text-color);
 }
 
-.login-container input {
+.auth-card h1 {
+    margin: 0 0 6px;
+    font-size: var(--fs-xl);
+    color: var(--text-color);
+}
+
+.auth-sub {
+    margin: 0 0 var(--sp-6);
+    color: var(--text-secondary-color);
+    font-size: var(--fs-md);
+}
+
+.auth-card .form-group {
+    text-align: left;
+    margin-bottom: var(--sp-4);
+}
+
+.auth-card input {
     width: 100%;
-    padding: 12px;
-    margin-bottom: 20px;
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
-    font-size: 16px;
-    box-sizing: border-box;
-    background-color: var(--input-background);
-    color: var(--text-color);
 }
 
-.login-container input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.25);
+.auth-submit {
+    width: 100%;
+    margin-top: var(--sp-2);
 }
 
-.error {
-    color: var(--danger-color);
-    margin-bottom: 15px;
+.auth-error {
+    color: var(--danger-hover);
+    background: var(--danger-soft);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin: 0 0 var(--sp-4);
+    font-size: var(--fs-body);
 }
 
-/* 手機版優化 */
-@media (max-width: 768px) {
-    body {
-        padding: 15px;
-    }
-
-    .login-container {
-        padding: 30px 25px;
-        margin: 0 10px;
-    }
-
-    .login-container h1 {
-        font-size: 20px;
-        margin-bottom: 20px;
-    }
-
-    .login-container input {
-        font-size: 16px;
-        padding: 12px;
-    }
+.auth-error:empty {
+    display: none;
 }
 
 @media (max-width: 480px) {
-    body {
-        padding: 10px;
-    }
-
-    .login-container {
-        padding: 25px 20px;
-        margin: 0 5px;
-    }
-
-    .login-container h1 {
-        font-size: 18px;
-        margin-bottom: 18px;
-    }
-
-    .login-container input {
-        font-size: 15px;
-        padding: 10px;
-    }
-}
-
-@media (max-width: 360px) {
-    body {
-        padding: 8px;
-    }
-
-    .login-container {
-        padding: 20px 15px;
-        margin: 0 3px;
-    }
-
-    .login-container h1 {
-        font-size: 16px;
-        margin-bottom: 15px;
-    }
-
-    .login-container input {
-        font-size: 14px;
-        padding: 8px;
+    .auth-card {
+        padding: 30px 22px;
     }
 }

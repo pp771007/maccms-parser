@@ -173,25 +173,100 @@ def move_site(site_id):
     save_sites(sites)
     return jsonify({'status': 'success', 'sites': sites})
 
+@api_bp.route('/sites/export', methods=['GET'])
+def export_sites():
+    """匯出站台清單，格式跟 kazi 一致(純陣列、name/url/ssl_verify/enabled),兩邊可互通匯入。"""
+    sites = sorted(get_sites(), key=lambda s: s.get('order', float('inf')))
+    export = [{
+        'name': s.get('name', ''),
+        'url': s.get('url', ''),
+        'ssl_verify': bool(s.get('ssl_verify', True)),
+        'enabled': bool(s.get('enabled', True)),
+    } for s in sites]
+    return jsonify(export)
+
+@api_bp.route('/sites/import', methods=['POST'])
+def import_sites():
+    """匯入站台清單。接受 kazi 的純陣列格式,也容忍 {"sites": [...]} 包裝與本站完整 schema。
+    依清理後的 URL 去重,跳過本站與已存在者,套用 name/url/ssl_verify/enabled。"""
+    payload = request.get_json(silent=True)
+    if isinstance(payload, dict):
+        items = payload.get('sites') or payload.get('data') or []
+    else:
+        items = payload
+    if not isinstance(items, list):
+        return jsonify({'status': 'error', 'message': '格式錯誤:預期一個 JSON 陣列'}), 400
+
+    sites = get_sites()
+    existing = {s.get('url', '').lower() for s in sites}
+    added = skipped = 0
+    order = len(sites)
+    next_id = int(time.time() * 1000)
+
+    for it in items:
+        if not isinstance(it, dict):
+            skipped += 1
+            continue
+        raw_url = (it.get('url') or '').strip()
+        parsed = urlparse(raw_url)
+        if not all([parsed.scheme, parsed.netloc]):
+            skipped += 1
+            continue
+        if parsed.scheme == request.scheme and parsed.netloc == request.host:
+            skipped += 1
+            continue
+        cleaned = clean_base_url(raw_url)
+        if cleaned.lower() in existing:
+            skipped += 1
+            continue
+        name = (it.get('name') or '').strip() or derive_site_name(cleaned).capitalize()
+        sites.append({
+            'id': next_id,
+            'name': name,
+            'url': cleaned,
+            'enabled': bool(it.get('enabled', True)),
+            'ssl_verify': bool(it.get('ssl_verify', True)),
+            'note': (it.get('note') or ''),
+            'order': order,
+        })
+        existing.add(cleaned.lower())
+        added += 1
+        order += 1
+        next_id += 1
+
+    if added:
+        save_sites(sites)
+    logger.info(f"POST /api/sites/import - 匯入 {added} 個,略過 {skipped} 個")
+    return jsonify({'status': 'success', 'added': added, 'skipped': skipped, 'total': len(sites)})
+
 @api_bp.route('/sites/probe_batch', methods=['POST'])
 def probe_batch():
     """批次驗證一組候選網址，回傳每個的健康狀態與建議站名（不寫入，只驗證）"""
     from site_manager import check_site_health
 
     data = request.json or {}
-    raw_urls = data.get('urls', [])
-    if not isinstance(raw_urls, list):
-        return jsonify({'status': 'error', 'message': 'urls 必須是陣列'}), 400
+    # 新格式 items: [{url, name}]（書籤會連網頁上的連結文字一起帶回來當站名）；
+    # 舊格式 urls: [str] 仍相容。
+    raw_items = data.get('items')
+    if raw_items is None:
+        raw_items = [{'url': u} for u in data.get('urls', []) if isinstance(u, str)]
+    if not isinstance(raw_items, list):
+        return jsonify({'status': 'error', 'message': 'items / urls 必須是陣列'}), 400
 
     sites = get_sites()
     existing_urls = {s.get('url', '').lower() for s in sites}
 
     seen = set()
     candidates = []
-    for raw in raw_urls:
-        if not isinstance(raw, str) or not raw.strip():
+    for raw in raw_items:
+        if isinstance(raw, str):
+            raw = {'url': raw}
+        if not isinstance(raw, dict):
             continue
-        cleaned = clean_base_url(raw.strip())
+        url = (raw.get('url') or '').strip()
+        if not url:
+            continue
+        cleaned = clean_base_url(url)
         parsed = urlparse(cleaned)
         if not all([parsed.scheme, parsed.netloc]):
             continue
@@ -199,9 +274,12 @@ def probe_batch():
         if low in seen:
             continue
         seen.add(low)
+        # 優先用書籤抓到的連結文字當站名,沒有才從網址推導
+        provided = (raw.get('name') or '').strip()
+        name = provided if provided else derive_site_name(cleaned).capitalize()
         candidates.append({
             'url': cleaned,
-            'name': derive_site_name(cleaned).capitalize(),
+            'name': name,
             'exists': low in existing_urls,
             'is_self': parsed.scheme == request.scheme and parsed.netloc == request.host,
         })

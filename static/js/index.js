@@ -9,58 +9,13 @@ import historyManager from './historyStateManager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
-    initViewMode();
-    initAutoOrientation();
     loadSitesAndAutoLoadLast();
     registerServiceWorker();
 });
 
+// 版面（直/方/寬卡）改由 CSS 依裝置寬度自動決定，不再手動切換（對齊 kazi）。
+
 // The popstate event is now handled by historyStateManager.js
-
-// 視圖模式管理
-let currentViewMode = localStorage.getItem('viewMode') || 'portrait';
-
-// 自動方向管理
-let autoOrientationEnabled = localStorage.getItem('autoOrientation') === 'true';
-
-// 初始化視圖模式
-function initViewMode() {
-    const videoGrid = document.getElementById('videoGrid');
-
-    // 移除所有現有的視圖模式 class
-    videoGrid.classList.remove('mode-portrait', 'mode-landscape', 'mode-square');
-    // 添加當前視圖模式的 class
-    videoGrid.classList.add(`mode-${currentViewMode}`);
-
-    // 更新按鈕狀態
-    document.querySelectorAll('.btn-view-mode').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    const activeBtn = document.getElementById(`viewMode${capitalize(currentViewMode)}`);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
-}
-
-// 初始化自動方向設定
-function initAutoOrientation() {
-    const checkbox = $('#autoOrientationToggle');
-    if (checkbox) {
-        checkbox.checked = autoOrientationEnabled;
-    }
-}
-
-// 切換視圖模式
-function setViewMode(mode) {
-    currentViewMode = mode;
-    localStorage.setItem('viewMode', mode);
-    initViewMode();
-}
-
-// 輔助函數：首字母大寫
-function capitalize(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-}
 
 // 處理 ESC 鍵的邏輯
 function handleEscKey(e) {
@@ -99,8 +54,15 @@ function registerServiceWorker() {
 
 function setupEventListeners() {
     initScrollButtons();
-    $('#siteSelector').addEventListener('change', handleSiteSelection);
-    $('#categorySelector').addEventListener('change', handleCategorySelection);
+    // 站台 / 分類 chip 列：事件委派，點到 chip 就切換
+    $('#siteStrip').addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip');
+        if (chip) handleSiteSelection(chip.dataset.siteId);
+    });
+    $('#categoryStrip').addEventListener('click', (e) => {
+        const chip = e.target.closest('.chip');
+        if (chip) handleCategorySelection(chip.dataset.typeId);
+    });
     $('#searchBtn').addEventListener('click', handleSearch);
     $('#toSimpBtn').addEventListener('click', handleToSimp);
     $('#searchInput').addEventListener('keyup', (e) => {
@@ -135,19 +97,37 @@ function setupEventListeners() {
     $('#clearHistoryBtn').addEventListener('click', ui.clearAllHistory);
     $('#historyOverlay').addEventListener('click', ui.hideHistoryPanel);
 
-    // View Mode Buttons
-    $('#viewModePortrait').addEventListener('click', () => setViewMode('portrait'));
-    $('#viewModeLandscape').addEventListener('click', () => setViewMode('landscape'));
-    $('#viewModeSquare').addEventListener('click', () => setViewMode('square'));
-
-    // Auto Orientation Toggle
-    $('#autoOrientationToggle').addEventListener('change', (e) => {
-        autoOrientationEnabled = e.target.checked;
-        localStorage.setItem('autoOrientation', autoOrientationEnabled.toString());
-    });
-
     // 添加 ESC 鍵處理邏輯
     document.addEventListener('keydown', handleEscKey);
+    // ← / → 翻上一頁 / 下一頁
+    document.addEventListener('keydown', handleArrowPaging);
+}
+
+// 某個彈窗 / 面板開著時(尤其影片播放器),不要讓左右鍵翻頁 → 交給播放器快進快退
+function isAnyOverlayOpen() {
+    return ['#videoModal', '#siteSelectionModal', '#historyPanel'].some(sel => {
+        const el = $(sel);
+        return el && getComputedStyle(el).display !== 'none';
+    });
+}
+
+function goRelativePage(delta) {
+    if (!state.totalPages || state.totalPages <= 1) return;
+    const target = state.currentPage + delta;
+    if (target < 1 || target > state.totalPages) return;
+    state.currentPage = target;
+    fetchAndRender();
+}
+
+function handleArrowPaging(e) {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    // 播放器 / 彈窗開著 → 左右鍵歸播放器(快進快退),外面不翻頁
+    if (isAnyOverlayOpen()) return;
+    // 在輸入框打字時左右鍵要移游標,不攔
+    const el = document.activeElement;
+    if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    goRelativePage(e.key === 'ArrowLeft' ? -1 : 1);
 }
 
 function initScrollButtons() {
@@ -278,43 +258,18 @@ async function loadSitesAndAutoLoadLast() {
         // 渲染搜尋標籤
         ui.renderSearchTags();
 
-        // 渲染影片列表
-        ui.renderVideos(state.videos);
+        sessionStorage.removeItem('fromOtherPage');
 
-        // 檢查是否從其他頁面返回
-        const isFromOtherPage = sessionStorage.getItem('fromOtherPage');
-        if (isFromOtherPage) {
-            // 如果從其他頁面返回，確保UI狀態正確
-            sessionStorage.removeItem('fromOtherPage');
-
-            // 重新載入站台選擇器
-            if (state.searchSiteIds.length > 0) {
-                // 更新UI顯示已選擇的站台
-                ui.updateSelectedSitesDisplay();
-                $('#mainContent').style.display = 'flex';
-            } else {
-                // 否則載入單選站台設定
-                const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
-                if (lastSelectedId && state.sites.some(s => s.id == lastSelectedId)) {
-                    $('#siteSelector').value = lastSelectedId;
-                    handleSiteSelection();
-                }
-            }
+        if (state.searchSiteIds.length > 0) {
+            // 有多站搜尋設定 → 維持多站模式
+            ui.updateSelectedSitesDisplay();
         } else {
-            // 正常載入流程
-            // 如果有多選站台設定，優先使用多選模式
-            if (state.searchSiteIds.length > 0) {
-                // 更新UI顯示已選擇的站台
-                ui.updateSelectedSitesDisplay();
-                $('#mainContent').style.display = 'flex';
-            } else {
-                // 否則載入單選站台設定
-                const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
-                if (lastSelectedId && state.sites.some(s => s.id == lastSelectedId)) {
-                    $('#siteSelector').value = lastSelectedId;
-                    handleSiteSelection();
-                }
-            }
+            // 否則自動載入「上次選的站台」，沒有的話就載入第一個站台（對齊 kazi，畫面不再空白）
+            const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
+            const target = (lastSelectedId && state.sites.some(s => s.id == lastSelectedId))
+                ? lastSelectedId
+                : (state.sites[0] && String(state.sites[0].id));
+            if (target) handleSiteSelection(String(target));
         }
     } catch (err) {
         if (err.action === 'setup_password') {
@@ -328,30 +283,25 @@ async function loadSitesAndAutoLoadLast() {
 }
 
 
-function handleSiteSelection() {
-    const siteId = $('#siteSelector').value;
+function handleSiteSelection(siteId) {
+    if (!siteId) return;
+    const site = state.sites.find(s => s.id == siteId);
+    if (!site) return;
 
-    if (siteId) {
-        // 清掉多選站台設定
-        state.searchSiteIds = [];
-        state.saveMultiSiteSelection();
-        ui.updateSelectedSitesDisplay();
+    // 切到單站瀏覽模式，清掉多選站台設定
+    state.searchSiteIds = [];
+    state.saveMultiSiteSelection();
+    ui.updateSelectedSitesDisplay();
 
-        localStorage.setItem('lastSelectedSiteId', siteId);
-        state.currentSite = state.sites.find(s => s.id == siteId);
-        if (state.currentSite) {
-            state.currentPage = 1;
-            state.currentTypeId = null;
-            state.currentKeyword = null;
-            state.categories = [];
-            $('#mainContent').style.display = 'flex';
-            fetchAndRender();
-        }
-    } else {
-        localStorage.removeItem('lastSelectedSiteId');
-        $('#mainContent').style.display = 'none';
-        state.currentSite = null;
-    }
+    localStorage.setItem('lastSelectedSiteId', siteId);
+    state.currentSite = site;
+    state.currentPage = 1;
+    state.currentTypeId = null;
+    state.currentKeyword = null;
+    state.categories = [];
+    ui.setActiveSiteChip(siteId);
+    ui.updateSearchBox(null);
+    fetchAndRender();
 }
 
 function handleConfirmSiteSelection() {
@@ -366,7 +316,7 @@ function handleConfirmSiteSelection() {
 
     // Set currentSite to null to indicate multi-site search mode
     state.currentSite = null;
-    $('#siteSelector').value = ''; // Deselect single site selector
+    ui.setActiveSiteChip(null); // 多站搜尋時不高亮任何單一站台
     ui.updateSelectedSitesDisplay();
     ui.closeSiteSelectionModal();
     // Optional: trigger a search immediately after confirming
@@ -394,16 +344,16 @@ function handleSearch() {
         return;
     }
 
-    $('#mainContent').style.display = 'flex';
     fetchAndRender();
 }
 
-function handleCategorySelection() {
-    const newTypeId = $('#categorySelector').value;
-    if (newTypeId !== state.currentTypeId || state.currentKeyword) {
+function handleCategorySelection(rawTypeId) {
+    const normalized = (rawTypeId === 'all' || rawTypeId == null) ? null : rawTypeId;
+    if (normalized !== state.currentTypeId || state.currentKeyword) {
         state.currentKeyword = null;
-        state.currentTypeId = newTypeId === "all" ? null : newTypeId;
+        state.currentTypeId = normalized;
         state.currentPage = 1;
+        ui.updateSearchBox(null);
         fetchAndRender();
     }
 }
@@ -421,11 +371,8 @@ async function fetchAndRender() {
     $('#pagination').innerHTML = '';
 
     if (state.categories.length === 0) {
-        // You might want to show a loading state in the select dropdown
         ui.renderCategories([]);
     }
-
-    $('#siteSelector').disabled = true;
 
     try {
         let result;
@@ -478,6 +425,5 @@ async function fetchAndRender() {
         }
     } finally {
         ui.showLoader(false);
-        $('#siteSelector').disabled = false;
     }
 }

@@ -53,6 +53,32 @@
         </ul>
     </div>
 
+    <div class="card backup-card">
+        <div class="card-header">
+            <h2>匯入 / 匯出</h2>
+            <span class="card-subtitle">格式與 kazi 一致,兩邊可互通</span>
+        </div>
+        <div class="backup-actions">
+            <button id="exportSitesBtn" class="btn btn-secondary">
+                <svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                複製到剪貼簿
+            </button>
+            <button id="downloadSitesBtn" class="btn btn-secondary">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                下載備份檔
+            </button>
+        </div>
+        <label class="backup-import-label" for="importSitesText">貼上 JSON 匯入(從 kazi 匯出或本站備份)</label>
+        <textarea id="importSitesText" rows="4" placeholder='[{"name":"範例","url":"https://example.com","ssl_verify":true,"enabled":true}]'></textarea>
+        <div class="backup-actions">
+            <button id="importSitesBtn" class="btn btn-primary">匯入貼上的內容</button>
+            <label class="btn btn-secondary file-import-btn">
+                從檔案匯入
+                <input type="file" id="importFileInput" accept="application/json,.json" hidden>
+            </label>
+        </div>
+    </div>
+
     <div class="card site-settings-card">
         <div class="card-header">
             <h2>網站外觀設定</h2>

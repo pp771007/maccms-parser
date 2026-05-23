@@ -4,8 +4,8 @@ import * as api from './api.js';
 import { $ } from './utils.js';
 import { showModal, showToast } from './modal.js';
 
-// 與 kazi ScanSitesScreen 的 HARVEST_JS 同一套抓取邏輯：讀所有 <a> 的 href、
-// 還原 Google 的 /url?q= 轉址、過濾含 api.php/provide/vod 的連結，再開匯入頁。
+// 與 kazi ScanSitesScreen 的 HARVEST_JS 同一套抓取邏輯：讀所有 <a>，還原 Google 的 /url?q= 轉址、
+// 過濾含 api.php/provide/vod 的連結，並連「連結文字」一起帶回來當站名(對齊 kazi)。
 function buildBookmarklet(origin) {
     const code =
         "(function(){" +
@@ -15,21 +15,31 @@ function buildBookmarklet(origin) {
         "try{var u=new URL(href,location.href);" +
         "if(/google\\./.test(u.hostname)&&u.pathname==='/url'){" +
         "var q=u.searchParams.get('q')||u.searchParams.get('url');if(q)url=q;}}catch(e){}" +
-        "if(pat.test(url)&&!seen[url]){seen[url]=1;out.push(url);}});" +
+        "if(pat.test(url)&&!seen[url]){seen[url]=1;" +
+        "var nm=(a.textContent||'').trim().replace(/\\s+/g,' ').slice(0,60);" +
+        "out.push({url:url,name:nm});}});" +
         "if(!out.length){alert('本頁沒抓到 MacCMS 站點連結，往下捲動載入更多結果或翻頁後再點一次');return;}" +
-        "window.open('" + origin + "/scan_import#urls='+encodeURIComponent(out.join('\\n')),'_blank');" +
+        "window.open('" + origin + "/scan_import#data='+encodeURIComponent(JSON.stringify(out)),'_blank');" +
         "})();";
     return 'javascript:' + encodeURIComponent(code);
 }
 
-function parseHashUrls() {
-    const m = location.hash.match(/urls=([^&]*)/);
-    if (!m) return null;
-    try {
-        return decodeURIComponent(m[1]).split(/\s+/).filter(Boolean);
-    } catch (e) {
-        return null;
+// 解析書籤帶回來的資料：新版 #data=（JSON 陣列 {url,name}）；舊版 #urls=（換行網址)也相容。
+function parseHashItems() {
+    const dataMatch = location.hash.match(/data=([^&]*)/);
+    if (dataMatch) {
+        try {
+            const arr = JSON.parse(decodeURIComponent(dataMatch[1]));
+            if (Array.isArray(arr)) return arr.filter(it => it && it.url);
+        } catch (e) { /* fall through */ }
     }
+    const urlMatch = location.hash.match(/urls=([^&]*)/);
+    if (urlMatch) {
+        try {
+            return decodeURIComponent(urlMatch[1]).split(/\s+/).filter(Boolean).map(u => ({ url: u }));
+        } catch (e) { /* ignore */ }
+    }
+    return null;
 }
 
 let candidates = [];
@@ -45,42 +55,25 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(() => showModal('複製失敗，請手動長按書籤連結複製', 'warning'));
     });
 
-    $('#probeBtn').addEventListener('click', () => {
-        const urls = $('#urlInput').value.split(/\s+/).filter(Boolean);
-        if (urls.length === 0) {
-            showModal('請先貼上至少一個網址', 'warning');
-            return;
-        }
-        runProbe(urls);
-    });
-
     $('#addSelectedBtn').addEventListener('click', handleAddSelected);
 
-    // 從書籤帶回來的網址（location.hash）→ 自動填入並驗證
-    const hashUrls = parseHashUrls();
-    if (hashUrls && hashUrls.length > 0) {
-        $('#urlInput').value = hashUrls.join('\n');
-        // 清掉 hash，避免重新整理又觸發一次
+    // 從書籤帶回來的資料（location.hash）→ 自動驗證
+    const hashItems = parseHashItems();
+    if (hashItems && hashItems.length > 0) {
         history.replaceState(null, '', location.pathname);
-        runProbe(hashUrls);
+        runProbe(hashItems);
     }
 });
 
-async function runProbe(urls) {
-    const btn = $('#probeBtn');
-    btn.disabled = true;
-    btn.textContent = '驗證中...';
+async function runProbe(items) {
     $('#candidateList').innerHTML = '<li class="empty-hint">驗證中，請稍候...</li>';
     try {
-        const res = await api.probeSites(urls);
+        const res = await api.probeSites(items);
         candidates = res.results.map(r => ({ ...r, selected: r.healthy }));
         renderCandidates();
     } catch (err) {
         showModal('驗證失敗: ' + err.message, 'error');
         $('#candidateList').innerHTML = '<li class="empty-hint">驗證失敗，請稍後再試。</li>';
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '驗證這些網址';
     }
 }
 

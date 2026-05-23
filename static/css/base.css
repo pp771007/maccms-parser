@@ -1,108 +1,261 @@
 :root {
-    --primary-color: #1890ff;
-    --primary-hover: #40a9ff;
-    --light-gray: #1f1f1f;
-    --border-color: #404040;
-    --text-color: #e0e0e0;
-    --text-secondary-color: #a0a0a0;
-    --danger-color: #ff4d4f;
-    --background-color: #121212;
-    --card-background: #1e1e1e;
-    --input-background: #2a2a2a;
-    --hover-background: #2a2a2a;
+    /* ---- 色彩 ---- */
+    --primary-color: #3b82f6;
+    --primary-hover: #60a5fa;
+    --primary-soft: rgba(59, 130, 246, 0.14);
+    --primary-ring: rgba(59, 130, 246, 0.45);
 
-    /* 新增按鈕顏色變體 */
-    --success-color: #52c41a;
-    --success-hover: #73d13d;
-    --warning-color: #faad14;
-    --warning-hover: #ffc53d;
-    --info-color: #13c2c2;
-    --info-hover: #36cfc9;
-    --secondary-color: #6c757d;
-    --secondary-hover: #5a6268;
-    --purple-color: #722ed1;
-    --purple-hover: #9254de;
-    --orange-color: #fa8c16;
-    --orange-hover: #ffa940;
+    --background-color: #0e0f13;
+    --card-background: #16181d;
+    --surface-2: #1c1f26;
+    --surface-3: #232733;
+    --light-gray: #1c1f26;
+    --input-background: #1c1f26;
+    --hover-background: #232733;
+    --border-color: #2b303b;
+    --border-strong: #3a4150;
+
+    --text-color: #e8eaed;
+    --text-secondary-color: #9aa3b2;
+    --text-muted-color: #6b7280;
+
+    --danger-color: #ef4444;
+    --danger-hover: #f87171;
+    --danger-soft: rgba(239, 68, 68, 0.14);
+    --success-color: #22c55e;
+    --success-hover: #4ade80;
+    --warning-color: #f59e0b;
+    --warning-hover: #fbbf24;
+    --info-color: #06b6d4;
+    --info-hover: #22d3ee;
+    --secondary-color: #3a4150;
+    --secondary-hover: #4a5365;
+    --purple-color: #8b5cf6;
+    --purple-hover: #a78bfa;
+    --orange-color: #fb923c;
+    --orange-hover: #fdba74;
+
+    /* ---- 間距尺標 ---- */
+    --sp-1: 4px;
+    --sp-2: 8px;
+    --sp-3: 12px;
+    --sp-4: 16px;
+    --sp-5: 20px;
+    --sp-6: 24px;
+    --sp-8: 32px;
+
+    /* ---- 圓角 ---- */
+    --radius-sm: 8px;
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-pill: 999px;
+
+    /* ---- 陰影 ---- */
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.35);
+    --shadow-3: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+    /* ---- 字級 ---- */
+    --fs-caption: 12px;
+    --fs-body: 14px;
+    --fs-md: 15px;
+    --fs-lg: 18px;
+    --fs-xl: 22px;
+
+    --ease: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+    box-sizing: border-box;
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-    background-color: var(--background-color);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'PingFang TC', 'Microsoft JhengHei', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+    background:
+        radial-gradient(1200px 600px at 50% -200px, rgba(59, 130, 246, 0.08), transparent 70%),
+        var(--background-color);
+    background-attachment: fixed;
     margin: 0;
     color: var(--text-color);
-    font-size: 14px;
+    font-size: var(--fs-body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
 }
 
 .container {
-    max-width: 1400px;
-    margin: 20px auto;
-    padding: 20px;
+    max-width: 1440px;
+    margin: var(--sp-6) auto;
+    padding: var(--sp-6);
+    background: transparent;
+}
+
+/* ---- 區塊 / 卡片面板 ---- */
+.panel {
     background: var(--card-background);
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
+    gap: var(--sp-2);
 }
 
 label {
-    margin-bottom: 5px;
-    font-size: 14px;
+    font-size: var(--fs-body);
     color: var(--text-secondary-color);
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--sp-2);
 }
 
+/* ---- 表單控件 ---- */
 input,
-select {
-    padding: 10px;
-    border-radius: 6px;
+select,
+textarea {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--border-color);
-    font-size: 16px;
-    box-sizing: border-box;
+    font-size: var(--fs-md);
+    font-family: inherit;
     background-color: var(--input-background);
     color: var(--text-color);
+    transition: border-color var(--ease), box-shadow var(--ease), background-color var(--ease);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--text-muted-color);
+}
+
+input:hover:not(:focus),
+select:hover:not(:focus),
+textarea:hover:not(:focus) {
+    border-color: var(--border-strong);
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+    box-shadow: 0 0 0 3px var(--primary-ring);
+    background-color: var(--surface-2);
 }
 
+/* 原生下拉換成自繪箭頭，配深色主題 */
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 34px;
+    cursor: pointer;
+}
+
+/* 核取方塊 / 單選用主色，去掉原生白底方塊 */
+input[type="checkbox"],
+input[type="radio"] {
+    accent-color: var(--primary-color);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    cursor: pointer;
+    color: var(--text-secondary-color);
+    user-select: none;
+}
+
+/* ---- 圖示 ---- */
+.icon {
+    width: 1.15em;
+    height: 1.15em;
+    display: inline-block;
+    vertical-align: -0.18em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex-shrink: 0;
+}
+
+/* ---- 按鈕 ---- */
 .btn {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    padding: 0 18px;
+    height: 42px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     background-color: var(--primary-color);
-    color: white;
-    font-size: 16px;
-    transition: background-color 0.3s, opacity 0.3s;
+    color: #fff;
+    font-size: var(--fs-md);
+    font-family: inherit;
+    font-weight: 600;
     white-space: nowrap;
-    height: 44px;
+    transition: background-color var(--ease), border-color var(--ease), color var(--ease), transform var(--ease), box-shadow var(--ease);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--primary-ring);
 }
 
 .btn:disabled {
-    background-color: #404040;
+    background-color: var(--surface-2);
+    border-color: var(--border-color);
     cursor: not-allowed;
-    color: #666;
+    color: var(--text-muted-color);
 }
 
-.btn:hover:not(:disabled) {
-    background-color: var(--primary-hover);
+.btn .icon {
+    width: 18px;
+    height: 18px;
 }
 
-/* 新增按鈕樣式變體 */
+/* 中性 / 次要：深色表面按鈕（取代一堆彩色實心鈕的預設） */
+.btn-secondary {
+    background-color: var(--surface-2);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background-color: var(--surface-3);
+    border-color: var(--border-strong);
+}
+
+/* Ghost：透明、只有 hover 才有底，用於工具列 icon 鈕 */
+.btn-ghost {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--text-secondary-color);
+}
+
+.btn-ghost:hover:not(:disabled) {
+    background-color: var(--surface-2);
+    color: var(--text-color);
+}
+
 .btn-primary {
     background-color: var(--primary-color);
-    color: white;
+    color: #fff;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -111,7 +264,7 @@ select:focus {
 
 .btn-success {
     background-color: var(--success-color);
-    color: white;
+    color: #07210f;
 }
 
 .btn-success:hover:not(:disabled) {
@@ -120,7 +273,7 @@ select:focus {
 
 .btn-warning {
     background-color: var(--warning-color);
-    color: white;
+    color: #2a1a00;
 }
 
 .btn-warning:hover:not(:disabled) {
@@ -129,34 +282,25 @@ select:focus {
 
 .btn-info {
     background-color: var(--info-color);
-    color: white;
+    color: #04202a;
 }
 
 .btn-info:hover:not(:disabled) {
     background-color: var(--info-hover);
 }
 
-.btn-secondary {
-    background-color: var(--secondary-color);
-    color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-    background-color: var(--secondary-hover);
-}
-
 .btn-danger {
     background-color: var(--danger-color);
-    color: white;
+    color: #fff;
 }
 
 .btn-danger:hover:not(:disabled) {
-    background-color: #ff7875;
+    background-color: var(--danger-hover);
 }
 
 .btn-purple {
     background-color: var(--purple-color);
-    color: white;
+    color: #fff;
 }
 
 .btn-purple:hover:not(:disabled) {
@@ -165,111 +309,141 @@ select:focus {
 
 .btn-orange {
     background-color: var(--orange-color);
-    color: white;
+    color: #2a1400;
 }
 
 .btn-orange:hover:not(:disabled) {
     background-color: var(--orange-hover);
 }
 
-/* 輪廓按鈕樣式 */
-.btn-outline {
+/* 輪廓按鈕 */
+.btn-outline,
+.btn-outline-success,
+.btn-outline-warning,
+.btn-outline-info,
+.btn-outline-danger,
+.btn-outline-purple,
+.btn-outline-orange {
     background-color: transparent;
-    border: 2px solid var(--primary-color);
+}
+
+.btn-outline {
+    border-color: var(--primary-color);
     color: var(--primary-color);
 }
 
 .btn-outline:hover:not(:disabled) {
     background-color: var(--primary-color);
-    color: white;
-}
-
-.btn-outline-success {
-    background-color: transparent;
-    border: 2px solid var(--success-color);
-    color: var(--success-color);
-}
-
-.btn-outline-success:hover:not(:disabled) {
-    background-color: var(--success-color);
-    color: white;
-}
-
-.btn-outline-warning {
-    background-color: transparent;
-    border: 2px solid var(--warning-color);
-    color: var(--warning-color);
-}
-
-.btn-outline-warning:hover:not(:disabled) {
-    background-color: var(--warning-color);
-    color: white;
+    color: #fff;
 }
 
 .btn-outline-info {
-    background-color: transparent;
-    border: 2px solid var(--info-color);
-    color: var(--info-color);
+    border-color: var(--info-color);
+    color: var(--info-hover);
 }
 
 .btn-outline-info:hover:not(:disabled) {
     background-color: var(--info-color);
-    color: white;
+    color: #04202a;
+}
+
+.btn-outline-success {
+    border-color: var(--success-color);
+    color: var(--success-hover);
+}
+
+.btn-outline-success:hover:not(:disabled) {
+    background-color: var(--success-color);
+    color: #07210f;
+}
+
+.btn-outline-warning {
+    border-color: var(--warning-color);
+    color: var(--warning-hover);
+}
+
+.btn-outline-warning:hover:not(:disabled) {
+    background-color: var(--warning-color);
+    color: #2a1a00;
 }
 
 .btn-outline-danger {
-    background-color: transparent;
-    border: 2px solid var(--danger-color);
-    color: var(--danger-color);
+    border-color: var(--danger-color);
+    color: var(--danger-hover);
 }
 
 .btn-outline-danger:hover:not(:disabled) {
     background-color: var(--danger-color);
-    color: white;
+    color: #fff;
 }
 
 .btn-outline-purple {
-    background-color: transparent;
-    border: 2px solid var(--purple-color);
-    color: var(--purple-color);
+    border-color: var(--purple-color);
+    color: var(--purple-hover);
 }
 
 .btn-outline-purple:hover:not(:disabled) {
     background-color: var(--purple-color);
-    color: white;
+    color: #fff;
 }
 
 .btn-outline-orange {
-    background-color: transparent;
-    border: 2px solid var(--orange-color);
-    color: var(--orange-color);
+    border-color: var(--orange-color);
+    color: var(--orange-hover);
 }
 
 .btn-outline-orange:hover:not(:disabled) {
     background-color: var(--orange-color);
-    color: white;
+    color: #2a1400;
 }
 
-/* 小尺寸按鈕 */
+/* 尺寸 */
 .btn-sm {
-    padding: 6px 12px;
-    font-size: 14px;
-    height: 32px;
+    height: 34px;
+    padding: 0 12px;
+    font-size: var(--fs-body);
 }
 
-/* 大尺寸按鈕 */
+.btn-sm .icon {
+    width: 16px;
+    height: 16px;
+}
+
+.btn-xs {
+    height: 28px;
+    padding: 0 10px;
+    font-size: var(--fs-caption);
+    font-weight: 500;
+}
+
 .btn-lg {
-    padding: 12px 24px;
-    font-size: 18px;
-    height: 52px;
+    height: 50px;
+    padding: 0 26px;
+    font-size: var(--fs-lg);
+}
+
+/* 純圖示圓鈕 */
+.btn-icon {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+}
+
+.btn-icon.btn-sm {
+    width: 34px;
+    height: 34px;
 }
 
 .find-sites-link {
-    font-size: 12px;
+    font-size: var(--fs-caption);
     text-decoration: none;
     color: var(--primary-color);
-    opacity: 0.8;
-    transition: opacity 0.2s;
+    opacity: 0.85;
+    transition: opacity var(--ease);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .find-sites-link:hover {
@@ -277,21 +451,110 @@ select:focus {
     text-decoration: underline;
 }
 
-/* Toast 樣式 */
+/* ---- 分段切換器 (segmented control) ---- */
+.segmented {
+    display: inline-flex;
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    gap: 2px;
+}
+
+.segmented button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary-color);
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: var(--fs-body);
+    transition: background-color var(--ease), color var(--ease);
+}
+
+.segmented button:hover {
+    color: var(--text-color);
+}
+
+.segmented button.active {
+    background: var(--primary-color);
+    color: #fff;
+    box-shadow: var(--shadow-1);
+}
+
+.segmented .icon {
+    width: 18px;
+    height: 18px;
+}
+
+/* ---- 骨架屏 ---- */
+.skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-2);
+}
+
+.skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    animation: shimmer 1.3s infinite;
+}
+
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* ---- 空 / 錯誤狀態 ---- */
+.state-block {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    padding: 64px 20px;
+    color: var(--text-secondary-color);
+    text-align: center;
+}
+
+.state-block .icon {
+    width: 48px;
+    height: 48px;
+    stroke-width: 1.5;
+    color: var(--text-muted-color);
+}
+
+.state-block .state-title {
+    font-size: var(--fs-lg);
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+/* ---- Toast ---- */
 .toast {
     position: fixed;
-    bottom: 20px;
+    bottom: 24px;
     left: 50%;
-    transform: translateX(-50%) translateY(100px);
-    background-color: var(--card-background);
+    transform: translateX(-50%) translateY(120px);
+    background-color: var(--surface-3);
     color: var(--text-color);
-    padding: 12px 24px;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border-color);
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-2);
+    border: 1px solid var(--border-strong);
     z-index: 9998;
     opacity: 0;
-    transition: all 0.3s ease;
+    transition: all var(--ease);
 }
 
 .toast.show {
@@ -299,9 +562,9 @@ select:focus {
     opacity: 1;
 }
 
-@media (max-width: 1400px) {
+@media (max-width: 768px) {
     .container {
-        margin: 10px;
-        padding: 15px;
+        margin: 0;
+        padding: var(--sp-3);
     }
 }

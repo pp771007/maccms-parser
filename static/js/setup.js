@@ -9,11 +9,78 @@ document.addEventListener('DOMContentLoaded', () => {
     setupReturnLink();
     $('#addSiteBtn').addEventListener('click', handleAddNewSite);
     $('#checkAllSitesBtn').addEventListener('click', handleCheckAllSites);
+    // 匯入 / 匯出（跟 kazi 同格式)
+    $('#exportSitesBtn').addEventListener('click', handleExportSites);
+    $('#downloadSitesBtn').addEventListener('click', handleDownloadSites);
+    $('#importSitesBtn').addEventListener('click', handleImportSites);
+    $('#importFileInput').addEventListener('change', handleImportFile);
     // 新增外觀設定表單事件
     loadSiteSettings();
     $('#siteSettingsForm').addEventListener('submit', handleSiteSettingsSubmit);
     $('#faviconInput').addEventListener('change', handleFaviconPreview);
 });
+
+// 匯出成 kazi 相容的純 JSON 陣列(name/url/ssl_verify/enabled)
+async function handleExportSites() {
+    try {
+        const arr = await api.exportSites();
+        const text = JSON.stringify(arr, null, 2);
+        await navigator.clipboard.writeText(text);
+        showToast(`已複製 ${arr.length} 個站台到剪貼簿,可直接貼到 kazi 匯入`, 'success');
+    } catch (err) {
+        showModal('複製失敗,改用「下載備份檔」吧。', 'warning');
+    }
+}
+
+async function handleDownloadSites() {
+    try {
+        const arr = await api.exportSites();
+        const blob = new Blob([JSON.stringify(arr, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'maccms-sites.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch (err) {
+        showModal('下載失敗: ' + err.message, 'error');
+    }
+}
+
+async function applyImport(rawText) {
+    let parsed;
+    try {
+        parsed = JSON.parse(rawText);
+    } catch (e) {
+        showModal('解析失敗:這不是有效的 JSON。', 'error');
+        return;
+    }
+    try {
+        const res = await api.importSites(parsed);
+        showToast(`匯入完成:新增 ${res.added} 個,略過 ${res.skipped} 個(重複/本站/無效)`, res.added > 0 ? 'success' : 'info');
+        $('#importSitesText').value = '';
+        loadSites();
+    } catch (err) {
+        showModal('匯入失敗: ' + err.message, 'error');
+    }
+}
+
+function handleImportSites() {
+    const text = $('#importSitesText').value.trim();
+    if (!text) {
+        showModal('請先貼上要匯入的 JSON(從 kazi 匯出或本站下載的備份)。', 'warning');
+        return;
+    }
+    applyImport(text);
+}
+
+function handleImportFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => applyImport(String(reader.result));
+    reader.readAsText(file);
+    e.target.value = '';
+}
 
 function setupReturnLink() {
     // 為「返回主頁」連結添加點擊事件

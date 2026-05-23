@@ -5,42 +5,57 @@ import { $, $$ } from './utils.js';
 import { showModal, showConfirm, showToast } from './modal.js';
 import historyManager from './historyStateManager.js';
 
+// 站台改成 kazi 風格的橫向 chip 列：一眼看到有哪些站、點一下就切。點擊由 index.js 的事件委派處理。
 export function renderSites(sites) {
-    const selector = $('#siteSelector');
-    const currentVal = selector.value;
-    selector.innerHTML = '<option value="">-- 請選擇一個站點 --</option>';
-    // The 'sites' array is now pre-filtered and sorted by the backend.
+    const strip = $('#siteStrip');
+    strip.innerHTML = '';
     sites.forEach(site => {
-        let displayName = site.note ? `${site.name} (${site.note})` : site.name;
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.dataset.siteId = site.id;
+        if (state.currentSite && state.currentSite.id == site.id) chip.classList.add('active');
+
         const errors = site.consecutive_errors || 0;
-        if (errors >= 2) {
-            displayName = `🔴 ${displayName}`;
-        } else if (errors === 1) {
-            displayName = `🟡 ${displayName}`;
+        if (errors >= 1) {
+            const dot = document.createElement('span');
+            dot.className = 'chip-dot ' + (errors >= 2 ? 'down' : 'warn');
+            dot.title = errors >= 2 ? '連續多次連線失敗' : '上次連線異常';
+            chip.appendChild(dot);
         }
-        selector.innerHTML += `<option value="${site.id}">${displayName}</option>`;
+        const label = document.createElement('span');
+        label.textContent = site.note ? `${site.name} (${site.note})` : site.name;
+        chip.appendChild(label);
+        strip.appendChild(chip);
     });
-    if (sites.some(s => s.id == currentVal)) {
-        selector.value = currentVal;
-    }
 }
 
+// 標出目前選到的站台 chip（切換站台時更新，不必整列重繪）
+export function setActiveSiteChip(siteId) {
+    $$('#siteStrip .chip').forEach(c => c.classList.toggle('active', c.dataset.siteId == siteId));
+}
+
+// 分類也改成橫向 chip 列；沒有分類（多站搜尋 / 搜尋結果）時整列隱藏。
 export function renderCategories(categories) {
-    const selector = $('#categorySelector');
-    const currentVal = selector.value;
-    selector.innerHTML = '<option value="all">全部</option>';
-    if (categories && categories.length > 0) {
-        categories.forEach(cat => {
-            const option = document.createElement('option');
-            option.value = cat.type_id;
-            option.textContent = cat.type_name;
-            selector.appendChild(option);
-        });
+    const strip = $('#categoryStrip');
+    const wrap = $('#categoryStripWrap');
+    strip.innerHTML = '';
+    const activeId = state.currentTypeId == null ? 'all' : String(state.currentTypeId);
+
+    const makeChip = (typeId, name) => {
+        const chip = document.createElement('button');
+        chip.className = 'chip';
+        chip.dataset.typeId = typeId;
+        if (String(typeId) === activeId) chip.classList.add('active');
+        chip.textContent = name;
+        return chip;
+    };
+
+    const hasCats = categories && categories.length > 0;
+    if (hasCats) {
+        strip.appendChild(makeChip('all', '全部'));
+        categories.forEach(cat => strip.appendChild(makeChip(cat.type_id, cat.type_name)));
     }
-    // Restore previous selection if possible
-    if (Array.from(selector.options).some(opt => opt.value == currentVal)) {
-        selector.value = currentVal;
-    }
+    wrap.style.display = hasCats ? '' : 'none';
 }
 
 export function renderVideos(videos) {
