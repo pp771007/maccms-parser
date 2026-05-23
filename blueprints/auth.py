@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import threading
 from flask import Blueprint, request, render_template, session, redirect, url_for, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,12 +14,15 @@ MAX_LOGIN_ATTEMPTS = 10
 LOGIN_LOCKOUT_MINUTES = 15
 LOGIN_LOCKOUT_TIME = LOGIN_LOCKOUT_MINUTES * 60  # seconds
 
-# --- 以「來源 IP」為 key 的登入失敗計數(伺服器端記憶體,不靠 cookie)---
+# --- 以「來源 IP」為 key 的登入失敗計數(伺服器端,不靠 cookie)---
 # 舊版只把計數放 session/cookie,攻擊者每次請求丟掉 cookie 就能重置計數、無限猜。
 # 改成記在伺服器端、以 IP 區分,腳本丟 cookie 也躲不掉。
-# 注意:這是單一程序的記憶體狀態 → Docker / 本機單程序有效;serverless 多冷啟動不共享
-# (但 serverless 每次冷啟本身就拖慢暴力破解,且本專案主要部署在 Docker)。
-_login_attempts = {}          # ip -> {'count': int, 'lock_until': float}
+# 後端二選一(由 storage 自動判斷):
+#   - 有連 KV(Vercel/Upstash)→ 整包計數存 KV,多個 serverless 實例共享、冷啟也不丟。
+#   - 沒連 KV(Docker/本機)→ 用程序記憶體(單程序,已足夠)。
+# 跨實例的 read-modify-write 沒上分散式鎖,brute-force 計數容許輕微誤差,影響不大。
+_LOGIN_ATTEMPTS_KEY = 'login_attempts'  # storage key(KV 後端會自動加 maccms: 前綴)
+_login_attempts_mem = {}  # 記憶體後端:ip -> {'count': int, 'lock_until': float}
 _login_attempts_lock = threading.Lock()
 # 預設用 TCP 對端 IP(remote_addr),避免攻擊者偽造 X-Forwarded-For 繞過。
 # 若部署在反向代理後面(nginx/Traefik),設環境變數 TRUST_PROXY=1 改用 XFF 第一段。
@@ -33,34 +37,61 @@ def _client_ip():
     return request.remote_addr or 'unknown'
 
 
+def _load_attempts():
+    """讀出整包計數 dict。KV 後端回傳新 dict(改完要 _save 寫回);記憶體後端回傳同一個物件(原地改即可)。"""
+    if storage.USE_KV:
+        raw = storage.get_text(_LOGIN_ATTEMPTS_KEY)
+        if raw:
+            try:
+                return json.loads(raw)
+            except ValueError:
+                return {}
+        return {}
+    return _login_attempts_mem
+
+
+def _save_attempts(d):
+    if storage.USE_KV:
+        storage.set_text(_LOGIN_ATTEMPTS_KEY, json.dumps(d))
+    # 記憶體後端:_load_attempts 回傳的就是同一物件,已原地更新,不需另外寫回
+
+
 def _login_lock_remaining(ip):
-    """這個 IP 還要鎖幾秒?0 表示沒被鎖。順手清掉過期紀錄,避免 dict 無限長大。"""
+    """這個 IP 還要鎖幾秒?0 表示沒被鎖。只讀不寫(省 KV 流量)。"""
+    rec = _load_attempts().get(ip)
     now = time.time()
-    with _login_attempts_lock:
-        for k in [k for k, v in _login_attempts.items()
-                  if v.get('lock_until', 0) < now and v.get('count', 0) == 0]:
-            _login_attempts.pop(k, None)
-        rec = _login_attempts.get(ip)
-        if rec and rec.get('lock_until', 0) > now:
-            return int(rec['lock_until'] - now)
+    if rec and rec.get('lock_until', 0) > now:
+        return int(rec['lock_until'] - now)
     return 0
 
 
 def _record_login_failure(ip):
     """記一次失敗,回傳 (剩餘可試次數, 是否剛觸發鎖定)。"""
     with _login_attempts_lock:
-        rec = _login_attempts.setdefault(ip, {'count': 0, 'lock_until': 0})
+        d = _load_attempts()
+        now = time.time()
+        # 順手清掉過期且未鎖定的紀錄,避免無限長大
+        for k in [k for k, v in list(d.items())
+                  if k != ip and v.get('lock_until', 0) < now and v.get('count', 0) == 0]:
+            d.pop(k, None)
+        rec = d.setdefault(ip, {'count': 0, 'lock_until': 0})
         rec['count'] += 1
         if rec['count'] >= MAX_LOGIN_ATTEMPTS:
-            rec['lock_until'] = time.time() + LOGIN_LOCKOUT_TIME
+            rec['lock_until'] = now + LOGIN_LOCKOUT_TIME
             rec['count'] = 0  # 重置計數,進入鎖定視窗
-            return 0, True
-        return MAX_LOGIN_ATTEMPTS - rec['count'], False
+            result = (0, True)
+        else:
+            result = (MAX_LOGIN_ATTEMPTS - rec['count'], False)
+        _save_attempts(d)
+        return result
 
 
 def _clear_login_failures(ip):
     with _login_attempts_lock:
-        _login_attempts.pop(ip, None)
+        d = _load_attempts()
+        if ip in d:
+            d.pop(ip, None)
+            _save_attempts(d)
 
 
 def _render_login(error=None):
