@@ -939,6 +939,18 @@ export function showError(msg) {
 
 
 
+// 把秒數格式化成 mm:ss 或 hh:mm:ss(觀看歷史與收藏卡片共用)
+function formatPlayTime(seconds) {
+    if (!seconds || seconds <= 0) return '00:00';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    if (hours > 0) {
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
 // 新增歷史紀錄相關功能
 export function renderWatchHistory() {
     const historyContainer = $('#watchHistoryContainer');
@@ -1010,19 +1022,6 @@ export function renderWatchHistory() {
         const progressPercent = item.duration > 0 ?
             Math.round((item.currentTime / item.duration) * 100) : 0;
 
-        // 格式化時間
-        const formatTime = (seconds) => {
-            if (!seconds || seconds <= 0) return '00:00';
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            const secs = Math.floor(seconds % 60);
-
-            if (hours > 0) {
-                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            }
-            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        };
-
         // 格式化時間戳
         const formatDate = (timestamp) => {
             const date = new Date(timestamp);
@@ -1072,7 +1071,7 @@ export function renderWatchHistory() {
                         <div class="progress-bar">
                             <div class="progress-fill" style="width: ${progressPercent}%"></div>
                         </div>
-                        <div class="progress-text">${formatTime(item.currentTime)} / ${formatTime(item.duration)}</div>
+                        <div class="progress-text">${formatPlayTime(item.currentTime)} / ${formatPlayTime(item.duration)}</div>
                     </div>
                     <div class="history-actions-btns">
                         <button class="btn btn-secondary btn-sm next-ep-btn" title="播放下一集">下一集</button>
@@ -1139,7 +1138,7 @@ async function playFromHistory(item, next) {
 
         const result = await fetchVideoDetails(site.url, item.videoId);
         state.modalData = result.data;
-        state.currentVideo = { vod_id: item.videoId, vod_name: item.videoName };
+        state.currentVideo = { vod_id: item.videoId, vod_name: item.videoName, vod_pic: item.videoPic };
 
         let target = item;
         if (next) {
@@ -1179,7 +1178,7 @@ export function openHistoryVideoModal(historyItem, modalData) {
             $('#episodeList').innerHTML = '正在載入...';
 
             // 設置當前影片資訊
-            state.currentVideo = { vod_id: historyItem.videoId, vod_name: historyItem.videoName };
+            state.currentVideo = { vod_id: historyItem.videoId, vod_name: historyItem.videoName, vod_pic: historyItem.videoPic };
 
             // 渲染播放源按鈕
             const playlistSources = $('#playlistSources');
@@ -1380,7 +1379,7 @@ function currentFavItem() {
         siteUrl,
         siteName: state.sites.find(s => s.url === siteUrl)?.name || info?.siteName || '',
         videoName: cv?.vod_name || info?.videoName || '未知影片',
-        videoPic: cv?.vod_pic || '',
+        videoPic: cv?.vod_pic || info?.videoPic || '',
         vodRemarks: cv?.vod_remarks || '',
     };
 }
@@ -1443,7 +1442,21 @@ function renderFavorites() {
         const pic = fav.videoPic && fav.videoPic.trim()
             ? fav.videoPic
             : `https://placehold.co/300x400/666666/ffffff.png?text=${encodeURIComponent((fav.videoName || '').replace(/[^\w\s]/g, '').substring(0, 10) || 'No Image')}`;
-        const siteName = fav.siteName || state.sites.find(s => s.url === fav.siteUrl)?.name || '未知站台';
+        const site = state.sites.find(s => s.url === fav.siteUrl);
+        const siteName = fav.siteName || site?.name || '未知站台';
+        // 收藏與歷史共用 videoId+siteUrl 為鍵：看過的就帶出上次的集數+進度,點播放接著看
+        const hist = state.watchHistory.find(h =>
+            String(h.videoId) === String(fav.videoId) &&
+            (h.siteId === site?.id || h.siteName === fav.siteName));
+        const progressPercent = hist && hist.duration > 0
+            ? Math.round((hist.currentTime / hist.duration) * 100) : 0;
+        const progressBlock = hist ? `
+                    <div class="history-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                        </div>
+                        <div class="progress-text">${formatPlayTime(hist.currentTime)} / ${formatPlayTime(hist.duration)}</div>
+                    </div>` : '';
         card.innerHTML = `
             <div class="history-pic-wrapper">
                 <img class="history-pic" src="${pic}" alt="${fav.videoName}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x400/666666/ffffff.png?text=No+Image';">
@@ -1456,19 +1469,24 @@ function renderFavorites() {
                     </button>
                 </div>
                 <div class="history-details">
+                    ${hist ? `<span class="history-episode">${hist.episodeName || '未知劇集'}</span>` : ''}
                     <span class="history-site">${siteName}</span>
                 </div>
                 <div class="history-bottom">
+                    ${progressBlock}
                     <div class="history-actions-btns">
-                        <button class="btn btn-primary btn-sm fav-play-btn">播放</button>
+                        <button class="btn btn-primary btn-sm fav-play-btn">${hist ? '繼續觀看' : '播放'}</button>
                     </div>
                 </div>
             </div>
         `;
         const open = () => {
             hideFavoritesPanel();
-            const site = state.sites.find(s => s.url === fav.siteUrl);
-            openModal({ vod_id: fav.videoId, vod_name: fav.videoName, vod_pic: fav.videoPic, from_site_id: site?.id });
+            if (hist) {
+                playFromHistory(hist, false);
+            } else {
+                openModal({ vod_id: fav.videoId, vod_name: fav.videoName, vod_pic: fav.videoPic, from_site_id: site?.id });
+            }
         };
         card.querySelector('.fav-play-btn').addEventListener('click', open);
         card.querySelector('.history-pic-wrapper').addEventListener('click', open);
