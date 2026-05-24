@@ -331,13 +331,17 @@
     flex-direction: column;
     gap: var(--sp-2);
     padding: var(--sp-3) var(--sp-4);
-    background: var(--card-background, rgba(255,255,255,0.03));
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
 }
 
+/* 內層只是排版用的 flex 列,框線/底色交給外層 wrap,避免「框中框」 */
 .member-item-wrap .member-item {
     padding: 0;
     background: none;
+    border: none;
+    border-radius: 0;
 }
 
 .member-actions {
