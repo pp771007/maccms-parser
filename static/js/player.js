@@ -411,6 +411,9 @@ class ClickController {
 }
 
 export function playVideo(url, element, videoInfo = null, historyItem = null) {
+    // modal 已被關掉(例如載入詳情/換源時就關了)→ 不要再建立播放器,否則會在背景播放、沒地方關
+    if (!state.modalOpen) return;
+
     $$('.episode-item').forEach(el => el.classList.remove('playing'));
     if (element) element.classList.add('playing');
 

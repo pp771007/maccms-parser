@@ -12,6 +12,7 @@ export default {
     currentTypeId: null,
     currentKeyword: null,
     artplayer: null,
+    modalOpen: false, // 播放器 modal 是否開著;關掉後攔住「載入詳情時就關了、之後才建播放器」造成的背景播放
     modalData: null,
     searchSiteIds: [], // 多來源影片列表
     currentSourceIndex: 0, // 當前選擇的來源索引

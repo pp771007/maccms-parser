@@ -280,6 +280,7 @@ export async function openModal(video) {
     historyManager.add({
         id: 'videoModal',
         apply: async () => {
+            state.modalOpen = true;
             document.body.classList.add('modal-open');
             $('.title-text').textContent = video.vod_name;
             $('#videoModal').style.display = 'flex';
@@ -342,6 +343,7 @@ export async function openMultiSourceModal(videoName, videoList) {
     historyManager.add({
         id: 'videoModal',
         apply: () => {
+            state.modalOpen = true;
             document.body.classList.add('modal-open');
             $('.title-text').textContent = videoName;
             $('#videoModal').style.display = 'flex';
@@ -822,6 +824,8 @@ function renderPlaylist(sourceIndex = 0) {
 }
 
 export function closeModal() {
+    // 標記 modal 已關 → 攔住還在載入詳情、之後才會建立的播放器(避免背景播放、沒地方關)
+    state.modalOpen = false;
     // 在關閉前保存當前進度
     state.saveCurrentProgress();
 
@@ -1163,6 +1167,7 @@ export function openHistoryVideoModal(historyItem, modalData) {
     historyManager.add({
         id: 'videoModal',
         apply: () => {
+            state.modalOpen = true;
             document.body.classList.add('modal-open');
             $('.title-text').textContent = historyItem.videoName;
             $('#videoModal').style.display = 'flex';
