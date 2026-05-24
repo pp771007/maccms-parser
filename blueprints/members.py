@@ -2,7 +2,7 @@ import time
 from flask import Blueprint, request, render_template, jsonify
 from werkzeug.security import generate_password_hash
 from config import get_config_value
-from blueprints.auth import get_members, save_members, password_in_use, member_nickname
+from blueprints.auth import get_members, save_members, password_in_use, member_nickname, revoke_account_tokens
 import storage
 
 members_bp = Blueprint('members', __name__)
@@ -51,6 +51,7 @@ def api_delete_member(member_id):
     if len(remaining) == len(members):
         return jsonify({'status': 'error', 'message': '找不到該會員'}), 404
     save_members(remaining)
-    # 順手清掉該會員綁定的觀看歷史
+    # 順手清掉該會員綁定的觀看歷史 + 撤銷其裝置 token
     storage.delete(f'history_m{member_id}')
+    revoke_account_tokens(f'm{member_id}')
     return jsonify({'status': 'success'})

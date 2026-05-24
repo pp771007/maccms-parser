@@ -1,6 +1,7 @@
 import os
 import time
 import json
+import secrets
 import threading
 from flask import Blueprint, request, render_template, session, redirect, url_for, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -177,6 +178,73 @@ def account_nickname(role, account_id):
     return '會員'
 
 
+def role_for_account_id(account_id):
+    return 'admin' if account_id == 'admin' else 'member'
+
+
+# --- 同步裝置 token(kazi 等裝置用密碼換一次 token,之後只帶 token,不再傳密碼)---
+# 存 storage:`sync_tokens` = { token: {account_id, label, created_at} }。
+# 換密碼不影響既發 token(token 綁的是 account_id,不是密碼)→ 改密碼不會斷裝置同步。
+_SYNC_TOKENS_KEY = 'sync_tokens'
+
+
+def get_sync_tokens():
+    raw = storage.get_text(_SYNC_TOKENS_KEY)
+    if not raw:
+        return {}
+    try:
+        d = json.loads(raw)
+        return d if isinstance(d, dict) else {}
+    except ValueError:
+        return {}
+
+
+def save_sync_tokens(d):
+    storage.set_text(_SYNC_TOKENS_KEY, json.dumps(d, ensure_ascii=False))
+
+
+def mint_sync_token(account_id, label=''):
+    """發一組新 token 綁定到 account_id,回傳 token 字串。"""
+    token = secrets.token_urlsafe(32)
+    d = get_sync_tokens()
+    d[token] = {'account_id': account_id, 'label': label, 'created_at': int(time.time() * 1000)}
+    save_sync_tokens(d)
+    return token
+
+
+def account_for_token(token):
+    """token → account_id;無效回 None。只讀不寫(省 KV)。"""
+    if not token:
+        return None
+    rec = get_sync_tokens().get(token)
+    return rec.get('account_id') if rec else None
+
+
+def revoke_sync_token(token):
+    if not token:
+        return
+    d = get_sync_tokens()
+    if token in d:
+        d.pop(token, None)
+        save_sync_tokens(d)
+
+
+def revoke_account_tokens(account_id):
+    """撤銷某帳號的所有裝置 token(刪會員時順手清掉,避免孤兒 token)。"""
+    d = get_sync_tokens()
+    remaining = {t: r for t, r in d.items() if r.get('account_id') != account_id}
+    if len(remaining) != len(d):
+        save_sync_tokens(remaining)
+
+
+def list_account_tokens(account_id):
+    """某帳號目前綁定的裝置(給網頁顯示/撤銷)。回傳 [{token, label, created_at}]。"""
+    return [
+        {'token': t, 'label': r.get('label', ''), 'created_at': r.get('created_at', 0)}
+        for t, r in get_sync_tokens().items() if r.get('account_id') == account_id
+    ]
+
+
 @auth_bp.route('/setup-password', methods=['GET', 'POST'])
 def setup_password():
     if is_password_set():
@@ -265,6 +333,14 @@ def init_auth_check(app):
                     return jsonify({'status': 'error', 'message': '密碼尚未設定', 'action': 'setup_password'}), 401
                 return redirect(url_for('auth.setup_password'))
             return
+
+        # 裝置 token 換發/撤銷端點自帶憑證驗證(POST 比密碼、DELETE 認 token),不需 session
+        if request.endpoint == 'api.sync_token':
+            return
+        # 帶有效裝置 token 的同步端點(kazi)放行,不需 session;token 無效則往下走一般登入檢查
+        if request.endpoint in ('api.account_history', 'api.account_favorites', 'api.account_info'):
+            if account_for_token(request.headers.get('X-Sync-Token', '')):
+                return
 
         allowed_when_logged_out = ['auth.login', 'static']
         if 'logged_in' not in session and request.endpoint not in allowed_when_logged_out:

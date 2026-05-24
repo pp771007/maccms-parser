@@ -314,14 +314,53 @@ def probe_batch():
     logger.info(f"POST /api/sites/probe_batch - 候選 {len(candidates)} 個，可用 {sum(1 for r in results if r['healthy'])} 個")
     return jsonify({'status': 'success', 'results': results, 'total': len(results)})
 
+def _sync_account_id():
+    """解析這次請求的帳號:優先用 X-Sync-Token(kazi 裝置 token),否則用 session(網頁登入)。"""
+    from blueprints.auth import account_for_token
+    tok = request.headers.get('X-Sync-Token', '')
+    if tok:
+        aid = account_for_token(tok)
+        if aid:
+            return aid
+    return session.get('account_id')
+
+
+@api_bp.route('/sync/token', methods=['POST', 'DELETE'])
+def sync_token():
+    """裝置 token:POST 用密碼換 token(套用與 /login 相同的 IP 防暴力破解);DELETE 撤銷帶來的 token。"""
+    from blueprints.auth import (
+        authenticate, account_nickname, mint_sync_token, revoke_sync_token,
+        _client_ip, _login_lock_remaining, _record_login_failure, _clear_login_failures,
+    )
+    if request.method == 'DELETE':
+        revoke_sync_token(request.headers.get('X-Sync-Token', ''))
+        return jsonify({'status': 'success'})
+
+    ip = _client_ip()
+    locked = _login_lock_remaining(ip)
+    if locked > 0:
+        return jsonify({'status': 'error', 'message': f'嘗試次數過多,請 {locked} 秒後再試'}), 429
+
+    data = request.get_json(silent=True) or {}
+    password = data.get('password', '')
+    label = (data.get('label') or '').strip()[:50]
+    role, account_id = authenticate(password)
+    if not role:
+        _record_login_failure(ip)
+        return jsonify({'status': 'error', 'message': '密碼錯誤'}), 401
+    _clear_login_failures(ip)
+    token = mint_sync_token(account_id, label)
+    return jsonify({'token': token, 'accountId': account_id, 'nickname': account_nickname(role, account_id)})
+
+
 @api_bp.route('/account', methods=['GET'])
 def account_info():
     """目前登入帳號的身分:給網頁顯示『目前登入』、給 kazi 同步顯示『已綁定』,兩邊一比即知是否同一帳號。"""
-    from blueprints.auth import account_nickname
-    role = session.get('role')
-    account_id = session.get('account_id')
+    from blueprints.auth import account_nickname, role_for_account_id
+    account_id = _sync_account_id()
     if not account_id:
         return jsonify({'status': 'error', 'message': '未登入'}), 401
+    role = session.get('role') or role_for_account_id(account_id)
     return jsonify({'role': role, 'accountId': account_id, 'nickname': account_nickname(role, account_id)})
 
 
@@ -329,7 +368,7 @@ def account_info():
 def account_history():
     """觀看歷史綁帳號、存伺服器端(storage:Docker 檔案 / Vercel KV)→ 跨裝置同步。
     寫入由前端嚴格節流(只在關閉播放器 / 換集 / 清除 / 關分頁 / 每 60 秒有變動時),避免狂打。"""
-    account_id = session.get('account_id')
+    account_id = _sync_account_id()
     if not account_id:
         return jsonify([]) if request.method == 'GET' else (jsonify({'status': 'error', 'message': '未登入'}), 401)
 
@@ -355,8 +394,8 @@ def account_history():
 
 @api_bp.route('/favorites', methods=['GET', 'POST'])
 def account_favorites():
-    """收藏清單,綁帳號、存伺服器端(共通格式)。目前供 kazi 同步用(網頁沒有收藏 UI)。"""
-    account_id = session.get('account_id')
+    """收藏清單,綁帳號、存伺服器端(共通格式)。網頁+kazi 共用。"""
+    account_id = _sync_account_id()
     if not account_id:
         return jsonify([]) if request.method == 'GET' else (jsonify({'status': 'error', 'message': '未登入'}), 401)
 
