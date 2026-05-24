@@ -167,9 +167,9 @@ def member_nickname(m):
 
 
 def account_nickname(role, account_id):
-    """目前登入帳號的顯示暱稱:管理員固定『管理員』;會員回其暱稱(沒設就『會員』)。"""
+    """目前登入帳號的顯示暱稱:管理員可自訂(config admin_nickname,預設『管理員』);會員回其暱稱(沒設就『會員』)。"""
     if role == 'admin':
-        return '管理員'
+        return (load_config().get('admin_nickname') or '管理員').strip() or '管理員'
     if account_id and account_id.startswith('m'):
         mid = account_id[1:]
         m = next((x for x in get_members() if str(x.get('id')) == mid), None)

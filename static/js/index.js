@@ -268,10 +268,6 @@ async function loadSitesAndAutoLoadLast() {
         await state.loadWatchHistory();
         await state.loadFavorites();
 
-        // 載入並顯示目前登入帳號(讓使用者確認登在哪個帳號,跟 kazi 同步對得起來)
-        await state.loadAccount();
-        ui.renderAccountNickname();
-
         // 載入搜尋關鍵字歷史記錄
         state.loadSearchHistory();
 

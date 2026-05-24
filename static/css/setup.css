@@ -326,6 +326,48 @@
     text-overflow: ellipsis;
 }
 
+.member-item-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--card-background, rgba(255,255,255,0.03));
+    border-radius: var(--radius-sm);
+}
+
+.member-item-wrap .member-item {
+    padding: 0;
+    background: none;
+}
+
+.member-actions {
+    display: flex;
+    gap: var(--sp-2);
+    flex-shrink: 0;
+}
+
+.member-edit {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.member-edit input {
+    flex: 1;
+    min-width: 120px;
+}
+
+.inline-row {
+    display: flex;
+    gap: var(--sp-2);
+    align-items: center;
+}
+
+.inline-row input {
+    flex: 1;
+}
+
 /* 外觀設定 */
 .site-settings-card input[type="text"] {
     width: 100%;

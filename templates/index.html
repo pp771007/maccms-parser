@@ -12,7 +12,6 @@
             <span class="brand-name">{{ site_title }}</span>
         </div>
         <div class="topbar-actions">
-            <span id="accountNickname" class="account-nickname" title="目前登入帳號"></span>
             <button id="favoritesBtn" class="btn btn-ghost btn-sm" title="我的收藏">
                 <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 <span class="label-text">收藏</span>
@@ -21,6 +20,10 @@
                 <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 3"/></svg>
                 <span class="label-text">歷史</span>
             </button>
+            <a href="/profile" class="btn btn-ghost btn-sm" title="個人中心">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span class="label-text">個人</span>
+            </a>
             {% if is_admin %}
             <a href="/members" class="btn btn-ghost btn-sm" title="會員管理">
                 <svg class="icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>

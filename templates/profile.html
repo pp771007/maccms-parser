@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}個人中心 - {{ site_title }}{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/setup.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modal.css') }}">
+{% endblock %}
+
+{% block content %}
+<header class="topbar">
+    <div class="topbar-inner">
+        <a class="brand" href="/">
+            <img class="brand-logo" src="{{ favicon_url }}" alt="">
+            <span class="brand-name">{{ site_title }}</span>
+        </a>
+        <div class="topbar-actions">
+            <a href="/" class="btn btn-ghost btn-sm" title="返回主頁">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M3 12l9-9 9 9"/><path d="M9 21V12h6v9"/><path d="M5 10v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V10"/></svg>
+                <span class="label-text">主頁</span>
+            </a>
+            <a href="/logout" class="btn btn-ghost btn-sm" title="登出">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span class="label-text">登出</span>
+            </a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <header>
+        <h1>個人中心</h1>
+        <p id="accountRole" class="check-status"></p>
+    </header>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>暱稱</h2>
+            <span class="card-subtitle">顯示在頂端「目前登入」、以及 kazi 同步的「已綁定」處</span>
+        </div>
+        <div class="form-group">
+            <label for="nickname">暱稱</label>
+            <input type="text" id="nickname" placeholder="輸入暱稱" autocomplete="off">
+        </div>
+        <button id="saveNicknameBtn" class="btn btn-primary">儲存暱稱</button>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>變更密碼</h2>
+            <span class="card-subtitle">已綁定的裝置(kazi)用 token 同步,改密碼不會斷線</span>
+        </div>
+        <div class="form-group">
+            <label for="currentPw">目前密碼</label>
+            <input type="password" id="currentPw" placeholder="目前密碼" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label for="newPw">新密碼</label>
+            <input type="password" id="newPw" placeholder="至少 4 個字元" autocomplete="off">
+        </div>
+        <button id="changePwBtn" class="btn btn-primary">變更密碼</button>
+    </div>
+</div>
+
+<div id="customModal"></div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module" src="{{ url_for('static', filename='js/modal.js') }}"></script>
+<script type="module" src="{{ url_for('static', filename='js/profile.js') }}"></script>
+{% endblock %}

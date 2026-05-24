@@ -21,7 +21,6 @@ export default {
     _historyDirty: false,      // 記憶體有變動、尚未寫回伺服器
     _historyFlushTimer: null,  // 寫回伺服器的 debounce 計時器
     favorites: [],    // 收藏(共通格式,鍵=videoId+siteUrl,跟 kazi 共用)
-    account: null,    // 目前登入帳號身分 {role, accountId, nickname}
     currentVideoInfo: null, // 當前播放的影片資訊
     currentVideo: null, // 當前選擇的影片資訊
     onHistoryUpdate: null, // 歷史記錄更新回調函數
@@ -117,16 +116,6 @@ export default {
             this.historySyncedAt = Date.now();
         } catch (e) {
             this.watchHistory = [];
-        }
-    },
-
-    // 載入目前登入帳號身分(顯示「目前登入:暱稱」,讓使用者確認登在哪個帳號)
-    async loadAccount() {
-        try {
-            const res = await fetch('/api/account');
-            this.account = res.ok ? await res.json() : null;
-        } catch (e) {
-            this.account = null;
         }
     },
 

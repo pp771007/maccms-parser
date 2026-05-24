@@ -787,25 +787,6 @@
     color: var(--text-muted-color);
 }
 
-.account-nickname {
-    align-self: center;
-    font-size: var(--fs-sm, 0.82rem);
-    color: var(--text-secondary-color);
-    white-space: nowrap;
-    margin-right: var(--sp-2);
-}
-
-@media (max-width: 640px) {
-    /* 手機版頂列按鈕會收成純圖示(base.css),這裡讓暱稱也顯示、過長才省略 */
-    .account-nickname {
-        font-size: var(--fs-xs, 0.72rem);
-        max-width: 34vw;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        margin-right: var(--sp-1);
-    }
-}
-
 .history-actions {
     display: flex;
     align-items: center;

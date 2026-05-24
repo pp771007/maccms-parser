@@ -939,14 +939,6 @@ export function showError(msg) {
 
 
 
-// 在頂端顯示「目前登入:暱稱」,讓使用者確認登在哪個帳號(跟 kazi 同步的帳號對照)
-export function renderAccountNickname() {
-    const el = $('#accountNickname');
-    if (!el) return;
-    const nick = state.account?.nickname;
-    el.textContent = nick ? `目前登入:${nick}` : '';
-}
-
 // 把時間戳格式化成「剛剛 / X 分鐘前 / HH:MM」,給「最後同步」用
 function formatSyncTime(ts) {
     const diff = Date.now() - ts;

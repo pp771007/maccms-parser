@@ -17,6 +17,13 @@ def index():
     return render_template('index.html', site_title=site_title, favicon_url=favicon_url, version=VERSION,
                            is_admin=(session.get('role') == 'admin'))
 
+@main_bp.route('/profile')
+def profile():
+    # 個人中心:管理員與會員都能進,改自己的暱稱 / 密碼
+    site_title = get_config_value('site_title', '資源站點管理器')
+    favicon_url = f"/favicon?v={get_config_value('favicon_version', '')}"
+    return render_template('profile.html', site_title=site_title, favicon_url=favicon_url)
+
 @main_bp.route('/setup')
 def site_setup():
     site_title = get_config_value('site_title', '資源站點管理器')

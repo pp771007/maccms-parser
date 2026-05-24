@@ -44,6 +44,35 @@ def api_add_member():
     return jsonify({'status': 'success'}), 201
 
 
+@members_bp.route('/api/members/<int:member_id>', methods=['PATCH'])
+def api_update_member(member_id):
+    """改會員暱稱 / 密碼。改密碼不影響其裝置 token(token 綁帳號不綁密碼),所以 kazi 不會斷。"""
+    from werkzeug.security import check_password_hash
+    from config import load_config
+    data = request.get_json(silent=True) or {}
+    members = get_members()
+    m = next((x for x in members if x['id'] == member_id), None)
+    if not m:
+        return jsonify({'status': 'error', 'message': '找不到該會員'}), 404
+
+    if 'nickname' in data:
+        m['nickname'] = (data.get('nickname') or '').strip()
+        m.pop('note', None)  # 清掉舊欄位
+
+    new_pw = (data.get('password') or '').strip()
+    if new_pw:
+        if len(new_pw) < 4:
+            return jsonify({'status': 'error', 'message': '密碼至少 4 個字元'}), 400
+        # 不可與管理員或「其他」會員重複(排除自己)
+        if check_password_hash(load_config().get('password_hash', ''), new_pw) or \
+           any(check_password_hash(o.get('password_hash', ''), new_pw) for o in members if o['id'] != member_id):
+            return jsonify({'status': 'error', 'message': '這個密碼已被其他帳號使用,請換一個'}), 400
+        m['password_hash'] = generate_password_hash(new_pw)
+
+    save_members(members)
+    return jsonify({'status': 'success'})
+
+
 @members_bp.route('/api/members/<int:member_id>', methods=['DELETE'])
 def api_delete_member(member_id):
     members = get_members()

@@ -364,6 +364,59 @@ def account_info():
     return jsonify({'role': role, 'accountId': account_id, 'nickname': account_nickname(role, account_id)})
 
 
+@api_bp.route('/account', methods=['PATCH'])
+def update_account():
+    """個人中心:改『自己』的暱稱 / 密碼(管理員或會員皆可)。改密碼需帶目前密碼確認;
+    不影響已發的裝置 token(kazi 不會斷)。管理員改別人走 /api/members/<id>。"""
+    from blueprints.auth import set_password, check_password, get_members, save_members
+    from config import load_config, save_config
+    from werkzeug.security import generate_password_hash, check_password_hash
+    role = session.get('role')
+    account_id = session.get('account_id')
+    if not account_id:
+        return jsonify({'status': 'error', 'message': '未登入'}), 401
+    data = request.get_json(silent=True) or {}
+    nickname = data.get('nickname')
+    new_pw = (data.get('newPassword') or '').strip()
+    cur_pw = data.get('currentPassword', '')
+
+    if role == 'admin':
+        if nickname is not None:
+            cfg = load_config()
+            cfg['admin_nickname'] = nickname.strip()
+            save_config(cfg)
+        if new_pw:
+            if len(new_pw) < 4:
+                return jsonify({'status': 'error', 'message': '密碼至少 4 個字元'}), 400
+            if not check_password(cur_pw):
+                return jsonify({'status': 'error', 'message': '目前密碼錯誤'}), 400
+            if any(check_password_hash(o.get('password_hash', ''), new_pw) for o in get_members()):
+                return jsonify({'status': 'error', 'message': '這個密碼已被某個會員使用,請換一個'}), 400
+            set_password(new_pw)
+        return jsonify({'status': 'success'})
+
+    # 會員:只改自己那筆
+    members = get_members()
+    mid = account_id[1:] if account_id.startswith('m') else ''
+    m = next((x for x in members if str(x.get('id')) == mid), None)
+    if not m:
+        return jsonify({'status': 'error', 'message': '找不到帳號'}), 404
+    if nickname is not None:
+        m['nickname'] = nickname.strip()
+        m.pop('note', None)
+    if new_pw:
+        if len(new_pw) < 4:
+            return jsonify({'status': 'error', 'message': '密碼至少 4 個字元'}), 400
+        if not check_password_hash(m.get('password_hash', ''), cur_pw):
+            return jsonify({'status': 'error', 'message': '目前密碼錯誤'}), 400
+        if check_password_hash(load_config().get('password_hash', ''), new_pw) or \
+           any(check_password_hash(o.get('password_hash', ''), new_pw) for o in members if o['id'] != m['id']):
+            return jsonify({'status': 'error', 'message': '這個密碼已被其他帳號使用,請換一個'}), 400
+        m['password_hash'] = generate_password_hash(new_pw)
+    save_members(members)
+    return jsonify({'status': 'success'})
+
+
 @api_bp.route('/history', methods=['GET', 'POST'])
 def account_history():
     """觀看歷史綁帳號、存伺服器端(storage:Docker 檔案 / Vercel KV)→ 跨裝置同步。
