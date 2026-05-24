@@ -1227,8 +1227,8 @@ function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
             item.className = 'episode-item';
             item.textContent = epi.name;
 
-            // 檢查是否為目標劇集
-            const isTargetEpisode = epi.url === historyItem.episodeUrl;
+            // 檢查是否為目標劇集(網址優先,跨 app 無網址時用集名)
+            const isTargetEpisode = episodeMatchesHistory(epi, historyItem);
             if (isTargetEpisode) {
                 item.classList.add('target-episode');
             }
@@ -1259,7 +1259,7 @@ function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
 
         // 查找目標劇集
         for (let i = 0; i < currentSource.episodes.length; i++) {
-            if (currentSource.episodes[i].url === historyItem.episodeUrl) {
+            if (episodeMatchesHistory(currentSource.episodes[i], historyItem)) {
                 targetEpisode = episodeList.children[i];
                 break;
             }
@@ -1275,12 +1275,16 @@ function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
     }
 }
 
+// 比對某集是否為歷史的續看點:優先用集網址(網頁寫的);沒有網址(kazi 跨 app 寫的)就用集名。
+function episodeMatchesHistory(epi, historyItem) {
+    if (historyItem.episodeUrl) return epi.url === historyItem.episodeUrl;
+    return !!historyItem.episodeName && epi.name === historyItem.episodeName;
+}
+
 // 找到目標播放源的索引
 function findTargetSourceIndex(historyItem, modalData) {
     for (let i = 0; i < modalData.length; i++) {
-        const source = modalData[i];
-        const hasTargetEpisode = source.episodes.some(epi => epi.url === historyItem.episodeUrl);
-        if (hasTargetEpisode) {
+        if (modalData[i].episodes.some(epi => episodeMatchesHistory(epi, historyItem))) {
             return i;
         }
     }

@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 關分頁前把尚未寫回的進度用 sendBeacon 送出(不阻塞關閉、不另開請求迴圈)
     window.addEventListener('beforeunload', () => {
         if (state._historyDirty && navigator.sendBeacon) {
-            const blob = new Blob([JSON.stringify(state.watchHistory)], { type: 'application/json' });
+            const canonical = state.watchHistory.map(it => state._historyToCanonical(it));
+            const blob = new Blob([JSON.stringify(canonical)], { type: 'application/json' });
             navigator.sendBeacon('/api/history', blob);
             state._historyDirty = false;
         }

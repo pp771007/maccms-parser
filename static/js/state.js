@@ -64,12 +64,52 @@ export default {
         localStorage.setItem('multiSiteSelection', JSON.stringify(this.searchSiteIds));
     },
 
-    // 載入觀看歷史紀錄(改從伺服器讀,綁帳號、跨裝置同步)。每次開頁只讀一次。
+    // ---- 共通歷史格式(與 kazi 共用):鍵=videoId+siteUrl;續看錨點用 episodeName(兩邊都存)----
+    // 網頁內部沿用原本的欄位,只在「跟伺服器來回」時轉換。
+    _historyToCanonical(item) {
+        return {
+            videoId: item.videoId,
+            siteUrl: (this.sites.find(s => s.id === item.siteId)?.url) || item.siteUrl || '',
+            siteName: item.siteName || '',
+            videoName: item.videoName || '',
+            videoPic: item.videoPic || '',
+            episodeName: item.episodeName || '',
+            episodeUrl: item.episodeUrl || '',   // 網頁有;kazi 寫的可能是空
+            sourceIndex: item.sourceIndex || 0,
+            episodeIndex: typeof item.episodeIndex === 'number' ? item.episodeIndex : -1,
+            positionSec: item.currentTime || 0,
+            durationSec: item.duration || 0,
+            totalEpisodes: item.totalEpisodes || 0,
+            updatedAt: item.lastWatched || item.timestamp || Date.now(),
+        };
+    },
+
+    _historyFromCanonical(c) {
+        return {
+            videoId: c.videoId,
+            siteId: (this.sites.find(s => s.url === c.siteUrl)?.id) ?? null,
+            siteUrl: c.siteUrl || '',
+            siteName: c.siteName || '',
+            videoName: c.videoName || '',
+            videoPic: c.videoPic || '',
+            episodeName: c.episodeName || '',
+            episodeUrl: c.episodeUrl || '',
+            sourceIndex: c.sourceIndex || 0,
+            episodeIndex: typeof c.episodeIndex === 'number' ? c.episodeIndex : -1,
+            currentTime: c.positionSec || 0,
+            duration: c.durationSec || 0,
+            totalEpisodes: c.totalEpisodes || 0,
+            lastWatched: c.updatedAt || Date.now(),
+            timestamp: c.updatedAt || Date.now(),
+        };
+    },
+
+    // 載入觀看歷史紀錄(從伺服器讀共通格式,綁帳號、跨裝置/跨 app 同步)。每次開頁只讀一次。
     async loadWatchHistory() {
         try {
             const res = await fetch('/api/history');
             const data = res.ok ? await res.json() : [];
-            this.watchHistory = Array.isArray(data) ? data : [];
+            this.watchHistory = Array.isArray(data) ? data.map(c => this._historyFromCanonical(c)) : [];
         } catch (e) {
             this.watchHistory = [];
         }
@@ -140,7 +180,7 @@ export default {
         fetch('/api/history', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(this.watchHistory),
+            body: JSON.stringify(this.watchHistory.map(it => this._historyToCanonical(it))),
         }).catch(() => { this._historyDirty = true; });
     },
 
