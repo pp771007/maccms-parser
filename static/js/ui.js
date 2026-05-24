@@ -4,6 +4,7 @@ import { fetchVideoDetails, checkHistoryUpdates } from './api.js';
 import { $, $$ } from './utils.js';
 import { showModal, showConfirm, showToast } from './modal.js';
 import historyManager from './historyStateManager.js';
+import { armConfirmDelete } from './confirmDelete.js';
 
 // 站台改成 kazi 風格的橫向 chip 列：一眼看到有哪些站、點一下就切。點擊由 index.js 的事件委派處理。
 export function renderSites(sites) {
@@ -1095,9 +1096,8 @@ export function renderWatchHistory() {
         historyItem.querySelector('.continue-btn').addEventListener('click', () => playFromHistory(item, false));
         historyItem.querySelector('.next-ep-btn').addEventListener('click', () => playFromHistory(item, true));
 
-        // 移除紀錄按鈕事件
-        const removeBtn = historyItem.querySelector('.remove-btn');
-        removeBtn.addEventListener('click', () => {
+        // 移除紀錄(兩段式:第一下變「確認」,再按一次才刪)
+        armConfirmDelete(historyItem.querySelector('.remove-btn'), () => {
             state.watchHistory.splice(index, 1);
             state.saveWatchHistory();
             renderWatchHistory();
@@ -1361,12 +1361,11 @@ export function hideHistoryPanel() {
 }
 
 // 清除所有歷史紀錄
+// 直接清除(確認交給按鈕的兩段式,見 index.js 對 #clearHistoryBtn 的綁定)
 export function clearAllHistory() {
-    showConfirm('確定要清除所有觀看歷史嗎？此操作無法復原。', () => {
-        state.clearHistory();
-        renderWatchHistory();
-        showToast('已清除所有觀看歷史');
-    }, '請確認', 'warning');
+    state.clearHistory();
+    renderWatchHistory();
+    showToast('已清除所有觀看歷史');
 }
 
 // 檢查歷史記錄更新

@@ -7,6 +7,7 @@ import { $ } from './utils.js';
 import { showModal, showToast } from './modal.js';
 import historyManager from './historyStateManager.js';
 import { attachSwipePager } from './swipePager.js';
+import { armConfirmDelete } from './confirmDelete.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
@@ -113,7 +114,7 @@ function setupEventListeners() {
     $('#historyBtn').addEventListener('click', ui.showHistoryPanel);
     $('#closeHistoryBtn').addEventListener('click', ui.hideHistoryPanel);
     $('#historyCloseBtn').addEventListener('click', ui.hideHistoryPanel);
-    $('#clearHistoryBtn').addEventListener('click', ui.clearAllHistory);
+    armConfirmDelete($('#clearHistoryBtn'), ui.clearAllHistory);
     $('#historyOverlay').addEventListener('click', ui.hideHistoryPanel);
 
     // 添加 ESC 鍵處理邏輯

@@ -397,6 +397,13 @@ input[type="radio"] {
     color: #2a1400;
 }
 
+/* 兩段式刪除「已上膛」狀態:紅底,提示再按一次確認 */
+.confirm-armed {
+    background: var(--danger-color) !important;
+    border-color: var(--danger-color) !important;
+    color: #fff !important;
+}
+
 /* 尺寸 */
 .btn-sm {
     height: 34px;

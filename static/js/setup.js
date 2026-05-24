@@ -3,6 +3,7 @@
 import * as api from './api.js';
 import { $ } from './utils.js';
 import { showModal, showConfirm, showToast } from './modal.js';
+import { armConfirmDelete } from './confirmDelete.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     loadSites();
@@ -172,7 +173,7 @@ function renderSiteList(sites) {
         `;
 
         li.querySelector('.btn-update').addEventListener('click', () => handleUpdateSite(site.id, li));
-        li.querySelector('.btn-delete').addEventListener('click', () => handleDeleteSite(site.id, site.name));
+        armConfirmDelete(li.querySelector('.btn-delete'), () => handleDeleteSite(site.id));
         li.querySelector('.btn-move-up').addEventListener('click', () => handleMoveSite(site.id, 'up'));
         li.querySelector('.btn-move-down').addEventListener('click', () => handleMoveSite(site.id, 'down'));
         li.querySelector('.btn-check-site').addEventListener('click', () => handleCheckSingleSite(site.id, li));
@@ -361,16 +362,15 @@ async function handleUpdateSite(siteId, listItem) {
     }
 }
 
-async function handleDeleteSite(siteId, siteName) {
-    showConfirm(`確定要刪除站點 "${siteName}" 嗎？此操作不可恢復。`, async () => {
-        try {
-            await api.deleteSite(siteId);
-            showToast('站點已刪除。', 'success');
-            loadSites();
-        } catch (err) {
-            showModal('刪除失敗: ' + err.message, 'error');
-        }
-    }, '請確認', 'warning');
+async function handleDeleteSite(siteId) {
+    // 確認交給按鈕的兩段式(見 renderSiteList 的 armConfirmDelete)
+    try {
+        await api.deleteSite(siteId);
+        showToast('站點已刪除。', 'success');
+        loadSites();
+    } catch (err) {
+        showModal('刪除失敗: ' + err.message, 'error');
+    }
 }
 
 async function handleMoveSite(siteId, direction) {

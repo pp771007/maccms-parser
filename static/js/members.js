@@ -1,7 +1,8 @@
 "use strict";
 
 import { $ } from './utils.js';
-import { showModal, showConfirm, showToast } from './modal.js';
+import { showModal, showToast } from './modal.js';
+import { armConfirmDelete } from './confirmDelete.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     loadMembers();
@@ -39,7 +40,8 @@ function renderMembers(members) {
         const del = document.createElement('button');
         del.className = 'btn btn-outline-danger btn-sm';
         del.textContent = '刪除';
-        del.addEventListener('click', () => removeMember(m.id, m.note));
+        // 兩段式:第一下變「確認」,再按一次才刪
+        armConfirmDelete(del, () => removeMember(m.id));
         li.appendChild(del);
 
         list.appendChild(li);
@@ -73,18 +75,17 @@ async function addMember() {
     }
 }
 
-function removeMember(id, note) {
-    showConfirm(`確定刪除會員「${note || '(無備註)'}」?該會員的觀看歷史也會一併刪除。`, async () => {
-        try {
-            const res = await fetch(`/api/members/${id}`, { method: 'DELETE' });
-            if (res.ok) {
-                showToast('已刪除會員', 'success');
-                loadMembers();
-            } else {
-                showModal('刪除失敗', 'error');
-            }
-        } catch (e) {
-            showModal('刪除失敗,請稍後再試', 'error');
+async function removeMember(id) {
+    // 確認交給按鈕的兩段式;刪會員會一併刪其觀看歷史(後端處理)
+    try {
+        const res = await fetch(`/api/members/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast('已刪除會員', 'success');
+            loadMembers();
+        } else {
+            showModal('刪除失敗', 'error');
         }
-    });
+    } catch (e) {
+        showModal('刪除失敗,請稍後再試', 'error');
+    }
 }
