@@ -97,17 +97,13 @@
     gap: var(--sp-2);
     overflow-x: auto;
     padding: 2px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-strong) transparent;
+    /* 隱藏捲軸(chip 仍可滑動/拖動),避免捲軸黏在 chip 下方 */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
 .chip-strip::-webkit-scrollbar {
-    height: 6px;
-}
-
-.chip-strip::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
-    border-radius: 999px;
+    display: none;
 }
 
 .chip {
