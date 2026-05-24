@@ -1067,7 +1067,10 @@ export function renderWatchHistory() {
                         </div>
                         <div class="progress-text">${formatTime(item.currentTime)} / ${formatTime(item.duration)}</div>
                     </div>
-                    <button class="btn btn-primary btn-sm continue-btn" title="繼續觀看">繼續觀看</button>
+                    <div class="history-actions-btns">
+                        <button class="btn btn-secondary btn-sm next-ep-btn" title="播放下一集">下一集</button>
+                        <button class="btn btn-primary btn-sm continue-btn" title="繼續觀看">繼續觀看</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -1084,85 +1087,9 @@ export function renderWatchHistory() {
         }
 
 
-        // 繼續觀看按鈕事件
-        const continueBtn = historyItem.querySelector('.continue-btn');
-        continueBtn.addEventListener('click', async () => {
-            try {
-                // 獲取站台資訊 - 改進邏輯以處理站台ID不匹配的情況
-                let site = state.sites.find(s => s.id === item.siteId);
-
-                // 如果找不到對應的站台，嘗試使用站台名稱查找
-                if (!site && item.siteName) {
-                    site = state.sites.find(s => s.name === item.siteName);
-                }
-
-                // 如果還是找不到，嘗試使用第一個可用的站台
-                if (!site && state.sites.length > 0) {
-                    // 過濾掉無效的站台
-                    const validSites = state.sites.filter(s => s && s.id && s.name && s.url);
-                    if (validSites.length > 0) {
-                        site = validSites[0];
-                        console.warn(`找不到歷史紀錄中的站台 (ID: ${item.siteId}, Name: ${item.siteName})，使用第一個可用站台: ${site.name}`);
-
-                    }
-                }
-
-                if (!site) {
-                    showModal('找不到可用的站台資訊，請檢查站台設定', 'error');
-                    return;
-                }
-
-                // 檢查站台是否仍然有效
-                if (!site.url || site.url.trim() === '') {
-                    showModal(`站台 "${site.name}" 的URL無效，請檢查站台設定`, 'error');
-                    return;
-                }
-
-                // 獲取影片詳細資訊
-                const result = await fetchVideoDetails(site.url, item.videoId);
-                state.modalData = result.data;
-                // 保存原始影片資訊
-                state.currentVideo = { vod_id: item.videoId, vod_name: item.videoName };
-
-                // 打開播放器並定位到對應劇集
-                openHistoryVideoModal(item, result.data);
-            } catch (err) {
-                console.error('歷史紀錄載入影片失敗:', err);
-                console.error('錯誤詳情:', {
-                    videoId: item.videoId,
-                    videoName: item.videoName,
-                    siteId: item.siteId,
-                    siteName: item.siteName,
-                    availableSites: state.sites.map(s => ({ id: s.id, name: s.name, url: s.url }))
-                });
-
-                let errorMessage = `無法載入影片: ${err.message}`;
-                if (err.message.includes('網絡') || err.message.includes('連接')) {
-                    errorMessage += '\n\n可能的原因：\n• 站台已失效或無法訪問\n• 網絡連接問題\n• 站台API格式已變更';
-                } else if (err.message.includes('JSON') || err.message.includes('格式')) {
-                    errorMessage += '\n\n可能的原因：\n• 站台API返回無效數據\n• 站台已失效或需要登錄\n• 站台API格式已變更';
-                } else if (err.message.includes('未返回有效的') || err.message.includes('List')) {
-                    errorMessage += '\n\n可能的原因：\n• 影片已從站台移除\n• 站台API格式已變更\n• 站台需要登錄或已失效\n\n建議：\n• 嘗試其他站台搜尋相同影片\n• 或從歷史紀錄中移除此項目';
-
-                    // 提供選項讓用戶嘗試在其他站台搜尋
-                    const searchInOtherSites = confirm(`${errorMessage}\n\n是否要在其他站台搜尋 "${item.videoName}"？`);
-                    if (searchInOtherSites) {
-                        // 關閉歷史面板
-                        hideHistoryPanel();
-                        // 填入搜尋關鍵字
-                        $('#searchInput').value = item.videoName;
-                        // 觸發搜尋
-                        const searchBtn = $('#searchBtn');
-                        if (searchBtn) {
-                            searchBtn.click();
-                        }
-                    }
-                    return;
-                }
-
-                showModal(errorMessage, 'error');
-            }
-        });
+        // 繼續觀看 / 下一集
+        historyItem.querySelector('.continue-btn').addEventListener('click', () => playFromHistory(item, false));
+        historyItem.querySelector('.next-ep-btn').addEventListener('click', () => playFromHistory(item, true));
 
         // 移除紀錄按鈕事件
         const removeBtn = historyItem.querySelector('.remove-btn');
@@ -1178,6 +1105,60 @@ export function renderWatchHistory() {
 }
 
 // 打開歷史紀錄影片的播放器
+// 從同一個來源的劇集清單找「下一集」,回傳一個指向下一集、進度歸零的 historyItem;沒有下一集回 null。
+function computeNextEpisodeItem(item, modalData) {
+    const srcIdx = findTargetSourceIndex(item, modalData);
+    const source = srcIdx >= 0 ? modalData[srcIdx] : (modalData[0] || null);
+    if (!source || !source.episodes) return null;
+    const idx = source.episodes.findIndex(e => e.url === item.episodeUrl);
+    if (idx < 0 || idx + 1 >= source.episodes.length) return null;
+    const next = source.episodes[idx + 1];
+    return { ...item, episodeName: next.name, episodeUrl: next.url, currentTime: 0, duration: 0 };
+}
+
+// 從觀看歷史播放。next=false → 繼續看(原集數+進度);next=true → 直接播下一集(從頭)。
+async function playFromHistory(item, next) {
+    try {
+        // 找站台(ID → 名稱 → 第一個可用)
+        let site = state.sites.find(s => s.id === item.siteId);
+        if (!site && item.siteName) site = state.sites.find(s => s.name === item.siteName);
+        if (!site && state.sites.length > 0) {
+            const validSites = state.sites.filter(s => s && s.id && s.name && s.url);
+            if (validSites.length > 0) site = validSites[0];
+        }
+        if (!site) { showModal('找不到可用的站台資訊，請檢查站台設定', 'error'); return; }
+        if (!site.url || site.url.trim() === '') { showModal(`站台 "${site.name}" 的URL無效，請檢查站台設定`, 'error'); return; }
+
+        const result = await fetchVideoDetails(site.url, item.videoId);
+        state.modalData = result.data;
+        state.currentVideo = { vod_id: item.videoId, vod_name: item.videoName };
+
+        let target = item;
+        if (next) {
+            target = computeNextEpisodeItem(item, result.data);
+            if (!target) { showToast('已經是最後一集了', 'info'); return; }
+        }
+        openHistoryVideoModal(target, result.data);
+    } catch (err) {
+        console.error('歷史紀錄載入影片失敗:', err);
+        let errorMessage = `無法載入影片: ${err.message}`;
+        if (err.message.includes('網絡') || err.message.includes('連接')) {
+            errorMessage += '\n\n可能的原因：\n• 站台已失效或無法訪問\n• 網絡連接問題\n• 站台API格式已變更';
+        } else if (err.message.includes('JSON') || err.message.includes('格式')) {
+            errorMessage += '\n\n可能的原因：\n• 站台API返回無效數據\n• 站台已失效或需要登錄\n• 站台API格式已變更';
+        } else if (err.message.includes('未返回有效的') || err.message.includes('List')) {
+            const searchInOtherSites = confirm(`無法載入影片(可能已從站台移除或站台失效)。\n\n是否要在其他站台搜尋 "${item.videoName}"？`);
+            if (searchInOtherSites) {
+                hideHistoryPanel();
+                $('#searchInput').value = item.videoName;
+                $('#searchBtn')?.click();
+            }
+            return;
+        }
+        showModal(errorMessage, 'error');
+    }
+}
+
 export function openHistoryVideoModal(historyItem, modalData) {
     historyManager.add({
         id: 'videoModal',
