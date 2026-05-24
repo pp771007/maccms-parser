@@ -978,7 +978,8 @@ export function renderWatchHistory() {
         state.watchHistory = state.watchHistory.filter(item => {
             // 保留有站台名稱的記錄，或者站台ID在當前站台列表中的記錄
             // 或者有站台ID但站台名稱為null的記錄（可能是舊的歷史紀錄格式）
-            const hasValidSite = item.siteName ||
+            const hasValidSite = item.deletedAt ||  // 墓碑一律保留(同步用),不因站台檢查被清掉
+                item.siteName ||
                 state.sites.some(s => s.id === item.siteId || s.name === item.siteName) ||
                 (item.siteId && item.siteName === null); // 允許siteName為null但有siteId的記錄
 
@@ -1019,7 +1020,8 @@ export function renderWatchHistory() {
 
     }
 
-    if (state.watchHistory.length === 0) {
+    const activeList = state.activeHistory();
+    if (activeList.length === 0) {
         historyContainer.innerHTML = `
             <p class="no-history">暫無觀看歷史</p>
         `;
@@ -1028,7 +1030,7 @@ export function renderWatchHistory() {
 
     historyContainer.innerHTML = '';
 
-    state.watchHistory.forEach((item, index) => {
+    activeList.forEach((item, index) => {
         const historyItem = document.createElement('div');
         historyItem.className = 'history-item';
 
@@ -1113,8 +1115,7 @@ export function renderWatchHistory() {
 
         // 移除紀錄(兩段式:第一下變「確認」,再按一次才刪)
         armConfirmDelete(historyItem.querySelector('.remove-btn'), () => {
-            state.watchHistory.splice(index, 1);
-            state.saveWatchHistory();
+            state.removeHistory(item.videoId, item.siteId);  // 軟刪(標記墓碑,跟著同步)
             renderWatchHistory();
             showToast('已移除觀看紀錄');
         });
@@ -1450,11 +1451,12 @@ export function hideFavoritesPanel() {
 function renderFavorites() {
     const container = $('#favoritesContainer');
     container.innerHTML = '';
-    if (!state.favorites || state.favorites.length === 0) {
+    const activeFavs = state.activeFavorites();
+    if (activeFavs.length === 0) {
         container.innerHTML = '<p class="no-history">還沒有收藏 — 在播放頁點右上角的 ⭐ 加入</p>';
         return;
     }
-    state.favorites.forEach(fav => {
+    activeFavs.forEach(fav => {
         const card = document.createElement('div');
         card.className = 'history-item';
         const pic = fav.videoPic && fav.videoPic.trim()
@@ -1464,6 +1466,7 @@ function renderFavorites() {
         const siteName = fav.siteName || site?.name || '未知站台';
         // 收藏與歷史共用 videoId+siteUrl 為鍵：看過的就帶出上次的集數+進度,點播放接著看
         const hist = state.watchHistory.find(h =>
+            !h.deletedAt &&
             String(h.videoId) === String(fav.videoId) &&
             (h.siteId === site?.id || h.siteName === fav.siteName));
         const progressPercent = hist && hist.duration > 0
@@ -1521,7 +1524,7 @@ function renderFavorites() {
 
 // 檢查歷史記錄更新
 async function performHistoryUpdateCheck() {
-    if (!state.watchHistory || state.watchHistory.length === 0) {
+    if (state.activeHistory().length === 0) {
         return;
     }
 
@@ -1553,7 +1556,7 @@ async function performHistoryUpdateCheck() {
 
     try {
         // 準備前5個歷史記錄的數據（後端會再次限制最多10個）
-        const itemsToCheck = state.watchHistory.slice(0, 5).map(item => ({
+        const itemsToCheck = state.activeHistory().slice(0, 5).map(item => ({
             videoId: item.videoId,
             videoName: item.videoName,
             siteId: item.siteId,

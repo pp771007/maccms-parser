@@ -9,8 +9,9 @@ from site_manager import get_sites, save_sites
 from api_parser import process_api_request, get_details_from_api
 import storage
 
-MAX_HISTORY_ITEMS = 50  # 跟前端一致,單一帳號最多保留 50 筆觀看歷史
-MAX_FAVORITE_ITEMS = 500  # 收藏(目前僅 kazi 用;網頁無收藏 UI,只當同步資料存)
+# 容量上限放寬,留空間給軟刪墓碑(deletedAt):active 200(跟前端一致)+ 墓碑(30 天後清)
+MAX_HISTORY_ITEMS = 300
+MAX_FAVORITE_ITEMS = 600
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 logger = setup_logger()

@@ -84,6 +84,7 @@ export default {
             durationSec: item.duration || 0,
             totalEpisodes: item.totalEpisodes || 0,
             updatedAt: item.lastWatched || item.timestamp || Date.now(),
+            deletedAt: item.deletedAt || 0,
         };
     },
 
@@ -104,6 +105,7 @@ export default {
             totalEpisodes: c.totalEpisodes || 0,
             lastWatched: c.updatedAt || Date.now(),
             timestamp: c.updatedAt || Date.now(),
+            deletedAt: c.deletedAt || 0,
         };
     },
 
@@ -112,11 +114,24 @@ export default {
         try {
             const res = await fetch('/api/history');
             const data = res.ok ? await res.json() : [];
-            this.watchHistory = Array.isArray(data) ? data.map(c => this._historyFromCanonical(c)) : [];
+            const list = Array.isArray(data) ? data.map(c => this._historyFromCanonical(c)) : [];
+            // 保留墓碑(deletedAt>0)一起存,下次寫回時帶上去讓刪除跨裝置生效;但超過 TTL 的墓碑清掉
+            this.watchHistory = this._pruneTombstones(list);
             this.historySyncedAt = Date.now();
         } catch (e) {
             this.watchHistory = [];
         }
+    },
+
+    // 丟掉超過 30 天的墓碑(其他裝置早該同步到刪除了),避免清單無限長大
+    _pruneTombstones(list) {
+        const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        return list.filter(i => !i.deletedAt || i.deletedAt > cutoff);
+    },
+
+    // 只給 UI 看的「未刪」歷史
+    activeHistory() {
+        return this.watchHistory.filter(i => !i.deletedAt);
     },
 
     // 載入搜尋關鍵字歷史記錄
@@ -193,14 +208,15 @@ export default {
         try {
             const res = await fetch('/api/favorites');
             const data = res.ok ? await res.json() : [];
-            this.favorites = Array.isArray(data) ? data : [];
+            // 保留墓碑一起存(同步用),超過 TTL 的清掉
+            this.favorites = this._pruneTombstones(Array.isArray(data) ? data : []);
         } catch (e) {
             this.favorites = [];
         }
     },
 
     saveFavorites() {
-        // 收藏變動不頻繁,整包寫回即可
+        // 收藏變動不頻繁,整包寫回即可(含墓碑)
         fetch('/api/favorites', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -208,19 +224,27 @@ export default {
         }).catch(() => {});
     },
 
+    // 只給 UI 看的「未刪」收藏
+    activeFavorites() {
+        return this.favorites.filter(f => !f.deletedAt);
+    },
+
     isFavorited(videoId, siteUrl) {
-        return this.favorites.some(f => String(f.videoId) === String(videoId) && f.siteUrl === siteUrl);
+        return this.favorites.some(f => String(f.videoId) === String(videoId) && f.siteUrl === siteUrl && !f.deletedAt);
     },
 
     // 切換收藏;回傳切換後是否為已收藏
     toggleFavorite(fav) {
         const idx = this.favorites.findIndex(f => String(f.videoId) === String(fav.videoId) && f.siteUrl === fav.siteUrl);
-        if (idx >= 0) {
-            this.favorites.splice(idx, 1);
+        if (idx >= 0 && !this.favorites[idx].deletedAt) {
+            // 取消收藏 = 標記墓碑(留著跟著同步),而非直接移除
+            this.favorites[idx].deletedAt = Date.now();
             this.saveFavorites();
             return false;
         }
-        this.favorites.unshift({ ...fav, addedAt: Date.now() });
+        // 收藏:新的、或把舊墓碑用一筆全新的蓋過去(復活)
+        if (idx >= 0) this.favorites.splice(idx, 1);
+        this.favorites.unshift({ ...fav, addedAt: Date.now(), deletedAt: 0 });
         this.saveFavorites();
         return true;
     },
@@ -239,6 +263,7 @@ export default {
             const existingItem = this.watchHistory[existingIndex];
             const isNewEpisode = existingItem.episodeUrl !== videoInfo.episodeUrl;
 
+            existingItem.deletedAt = 0; // 又看了 → 若之前刪過,復活成正常(時間戳會比舊墓碑新)
             existingItem.videoName = videoInfo.videoName; // 確保影片名稱被更新
             existingItem.episodeName = videoInfo.episodeName;
             existingItem.episodeUrl = videoInfo.episodeUrl;
@@ -269,12 +294,21 @@ export default {
             });
         }
 
-        // 限制歷史紀錄數量（最多50條）
-        if (this.watchHistory.length > 50) {
-            this.watchHistory = this.watchHistory.slice(0, 50);
-        }
+        // 限制「未刪」最多 200 筆(跟 kazi 一致;墓碑另外保留,給同步用)
+        const active = this.watchHistory.filter(i => !i.deletedAt).slice(0, 200);
+        const tombs = this.watchHistory.filter(i => i.deletedAt);
+        this.watchHistory = active.concat(tombs);
 
         this.saveWatchHistory();
+    },
+
+    // 軟刪一筆觀看歷史(標記 deletedAt,留著跟著同步,而非直接移除)
+    removeHistory(videoId, siteId) {
+        const item = this.watchHistory.find(i => i.videoId === videoId && i.siteId === siteId);
+        if (item) {
+            item.deletedAt = Date.now();
+            this.saveWatchHistory();
+        }
     },
 
     // 更新播放進度
@@ -305,9 +339,10 @@ export default {
         }
     },
 
-    // 清除歷史紀錄
+    // 清除歷史紀錄:把目前所有「未刪」的標記成墓碑(這樣「清除全部」也會同步出去)
     clearHistory() {
-        this.watchHistory = [];
+        const now = Date.now();
+        this.watchHistory.forEach(i => { if (!i.deletedAt) i.deletedAt = now; });
         this.saveWatchHistory();
     },
 
