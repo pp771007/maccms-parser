@@ -12,6 +12,7 @@
             <span class="brand-name">{{ site_title }}</span>
         </div>
         <div class="topbar-actions">
+            <span id="accountNickname" class="account-nickname" title="目前登入帳號"></span>
             <button id="favoritesBtn" class="btn btn-ghost btn-sm" title="我的收藏">
                 <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 <span class="label-text">收藏</span>
@@ -122,7 +123,10 @@
 <div id="historyOverlay" class="history-overlay" style="display: none;"></div>
 <div id="historyPanel" class="history-panel" style="display: none;">
     <div class="history-header">
-        <h3>觀看歷史</h3>
+        <div class="history-title-wrap">
+            <h3>觀看歷史</h3>
+            <span id="historySyncedAt" class="synced-label"></span>
+        </div>
         <div class="history-actions">
             <button id="clearHistoryBtn" class="btn btn-outline-danger btn-sm">清除全部</button>
             <button id="historyCloseBtn" class="btn btn-ghost btn-icon btn-sm" title="關閉">

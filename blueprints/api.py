@@ -314,6 +314,17 @@ def probe_batch():
     logger.info(f"POST /api/sites/probe_batch - 候選 {len(candidates)} 個，可用 {sum(1 for r in results if r['healthy'])} 個")
     return jsonify({'status': 'success', 'results': results, 'total': len(results)})
 
+@api_bp.route('/account', methods=['GET'])
+def account_info():
+    """目前登入帳號的身分:給網頁顯示『目前登入』、給 kazi 同步顯示『已綁定』,兩邊一比即知是否同一帳號。"""
+    from blueprints.auth import account_nickname
+    role = session.get('role')
+    account_id = session.get('account_id')
+    if not account_id:
+        return jsonify({'status': 'error', 'message': '未登入'}), 401
+    return jsonify({'role': role, 'accountId': account_id, 'nickname': account_nickname(role, account_id)})
+
+
 @api_bp.route('/history', methods=['GET', 'POST'])
 def account_history():
     """觀看歷史綁帳號、存伺服器端(storage:Docker 檔案 / Vercel KV)→ 跨裝置同步。

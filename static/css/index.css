@@ -776,6 +776,29 @@
     color: var(--text-color);
 }
 
+.history-title-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.synced-label {
+    font-size: var(--fs-xs, 0.72rem);
+    color: var(--text-muted-color);
+}
+
+.account-nickname {
+    align-self: center;
+    font-size: var(--fs-sm, 0.82rem);
+    color: var(--text-secondary-color);
+    white-space: nowrap;
+    margin-right: var(--sp-2);
+}
+
+@media (max-width: 640px) {
+    .account-nickname { display: none; }
+}
+
 .history-actions {
     display: flex;
     align-items: center;

@@ -7,7 +7,7 @@ import { armConfirmDelete } from './confirmDelete.js';
 document.addEventListener('DOMContentLoaded', () => {
     loadMembers();
     $('#addMemberBtn').addEventListener('click', addMember);
-    $('#memberNote').addEventListener('keyup', (e) => { if (e.key === 'Enter') addMember(); });
+    $('#memberNickname').addEventListener('keyup', (e) => { if (e.key === 'Enter') addMember(); });
 });
 
 async function loadMembers() {
@@ -32,10 +32,10 @@ function renderMembers(members) {
         const li = document.createElement('li');
         li.className = 'member-item';
 
-        const note = document.createElement('span');
-        note.className = 'member-note';
-        note.textContent = m.note || '(無備註)';
-        li.appendChild(note);
+        const nick = document.createElement('span');
+        nick.className = 'member-note';
+        nick.textContent = m.nickname || '(無暱稱)';
+        li.appendChild(nick);
 
         const del = document.createElement('button');
         del.className = 'btn btn-outline-danger btn-sm';
@@ -50,7 +50,7 @@ function renderMembers(members) {
 
 async function addMember() {
     const password = $('#memberPassword').value.trim();
-    const note = $('#memberNote').value.trim();
+    const nickname = $('#memberNickname').value.trim();
     if (!password) {
         showModal('請輸入會員密碼', 'warning');
         return;
@@ -59,7 +59,7 @@ async function addMember() {
         const res = await fetch('/api/members', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password, note }),
+            body: JSON.stringify({ password, nickname }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -67,7 +67,7 @@ async function addMember() {
             return;
         }
         $('#memberPassword').value = '';
-        $('#memberNote').value = '';
+        $('#memberNickname').value = '';
         showToast('已新增會員', 'success');
         loadMembers();
     } catch (e) {

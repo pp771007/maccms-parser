@@ -160,6 +160,23 @@ def is_admin():
     return session.get('role') == 'admin'
 
 
+def member_nickname(m):
+    """會員顯示名稱。沿用舊資料的 note 欄位(改名前存的)。"""
+    return (m.get('nickname') or m.get('note') or '').strip()
+
+
+def account_nickname(role, account_id):
+    """目前登入帳號的顯示暱稱:管理員固定『管理員』;會員回其暱稱(沒設就『會員』)。"""
+    if role == 'admin':
+        return '管理員'
+    if account_id and account_id.startswith('m'):
+        mid = account_id[1:]
+        m = next((x for x in get_members() if str(x.get('id')) == mid), None)
+        if m:
+            return member_nickname(m) or '會員'
+    return '會員'
+
+
 @auth_bp.route('/setup-password', methods=['GET', 'POST'])
 def setup_password():
     if is_password_set():

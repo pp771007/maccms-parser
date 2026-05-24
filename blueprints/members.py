@@ -2,7 +2,7 @@ import time
 from flask import Blueprint, request, render_template, jsonify
 from werkzeug.security import generate_password_hash
 from config import get_config_value
-from blueprints.auth import get_members, save_members, password_in_use
+from blueprints.auth import get_members, save_members, password_in_use, member_nickname
 import storage
 
 members_bp = Blueprint('members', __name__)
@@ -17,15 +17,15 @@ def members_page():
 
 @members_bp.route('/api/members', methods=['GET'])
 def api_list_members():
-    # 不外洩 password_hash,只回 id 與備註
-    return jsonify([{'id': m['id'], 'note': m.get('note', '')} for m in get_members()])
+    # 不外洩 password_hash,只回 id 與暱稱
+    return jsonify([{'id': m['id'], 'nickname': member_nickname(m)} for m in get_members()])
 
 
 @members_bp.route('/api/members', methods=['POST'])
 def api_add_member():
     data = request.get_json(silent=True) or {}
     password = (data.get('password') or '').strip()
-    note = (data.get('note') or '').strip()
+    nickname = (data.get('nickname') or data.get('note') or '').strip()
     if not password:
         return jsonify({'status': 'error', 'message': '密碼不能為空'}), 400
     if len(password) < 4:
@@ -38,7 +38,7 @@ def api_add_member():
     members.append({
         'id': int(time.time() * 1000),
         'password_hash': generate_password_hash(password),
-        'note': note,
+        'nickname': nickname,
     })
     save_members(members)
     return jsonify({'status': 'success'}), 201

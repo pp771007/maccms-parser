@@ -939,6 +939,22 @@ export function showError(msg) {
 
 
 
+// 在頂端顯示「目前登入:暱稱」,讓使用者確認登在哪個帳號(跟 kazi 同步的帳號對照)
+export function renderAccountNickname() {
+    const el = $('#accountNickname');
+    if (!el) return;
+    const nick = state.account?.nickname;
+    el.textContent = nick ? `目前登入:${nick}` : '';
+}
+
+// 把時間戳格式化成「剛剛 / X 分鐘前 / HH:MM」,給「最後同步」用
+function formatSyncTime(ts) {
+    const diff = Date.now() - ts;
+    if (diff < 10000) return '剛剛';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} 分鐘前`;
+    return new Date(ts).toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
 // 把秒數格式化成 mm:ss 或 hh:mm:ss(觀看歷史與收藏卡片共用)
 function formatPlayTime(seconds) {
     if (!seconds || seconds <= 0) return '00:00';
@@ -956,6 +972,12 @@ export function renderWatchHistory() {
     const historyContainer = $('#watchHistoryContainer');
     if (!historyContainer) {
         return;
+    }
+
+    const syncedLabel = $('#historySyncedAt');
+    if (syncedLabel) {
+        syncedLabel.textContent = state.historySyncedAt
+            ? `最後同步:${formatSyncTime(state.historySyncedAt)}` : '';
     }
 
     // 清理無效的歷史紀錄（站台不存在的記錄）
@@ -1300,6 +1322,8 @@ export function showHistoryPanel() {
             if (historyPanel && historyOverlay) {
                 historyOverlay.style.display = 'block';
                 historyPanel.style.display = 'flex';
+                // 每次開面板都重新跟伺服器抓一次,確保看到其他裝置(kazi)同步上來的最新資料
+                await state.loadWatchHistory();
                 renderWatchHistory();
 
                 // 設置歷史記錄更新回調
@@ -1402,9 +1426,11 @@ export function toggleCurrentFavorite() {
 export function showFavoritesPanel() {
     historyManager.add({
         id: 'favoritesPanel',
-        apply: () => {
+        apply: async () => {
             $('#favoritesOverlay').style.display = 'block';
             $('#favoritesPanel').style.display = 'flex';
+            // 每次開面板都重新抓,確保看到其他裝置(kazi)同步上來的收藏
+            await state.loadFavorites();
             renderFavorites();
             const c = $('#favoritesContainer');
             c.addEventListener('wheel', (e) => e.stopPropagation(), { passive: false });
