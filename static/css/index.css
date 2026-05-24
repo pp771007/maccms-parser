@@ -548,6 +548,12 @@
     color: var(--text-color);
 }
 
+/* 收藏星號:已收藏 → 金色實心 */
+.favorite-toggle.favorited .icon {
+    fill: var(--warning-color);
+    stroke: var(--warning-color);
+}
+
 .close-btn {
     background: none;
     border: none;
@@ -587,6 +593,24 @@
     background: #000;
     border-radius: var(--radius);
     overflow: hidden;
+    position: relative;
+}
+
+/* 長按倍速提示 */
+.speed-hint {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    font-size: var(--fs-body);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    z-index: 60;
+    pointer-events: none;
 }
 
 .playlist-container {

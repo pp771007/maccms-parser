@@ -15,6 +15,8 @@ const PLAYER_CONFIG = {
     CLICK_THRESHOLD: 300, // 點擊事件閾值（毫秒）
     CONTINUOUS_CLICK_TIMEOUT: 500, // 連續點擊超時時間（毫秒）
     HINT_DISPLAY_TIME: 2000, // 提示顯示時間（毫秒）
+    LONG_PRESS_MS: 400, // 長按多久觸發倍速
+    FAST_FORWARD_RATE: 2, // 長按時的播放倍速
 };
 
 // 播放器狀態管理類
@@ -222,13 +224,61 @@ class ClickController {
         this.handlers.doubleClick = this.handleDoubleClick.bind(this);
         this.handlers.continuousClick = this.handleContinuousClick.bind(this);
 
+        // 長按 = 暫時 2 倍速(放開恢復)
+        this.handlers.pointerDown = this.handlePointerDown.bind(this);
+        this.handlers.pointerUp = this.handlePointerUp.bind(this);
+
         // 添加事件監聽器
         this.playerContainer.addEventListener('click', this.handlers.click, true);
         this.playerContainer.addEventListener('dblclick', this.handlers.doubleClick, true);
+        this.playerContainer.addEventListener('pointerdown', this.handlers.pointerDown, true);
+        this.playerContainer.addEventListener('pointerup', this.handlers.pointerUp, true);
+        this.playerContainer.addEventListener('pointercancel', this.handlers.pointerUp, true);
+    }
+
+    handlePointerDown(event) {
+        if (this.isControlElement(event.target)) return;
+        this.state.longPressFired = false;
+        this.timers.longPress = setTimeout(() => {
+            this.state.longPressFired = true;
+            this.enterFastForward();
+        }, PLAYER_CONFIG.LONG_PRESS_MS);
+    }
+
+    handlePointerUp() {
+        if (this.timers.longPress) {
+            clearTimeout(this.timers.longPress);
+            this.timers.longPress = null;
+        }
+        if (this.state.longPressFired) {
+            this.exitFastForward();
+            this.state.longPressFired = false;
+            this.state.suppressClick = true; // 抑制放開後的 click,避免誤觸暫停
+        }
+    }
+
+    enterFastForward() {
+        if (!this.artplayer) return;
+        this.prevRate = this.artplayer.playbackRate || 1;
+        try { this.artplayer.playbackRate = PLAYER_CONFIG.FAST_FORWARD_RATE; } catch (e) {}
+        showSpeedHint(this.playerContainer, `${PLAYER_CONFIG.FAST_FORWARD_RATE}x ▶▶`);
+    }
+
+    exitFastForward() {
+        if (!this.artplayer) return;
+        try { this.artplayer.playbackRate = this.prevRate || 1; } catch (e) {}
+        hideSpeedHint(this.playerContainer);
     }
 
     handleClick(event) {
         if (this.isControlElement(event.target)) {
+            return;
+        }
+        // 長按倍速放開後的那次 click 不處理(否則會誤觸暫停)
+        if (this.state.suppressClick) {
+            this.state.suppressClick = false;
+            event.preventDefault();
+            event.stopPropagation();
             return;
         }
 
@@ -398,16 +448,38 @@ class ClickController {
             if (timer) clearTimeout(timer);
         });
 
-        // 移除所有事件監聽器
+        // 移除所有事件監聽器(click/dblclick/pointer*)
         Object.values(this.handlers).forEach(handler => {
             this.playerContainer.removeEventListener('click', handler, true);
             this.playerContainer.removeEventListener('dblclick', handler, true);
+            this.playerContainer.removeEventListener('pointerdown', handler, true);
+            this.playerContainer.removeEventListener('pointerup', handler, true);
+            this.playerContainer.removeEventListener('pointercancel', handler, true);
         });
 
+        this.exitFastForward();
         this.removeExistingHints();
+        hideSpeedHint(this.playerContainer);
         this.timers = {};
         this.handlers = {};
     }
+}
+
+// 長按倍速時在畫面中央顯示「2x ▶▶」提示
+function showSpeedHint(container, text) {
+    let hint = container.querySelector('.speed-hint');
+    if (!hint) {
+        hint = document.createElement('div');
+        hint.className = 'speed-hint';
+        container.appendChild(hint);
+    }
+    hint.textContent = text;
+    hint.style.display = 'block';
+}
+
+function hideSpeedHint(container) {
+    const hint = container.querySelector('.speed-hint');
+    if (hint) hint.style.display = 'none';
 }
 
 export function playVideo(url, element, videoInfo = null, historyItem = null) {
@@ -439,6 +511,8 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     // 如果有影片資訊，記錄到歷史紀錄
     if (videoInfo) {
         state.currentVideoInfo = videoInfo;
+        // 通知 UI 更新(目前用於播放器標題列的收藏星號)
+        if (state.onPlaybackChange) state.onPlaybackChange();
 
         // 計算總集數 - 取各來源最大值避免重複計數
         let totalEpisodes = 0;

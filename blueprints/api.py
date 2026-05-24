@@ -10,6 +10,7 @@ from api_parser import process_api_request, get_details_from_api
 import storage
 
 MAX_HISTORY_ITEMS = 50  # 跟前端一致,單一帳號最多保留 50 筆觀看歷史
+MAX_FAVORITE_ITEMS = 200  # 單一帳號最多收藏數
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 logger = setup_logger()
@@ -338,6 +339,33 @@ def account_history():
     if not isinstance(data, list):
         return jsonify({'status': 'error', 'message': '格式錯誤:預期陣列'}), 400
     storage.set_text(key, json.dumps(data[:MAX_HISTORY_ITEMS], ensure_ascii=False))
+    return jsonify({'status': 'success'})
+
+
+@api_bp.route('/favorites', methods=['GET', 'POST'])
+def account_favorites():
+    """收藏清單,綁帳號、存伺服器端(Docker 檔案 / Vercel KV)→ 跨裝置同步。
+    收藏變動不頻繁,前端直接整包覆寫即可。"""
+    account_id = session.get('account_id')
+    if not account_id:
+        return jsonify([]) if request.method == 'GET' else (jsonify({'status': 'error', 'message': '未登入'}), 401)
+
+    key = f'favorites_{account_id}'
+
+    if request.method == 'GET':
+        raw = storage.get_text(key)
+        if not raw:
+            return jsonify([])
+        try:
+            data = json.loads(raw)
+            return jsonify(data if isinstance(data, list) else [])
+        except ValueError:
+            return jsonify([])
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, list):
+        return jsonify({'status': 'error', 'message': '格式錯誤:預期陣列'}), 400
+    storage.set_text(key, json.dumps(data[:MAX_FAVORITE_ITEMS], ensure_ascii=False))
     return jsonify({'status': 'success'})
 
 

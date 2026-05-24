@@ -117,6 +117,14 @@ function setupEventListeners() {
     armConfirmDelete($('#clearHistoryBtn'), ui.clearAllHistory);
     $('#historyOverlay').addEventListener('click', ui.hideHistoryPanel);
 
+    // Favorites
+    $('#favoritesBtn').addEventListener('click', ui.showFavoritesPanel);
+    $('#favoritesCloseBtn').addEventListener('click', ui.hideFavoritesPanel);
+    $('#favoritesOverlay').addEventListener('click', ui.hideFavoritesPanel);
+    $('#favoriteToggleBtn').addEventListener('click', ui.toggleCurrentFavorite);
+    // 播放開始時更新標題列星號(player.js 設好 currentVideoInfo 後會呼叫)
+    state.onPlaybackChange = ui.updateFavoriteButton;
+
     // 添加 ESC 鍵處理邏輯
     document.addEventListener('keydown', handleEscKey);
     // ← / → 翻上一頁 / 下一頁
@@ -256,8 +264,9 @@ async function loadSitesAndAutoLoadLast() {
         // 載入多選站台設定
         state.loadMultiSiteSelection();
 
-        // 載入觀看歷史紀錄(從伺服器,綁帳號)
+        // 載入觀看歷史 + 收藏(從伺服器,綁帳號)
         await state.loadWatchHistory();
+        await state.loadFavorites();
 
         // 載入搜尋關鍵字歷史記錄
         state.loadSearchHistory();
