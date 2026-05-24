@@ -355,12 +355,10 @@ def api_get_list_route():
         'wd': data.get('keyword')
     }
     params = {k: v for k, v in params.items() if v}
-    
-    # 獲取站點名稱用於日誌
-    sites = get_sites()
-    site = next((s for s in sites if s['url'] == url), None)
+
+    # 站點名稱用於日誌(沿用上面已查到的 site,不必再讀一次)
     site_name = site['name'] if site else None
-    
+
     result = process_api_request(url, params, logger, ssl_verify=ssl_verify, site_name=site_name)
     return jsonify(result)
 

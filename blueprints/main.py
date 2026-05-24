@@ -83,9 +83,13 @@ def serve_favicon():
     data = storage.get_blob(f'favicon.{ext}')
     if data is None:
         # fallback 到內建預設圖示
-        return send_file(os.path.join('static', 'img', 'favicon.svg'), mimetype='image/svg+xml')
-    mimetype = 'image/svg+xml' if ext == 'svg' else 'image/png'
-    return Response(data, mimetype=mimetype)
+        resp = send_file(os.path.join('static', 'img', 'favicon.svg'), mimetype='image/svg+xml')
+    else:
+        mimetype = 'image/svg+xml' if ext == 'svg' else 'image/png'
+        resp = Response(data, mimetype=mimetype)
+    # 網址帶 ?v=版本號,改圖會換網址自動失效 → 可長快取,避免每頁重抓(省請求 + KV get_blob)
+    resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
 
 @main_bp.route('/manifest.json', strict_slashes=False)
 def manifest():
@@ -113,4 +117,6 @@ def manifest():
             }
         ]
     }
-    return Response(json.dumps(manifest_data, ensure_ascii=False), content_type='application/json')
+    resp = Response(json.dumps(manifest_data, ensure_ascii=False), content_type='application/json')
+    resp.headers['Cache-Control'] = 'public, max-age=3600'
+    return resp

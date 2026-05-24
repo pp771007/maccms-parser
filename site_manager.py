@@ -31,19 +31,35 @@ def get_check_session():
     return _check_session
 
 
+# 站台清單被很多請求讀(瀏覽 / 搜尋 / 詳情都會 get_sites)。加記憶體短快取少打 KV:
+# 快取原始 JSON 文字,get_sites 每次 json.loads 出新 list → 呼叫端可安全原地 mutate;
+# save_sites 即時更新本機快取,serverless 其他實例最多 TTL 秒同步。
+_SITES_TTL = 30  # 秒
+_sites_cache_raw = None
+_sites_cache_at = 0.0
+
+
 def get_sites():
-    raw = storage.get_text(SITES_KEY)
-    if not raw:
+    global _sites_cache_raw, _sites_cache_at
+    now = time.time()
+    if _sites_cache_raw is None or (now - _sites_cache_at) >= _SITES_TTL:
+        _sites_cache_raw = storage.get_text(SITES_KEY) or ''
+        _sites_cache_at = now
+    if not _sites_cache_raw:
         return []
     try:
-        return json.loads(raw)
+        return json.loads(_sites_cache_raw)
     except ValueError:
         return []
 
 def save_sites(sites):
-    """儲存站點資料"""
+    """儲存站點資料(同時更新本機快取)"""
+    global _sites_cache_raw, _sites_cache_at
     try:
-        storage.set_text(SITES_KEY, json.dumps(sites, ensure_ascii=False, indent=4))
+        raw = json.dumps(sites, ensure_ascii=False, indent=4)
+        storage.set_text(SITES_KEY, raw)
+        _sites_cache_raw = raw
+        _sites_cache_at = time.time()
         logger.info(f"成功保存 {len(sites)} 個站點資料")
     except Exception as e:
         logger.error(f"保存站點資料失敗: {e}")
