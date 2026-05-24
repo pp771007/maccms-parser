@@ -68,6 +68,14 @@ class HistoryManager {
     }
 
     /**
+     * 從堆疊移除某個 state(不論在哪一層),用於「以關閉按鈕直接關掉」時保持堆疊乾淨,
+     * 避免殘留的 id 害下次 add 因去重而不開。不觸發 revert / popstate。
+     */
+    remove(id) {
+        this.stateStack = this.stateStack.filter(s => s.id !== id);
+    }
+
+    /**
      * Clears the history stack. Useful when closing multiple states at once.
      */
     clear() {

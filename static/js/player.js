@@ -511,8 +511,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     // 如果有影片資訊，記錄到歷史紀錄
     if (videoInfo) {
         state.currentVideoInfo = videoInfo;
-        // 通知 UI 更新(目前用於播放器標題列的收藏星號)
-        if (state.onPlaybackChange) state.onPlaybackChange();
 
         // 計算總集數 - 取各來源最大值避免重複計數
         let totalEpisodes = 0;

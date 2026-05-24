@@ -827,6 +827,8 @@ function renderPlaylist(sourceIndex = 0) {
 export function closeModal() {
     // 標記 modal 已關 → 攔住還在載入詳情、之後才會建立的播放器(避免背景播放、沒地方關)
     state.modalOpen = false;
+    // 從導覽堆疊移除,避免殘留 id 害下次開不了(以關閉按鈕直接關時)
+    historyManager.remove('videoModal');
     // 在關閉前保存當前進度
     state.saveCurrentProgress();
 
@@ -1122,6 +1124,8 @@ function computeNextEpisodeItem(item, modalData) {
 
 // 從觀看歷史播放。next=false → 繼續看(原集數+進度);next=true → 直接播下一集(從頭)。
 async function playFromHistory(item, next) {
+    // 先收起歷史面板,否則它的層級會蓋在播放器上、看起來像沒收起來
+    hideHistoryPanel();
     try {
         // 找站台(ID → 名稱 → 第一個可用)
         let site = state.sites.find(s => s.id === item.siteId);
@@ -1344,9 +1348,8 @@ export function hideHistoryPanel() {
 
         historyPanel.addEventListener('animationend', handleAnimationEnd);
 
-        if (historyManager.getCurrentState()?.id === 'historyPanel') {
-            historyManager.back();
-        }
+        // 清掉堆疊裡的 historyPanel(不論在第幾層),避免關閉後殘留害重開不了
+        historyManager.remove('historyPanel');
     }
 }
 
@@ -1358,123 +1361,6 @@ export function clearAllHistory() {
     showToast('已清除所有觀看歷史');
 }
 
-/* ===== 收藏 ===== */
-
-// 取得「目前 modal 內影片」的收藏項目(播放開始後 currentVideoInfo 最完整)
-function currentFavItem() {
-    const info = state.currentVideoInfo;
-    const cv = state.currentVideo;
-    const videoId = info?.videoId || cv?.vod_id;
-    const siteId = info?.siteId ?? cv?.from_site_id ?? state.currentSite?.id;
-    if (!videoId || siteId == null) return null;
-    return {
-        videoId,
-        siteId,
-        siteName: info?.siteName || state.sites.find(s => s.id === siteId)?.name || '',
-        videoName: cv?.vod_name || info?.videoName || '未知影片',
-        videoPic: cv?.vod_pic || '',
-    };
-}
-
-// 播放器標題列星號:反映目前影片是否已收藏
-export function updateFavoriteButton() {
-    const btn = $('#favoriteToggleBtn');
-    if (!btn) return;
-    const fav = currentFavItem();
-    btn.classList.toggle('favorited', !!(fav && state.isFavorited(fav.videoId, fav.siteId)));
-}
-
-export function toggleCurrentFavorite() {
-    const fav = currentFavItem();
-    if (!fav) { showToast('還無法取得影片資訊,稍等播放開始再試', 'warning'); return; }
-    const nowFav = state.toggleFavorite(fav);
-    updateFavoriteButton();
-    showToast(nowFav ? '已加入收藏 ⭐' : '已取消收藏', 'success');
-}
-
-export function showFavoritesPanel() {
-    historyManager.add({
-        id: 'favoritesPanel',
-        apply: () => {
-            $('#favoritesOverlay').style.display = 'block';
-            $('#favoritesPanel').style.display = 'flex';
-            renderFavorites();
-            const c = $('#favoritesContainer');
-            c.addEventListener('wheel', (e) => e.stopPropagation(), { passive: false });
-            c.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: false });
-        },
-        revert: hideFavoritesPanel,
-    });
-}
-
-export function hideFavoritesPanel() {
-    const panel = $('#favoritesPanel');
-    const overlay = $('#favoritesOverlay');
-    if (!panel || !overlay) return;
-    overlay.style.display = 'none';
-    panel.classList.add('closing');
-    const onEnd = () => {
-        panel.style.display = 'none';
-        panel.classList.remove('closing');
-        panel.removeEventListener('animationend', onEnd);
-    };
-    panel.addEventListener('animationend', onEnd);
-    if (historyManager.getCurrentState()?.id === 'favoritesPanel') {
-        historyManager.back();
-    }
-}
-
-function renderFavorites() {
-    const container = $('#favoritesContainer');
-    container.innerHTML = '';
-    if (!state.favorites || state.favorites.length === 0) {
-        container.innerHTML = '<p class="no-history">還沒有收藏 — 在播放頁點右上角的 ⭐ 加入</p>';
-        return;
-    }
-    state.favorites.forEach(fav => {
-        const card = document.createElement('div');
-        card.className = 'history-item';
-        const pic = fav.videoPic && fav.videoPic.trim()
-            ? fav.videoPic
-            : `https://placehold.co/300x400/666666/ffffff.png?text=${encodeURIComponent((fav.videoName || '').replace(/[^\w\s]/g, '').substring(0, 10) || 'No Image')}`;
-        card.innerHTML = `
-            <div class="history-pic-wrapper">
-                <img class="history-pic" src="${pic}" alt="${fav.videoName}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x400/666666/ffffff.png?text=No+Image';">
-            </div>
-            <div class="history-content">
-                <div class="history-header">
-                    <div class="history-title" title="${fav.videoName}">${fav.videoName}</div>
-                    <button class="btn btn-ghost btn-icon btn-sm unfav-btn" title="取消收藏">
-                        <svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    </button>
-                </div>
-                <div class="history-details">
-                    <span class="history-site">${fav.siteName || '未知站台'}</span>
-                </div>
-                <div class="history-bottom">
-                    <div class="history-actions-btns">
-                        <button class="btn btn-primary btn-sm fav-play-btn">播放</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        // 播放:組一個 video 物件丟給 openModal(用 from_site_id 指定站台)
-        const open = () => {
-            hideFavoritesPanel();
-            openModal({ vod_id: fav.videoId, vod_name: fav.videoName, vod_pic: fav.videoPic, from_site_id: fav.siteId });
-        };
-        card.querySelector('.fav-play-btn').addEventListener('click', open);
-        card.querySelector('.history-pic-wrapper').addEventListener('click', open);
-        // 取消收藏(即時,跟 kazi 的星號切換一樣)
-        card.querySelector('.unfav-btn').addEventListener('click', () => {
-            state.toggleFavorite(fav);
-            renderFavorites();
-            updateFavoriteButton();
-            showToast('已取消收藏');
-        });
-        container.appendChild(card);
-    });
-}
 
 // 檢查歷史記錄更新
 async function performHistoryUpdateCheck() {

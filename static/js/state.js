@@ -19,48 +19,9 @@ export default {
     watchHistory: [], // 觀看歷史紀錄(綁帳號、存伺服器端)
     _historyDirty: false,      // 記憶體有變動、尚未寫回伺服器
     _historyFlushTimer: null,  // 寫回伺服器的 debounce 計時器
-    favorites: [],    // 收藏清單(綁帳號、存伺服器端)
-
-    // 載入收藏(從伺服器,綁帳號、跨裝置)
-    async loadFavorites() {
-        try {
-            const res = await fetch('/api/favorites');
-            const data = res.ok ? await res.json() : [];
-            this.favorites = Array.isArray(data) ? data : [];
-        } catch (e) {
-            this.favorites = [];
-        }
-    },
-
-    saveFavorites() {
-        // 收藏變動不頻繁,直接整包寫回(不需 debounce)
-        fetch('/api/favorites', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(this.favorites),
-        }).catch(() => {});
-    },
-
-    isFavorited(videoId, siteId) {
-        return this.favorites.some(f => String(f.videoId) === String(videoId) && String(f.siteId) === String(siteId));
-    },
-
-    // 切換收藏;回傳切換後是否為已收藏
-    toggleFavorite(fav) {
-        const idx = this.favorites.findIndex(f => String(f.videoId) === String(fav.videoId) && String(f.siteId) === String(fav.siteId));
-        if (idx >= 0) {
-            this.favorites.splice(idx, 1);
-            this.saveFavorites();
-            return false;
-        }
-        this.favorites.unshift({ ...fav, addedAt: Date.now() });
-        this.saveFavorites();
-        return true;
-    },
     currentVideoInfo: null, // 當前播放的影片資訊
     currentVideo: null, // 當前選擇的影片資訊
     onHistoryUpdate: null, // 歷史記錄更新回調函數
-    onPlaybackChange: null, // 播放開始時的回調(目前用於更新收藏星號)
     historyUpdateInfo: {}, // 存儲歷史記錄的更新信息 {videoId_siteId: {hasUpdate: bool, newEpisodesCount: number}}
 
     // 檢查是否需要檢查歷史記錄更新（10分鐘內不重複檢查）
