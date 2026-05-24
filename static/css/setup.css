@@ -49,7 +49,7 @@
     gap: var(--sp-4);
 }
 
-.add-site-card .form-group {
+.card .form-group {
     margin-bottom: var(--sp-4);
 }
 

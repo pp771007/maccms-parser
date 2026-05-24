@@ -162,10 +162,11 @@
     overflow-x: clip;  /* 左右滑換頁時內容位移不造成整頁橫向捲動 */
 }
 
-/* 左右滑換頁的邊緣提示 */
+/* 左右滑換頁的邊緣提示(固定在「螢幕」中央,不是整頁中央) */
 .swipe-hint {
-    position: absolute;
-    top: 38%;
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
     display: none;
     padding: 9px 15px;
     border-radius: var(--radius-pill);
@@ -356,13 +357,31 @@
 /* ---- 分頁 ---- */
 .pagination {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     align-items: center;
-    gap: var(--sp-2);
+    gap: var(--sp-3);
     margin-top: var(--sp-6);
     padding-top: var(--sp-5);
     border-top: 1px solid var(--border-color);
+}
+
+.pagination:empty {
+    display: none;
+}
+
+.pager-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
     flex-wrap: wrap;
+}
+
+.pager-label {
+    font-size: var(--fs-caption);
+    color: var(--text-muted-color);
+    min-width: 42px;
+    text-align: right;
 }
 
 .pagination button {

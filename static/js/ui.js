@@ -58,136 +58,139 @@ export function renderCategories(categories) {
     wrap.style.display = hasCats ? '' : 'none';
 }
 
-export function renderVideos(videos) {
+// 一頁顯示幾筆(聚合後)。kazi 雙層分頁:把「資料頁」切成數個「顯示頁」,前端翻顯示頁不打伺服器、頁面也短。
+export const INNER_PAGE_SIZE = 24;
+
+// 把同名影片聚合成一筆(多站搜尋時同片會來自多站),回傳保留順序的群組陣列。
+export function aggregateVideos(videos) {
+    const map = new Map();
+    (videos || []).forEach(v => {
+        const key = v.vod_name;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(v);
+    });
+    return Array.from(map.entries()).map(([name, list]) => ({ name, list }));
+}
+
+function buildVideoCard(name, videoList) {
+    const card = document.createElement('div');
+    card.className = 'video-card';
+    const firstVideo = videoList[0];
+
+    let finalImageUrl;
+    if (firstVideo.vod_pic && firstVideo.vod_pic.trim()) {
+        finalImageUrl = firstVideo.vod_pic;
+    } else {
+        const englishName = name.replace(/[^\w\s]/g, '').substring(0, 10);
+        finalImageUrl = `https://placehold.co/300x400.png?text=${encodeURIComponent(englishName || 'No Image')}`;
+    }
+
+    let siteNamesHtml = '';
+    if (videoList.length > 1) {
+        const uniqueSites = [...new Set(videoList.map(v => v.from_site).filter(Boolean))];
+        if (uniqueSites.length > 0) siteNamesHtml = `<div class="video-site-name">${uniqueSites.join(', ')}</div>`;
+    } else if (firstVideo.from_site) {
+        siteNamesHtml = `<div class="video-site-name">${firstVideo.from_site}</div>`;
+    }
+
+    const countBadge = videoList.length > 1 ? `<div class="video-count-badge">${videoList.length}</div>` : '';
+
+    card.innerHTML = `
+        <div class="video-pic-wrapper">
+            <img class="video-pic" src="${finalImageUrl}" alt="${name}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x400.png?text=No+Image';">
+            ${siteNamesHtml}
+            ${countBadge}
+        </div>
+        <div class="video-info">
+            <div class="video-title" title="${name}">${name}</div>
+            <div class="video-note">${firstVideo.vod_remarks || ''}</div>
+        </div>
+    `;
+    card.addEventListener('click', () => {
+        // 多站搜尋下即使只有一個結果也用 multi-source,確保站台資訊正確傳遞
+        if (videoList.length > 1 || state.searchSiteIds.length > 0) {
+            openMultiSourceModal(name, videoList);
+        } else {
+            openModal(firstVideo);
+        }
+    });
+    return card;
+}
+
+// 渲染「目前顯示頁」的影片(讀 state.aggregated + state.displayPage)
+export function renderVideos() {
     const grid = $('#videoGrid');
     grid.innerHTML = '';
-    if (!videos || videos.length === 0) {
+    const groups = state.aggregated || [];
+    if (groups.length === 0) {
         grid.innerHTML = '<p style="text-align: center; grid-column: 1 / -1; padding: 20px;">沒有找到相關內容。</p>';
         return;
     }
-
-    // 聚合相同名字的影片
-    const groupedVideos = {};
-    videos.forEach(video => {
-        const key = video.vod_name;
-        if (!groupedVideos[key]) {
-            groupedVideos[key] = [];
-        }
-        groupedVideos[key].push(video);
-    });
-
-
-
-    // 渲染聚合後的影片
-    Object.entries(groupedVideos).forEach(([videoName, videoList]) => {
-        const card = document.createElement('div');
-        card.className = 'video-card';
-
-        // 使用第一個影片的圖片作為代表
-        const firstVideo = videoList[0];
-
-        // 改善圖片URL處理，避免中文編碼問題
-        let finalImageUrl;
-        if (firstVideo.vod_pic && firstVideo.vod_pic.trim()) {
-            finalImageUrl = firstVideo.vod_pic;
-        } else {
-            // 使用英文名稱生成佔位圖片，避免中文編碼問題
-            const englishName = videoName.replace(/[^\w\s]/g, '').substring(0, 10);
-            const placeholderText = encodeURIComponent(englishName || 'No Image');
-            finalImageUrl = `https://placehold.co/300x400.png?text=${placeholderText}`;
-        }
-
-        // 聚合顯示站台名稱
-        let siteNamesHtml = '';
-        if (videoList.length > 1) {
-            const uniqueSites = [...new Set(videoList.map(v => v.from_site).filter(Boolean))];
-            if (uniqueSites.length > 0) {
-                siteNamesHtml = `<div class="video-site-name">${uniqueSites.join(', ')}</div>`;
-            }
-        } else if (firstVideo.from_site) {
-            siteNamesHtml = `<div class="video-site-name">${firstVideo.from_site}</div>`;
-        }
-
-        // 顯示聚合數量
-        const countBadge = videoList.length > 1 ? `<div class="video-count-badge">${videoList.length}</div>` : '';
-
-        card.innerHTML = `
-            <div class="video-pic-wrapper">
-                <img class="video-pic" src="${finalImageUrl}" alt="${videoName}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x400.png?text=No+Image';">
-                ${siteNamesHtml}
-                ${countBadge}
-            </div>
-            <div class="video-info">
-                <div class="video-title" title="${videoName}">${videoName}</div>
-                <div class="video-note">${firstVideo.vod_remarks || ''}</div>
-            </div>
-        `;
-
-        // 點擊時顯示所有來源的詳細資訊
-        card.addEventListener('click', () => {
-
-            // 在多站點搜尋模式下，即使只有一個結果也使用 openMultiSourceModal
-            // 這樣可以確保站台信息正確傳遞
-            if (videoList.length > 1 || state.searchSiteIds.length > 0) {
-                openMultiSourceModal(videoName, videoList);
-            } else {
-                openModal(firstVideo);
-            }
-        });
-
-        grid.appendChild(card);
-    });
+    const start = (state.displayPage - 1) * INNER_PAGE_SIZE;
+    groups.slice(start, start + INNER_PAGE_SIZE).forEach(g => grid.appendChild(buildVideoCard(g.name, g.list)));
 }
 
-export function renderPagination(currentPage, totalPages, onPageChange) {
+// kazi 雙層分頁:顯示頁(內層,前端切片即時翻)+ 資料頁(外層,向伺服器抓)。
+// 只有一頁不顯示;只有外層(無內層)時不加「資料頁」標籤 → 等同單層,跟瀏覽一致。
+export function renderPager(h) {
     const pag = $('#pagination');
     pag.innerHTML = '';
-    if (!totalPages || totalPages <= 1) return;
+    const twoLayer = state.innerPageCount > 1;
 
-    const createBtn = (page, text = page, isDisabled = false) => {
+    const arrowBtn = (text, disabled, onClick) => {
         const btn = document.createElement('button');
         btn.textContent = text;
-        btn.disabled = isDisabled;
-        const pageNumber = Number(page);
-        if (pageNumber === currentPage) btn.classList.add('active');
-
-        // 為不同類型的按鈕添加顏色
-        if (text === '上一頁' || text === '下一頁') {
-            btn.classList.add('btn', 'btn-outline-info');
-        }
-
-        btn.addEventListener('click', () => {
-            if (currentPage !== pageNumber) {
-                onPageChange(pageNumber);
-            }
-        });
+        btn.disabled = disabled;
+        btn.classList.add('btn', 'btn-outline-info');
+        if (!disabled) btn.addEventListener('click', onClick);
         return btn;
     };
+    const infoSpan = (text) => {
+        const s = document.createElement('span');
+        s.textContent = text;
+        return s;
+    };
 
-    pag.appendChild(createBtn(currentPage - 1, '上一頁', currentPage === 1));
+    if (twoLayer) {
+        const row = document.createElement('div');
+        row.className = 'pager-row';
+        const label = document.createElement('span');
+        label.className = 'pager-label';
+        label.textContent = '顯示頁';
+        row.appendChild(label);
+        row.appendChild(arrowBtn('上一頁', state.displayPage <= 1, h.innerPrev));
+        row.appendChild(infoSpan(`${state.displayPage} / ${state.innerPageCount}`));
+        row.appendChild(arrowBtn('下一頁', state.displayPage >= state.innerPageCount, h.innerNext));
+        pag.appendChild(row);
+    }
 
-    const pageInput = document.createElement('input');
-    pageInput.type = 'number';
-    pageInput.min = 1;
-    pageInput.max = totalPages;
-    pageInput.value = currentPage;
-    pageInput.addEventListener('keyup', (e) => {
-        if (e.key === 'Enter') {
-            const newPage = parseInt(e.target.value, 10);
-            if (newPage >= 1 && newPage <= totalPages) {
-                onPageChange(newPage);
-            } else {
-                showModal(`請輸入 1 到 ${totalPages} 之間的頁碼`, 'warning');
-            }
+    if (state.totalPages > 1) {
+        const row = document.createElement('div');
+        row.className = 'pager-row';
+        if (twoLayer) {
+            const label = document.createElement('span');
+            label.className = 'pager-label';
+            label.textContent = '資料頁';
+            row.appendChild(label);
         }
-    });
-    pag.appendChild(pageInput);
-
-    const pageInfo = document.createElement('span');
-    pageInfo.textContent = `/ ${totalPages} 頁`;
-    pag.appendChild(pageInfo);
-
-    pag.appendChild(createBtn(currentPage + 1, '下一頁', currentPage === totalPages));
+        row.appendChild(arrowBtn('上一頁', state.currentPage <= 1, h.outerPrev));
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = 1;
+        input.max = state.totalPages;
+        input.value = state.currentPage;
+        input.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                const p = parseInt(e.target.value, 10);
+                if (p >= 1 && p <= state.totalPages) h.outerJump(p);
+                else showModal(`請輸入 1 到 ${state.totalPages} 之間的頁碼`, 'warning');
+            }
+        });
+        row.appendChild(input);
+        row.appendChild(infoSpan(`/ ${state.totalPages} 頁`));
+        row.appendChild(arrowBtn('下一頁', state.currentPage >= state.totalPages, h.outerNext));
+        pag.appendChild(row);
+    }
 }
 
 

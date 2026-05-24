@@ -26,10 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 手機左右滑換頁:左滑下一頁、右滑上一頁(只攔觸控、只在水平為主時接管)
     attachSwipePager($('.content-area'), $('#videoGrid'), {
-        canPrev: () => state.totalPages > 1 && state.currentPage > 1,
-        canNext: () => state.totalPages > 1 && state.currentPage < state.totalPages,
-        onPrev: () => goRelativePage(-1),
-        onNext: () => goRelativePage(1),
+        canPrev: canGoPrev,
+        canNext: canGoNext,
+        onPrev: goPrev,
+        onNext: goNext,
     });
 });
 
@@ -73,7 +73,6 @@ function registerServiceWorker() {
 }
 
 function setupEventListeners() {
-    initScrollButtons();
     // 站台 / 分類 chip 列：事件委派，點到 chip 就切換
     $('#siteStrip').addEventListener('click', (e) => {
         const chip = e.target.closest('.chip');
@@ -131,12 +130,35 @@ function isAnyOverlayOpen() {
     });
 }
 
-function goRelativePage(delta) {
-    if (!state.totalPages || state.totalPages <= 1) return;
-    const target = state.currentPage + delta;
-    if (target < 1 || target > state.totalPages) return;
-    state.currentPage = target;
-    fetchAndRender();
+function scrollTopSmooth() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// 重畫「目前資料頁」的顯示頁切片 + 雙層分頁列
+function refreshView() {
+    ui.renderVideos();
+    ui.renderPager(PAGER_HANDLERS);
+}
+
+// 分頁列的按鈕行為:內層(顯示頁)純前端切片即時翻;外層(資料頁)向伺服器抓
+const PAGER_HANDLERS = {
+    innerPrev: () => { if (state.displayPage > 1) { state.displayPage--; scrollTopSmooth(); refreshView(); } },
+    innerNext: () => { if (state.displayPage < state.innerPageCount) { state.displayPage++; scrollTopSmooth(); refreshView(); } },
+    outerPrev: () => { if (state.currentPage > 1) { state.currentPage--; fetchAndRender(); } },
+    outerNext: () => { if (state.currentPage < state.totalPages) { state.currentPage++; fetchAndRender(); } },
+    outerJump: (p) => { state.currentPage = p; fetchAndRender(); },
+};
+
+// 合併翻頁(方向鍵 / 左右滑):顯示頁(內層)優先,翻完才換資料頁(外層)
+function canGoPrev() { return state.displayPage > 1 || state.currentPage > 1; }
+function canGoNext() { return state.displayPage < state.innerPageCount || state.currentPage < state.totalPages; }
+function goPrev() {
+    if (state.displayPage > 1) { state.displayPage--; scrollTopSmooth(); refreshView(); }
+    else if (state.currentPage > 1) { state._pendingDisplayLast = true; state.currentPage--; fetchAndRender(); }
+}
+function goNext() {
+    if (state.displayPage < state.innerPageCount) { state.displayPage++; scrollTopSmooth(); refreshView(); }
+    else if (state.currentPage < state.totalPages) { state.currentPage++; fetchAndRender(); }
 }
 
 function handleArrowPaging(e) {
@@ -147,44 +169,8 @@ function handleArrowPaging(e) {
     // 在輸入框打字時左右鍵要移游標,不攔
     const el = document.activeElement;
     if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-    goRelativePage(e.key === 'ArrowLeft' ? -1 : 1);
-}
-
-function initScrollButtons() {
-    const toTopBtn = $('#scrollToTopBtn');
-    const toBottomBtn = $('#scrollToBottomBtn');
-    const historyBtn = $('#historyBtn');
-
-    toTopBtn.addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-
-    toBottomBtn.addEventListener('click', () => {
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    });
-
-    // 歷史紀錄按鈕始終顯示
-    historyBtn.style.display = 'flex';
-
-    window.addEventListener('scroll', () => {
-        const scrollHeight = document.documentElement.scrollHeight;
-        const clientHeight = document.documentElement.clientHeight;
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-        // Show/hide "scroll to top" button
-        if (scrollTop > 300) {
-            toTopBtn.style.display = 'flex';
-        } else {
-            toTopBtn.style.display = 'none';
-        }
-
-        // Show/hide "scroll to bottom" button
-        if (scrollTop + clientHeight >= scrollHeight - 50) { // 50px buffer
-            toBottomBtn.style.display = 'none';
-        } else {
-            toBottomBtn.style.display = 'flex';
-        }
-    });
+    if (e.key === 'ArrowLeft') { if (canGoPrev()) goPrev(); }
+    else if (canGoNext()) goNext();
 }
 
 let t2s; // 儲存轉換函數
@@ -421,6 +407,13 @@ async function fetchAndRender() {
         state.currentPage = Number(result.page);
         state.totalPages = Number(result.pagecount);
 
+        // 聚合 + 切顯示頁(雙層分頁的內層)
+        state.aggregated = ui.aggregateVideos(state.videos);
+        state.innerPageCount = Math.max(1, Math.ceil(state.aggregated.length / ui.INNER_PAGE_SIZE));
+        // 一般跳到第 1 個顯示頁;若是「往前跨資料頁」則停在最後一個顯示頁(連續往回)
+        state.displayPage = state._pendingDisplayLast ? state.innerPageCount : 1;
+        state._pendingDisplayLast = false;
+
         if (!isMultiSiteSearch && result.class && result.class.length > 0) {
             state.categories = result.class;
             ui.renderCategories(state.categories);
@@ -428,11 +421,7 @@ async function fetchAndRender() {
             ui.renderCategories([]);
         }
 
-        ui.renderVideos(state.videos);
-        ui.renderPagination(state.currentPage, state.totalPages, (newPage) => {
-            state.currentPage = newPage;
-            fetchAndRender(); // Now this will correctly re-trigger the same search type
-        });
+        refreshView();
         ui.updateSearchBox(state.currentKeyword);
 
     } catch (err) {

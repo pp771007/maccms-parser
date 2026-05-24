@@ -3,8 +3,12 @@ export default {
     currentSite: null,
     videos: [],
     categories: [],
-    currentPage: 1,
+    currentPage: 1,       // 資料頁(外層,向伺服器抓)
     totalPages: 1,
+    aggregated: [],       // 聚合後的影片群組(整個資料頁)
+    displayPage: 1,       // 顯示頁(內層,前端切片)
+    innerPageCount: 1,    // 這個資料頁切成幾個顯示頁
+    _pendingDisplayLast: false, // 往前跨資料頁時,下一次 render 停在最後一個顯示頁
     currentTypeId: null,
     currentKeyword: null,
     artplayer: null,
