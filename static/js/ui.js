@@ -1365,6 +1365,123 @@ export function clearAllHistory() {
     showToast('已清除所有觀看歷史');
 }
 
+/* ===== 收藏(共通格式,跟 kazi 共用)===== */
+
+// 目前 modal 內影片的收藏項目(共通格式,鍵=videoId+siteUrl)
+function currentFavItem() {
+    const info = state.currentVideoInfo;
+    const cv = state.currentVideo;
+    const videoId = info?.videoId || cv?.vod_id;
+    const siteId = info?.siteId ?? cv?.from_site_id ?? state.currentSite?.id;
+    const siteUrl = state.sites.find(s => s.id === siteId)?.url || '';
+    if (!videoId || !siteUrl) return null;
+    return {
+        videoId,
+        siteUrl,
+        siteName: state.sites.find(s => s.url === siteUrl)?.name || info?.siteName || '',
+        videoName: cv?.vod_name || info?.videoName || '未知影片',
+        videoPic: cv?.vod_pic || '',
+        vodRemarks: cv?.vod_remarks || '',
+    };
+}
+
+export function updateFavoriteButton() {
+    const btn = $('#favoriteToggleBtn');
+    if (!btn) return;
+    const fav = currentFavItem();
+    btn.classList.toggle('favorited', !!(fav && state.isFavorited(fav.videoId, fav.siteUrl)));
+}
+
+export function toggleCurrentFavorite() {
+    const fav = currentFavItem();
+    if (!fav) { showToast('還無法取得影片資訊,稍等播放開始再試', 'warning'); return; }
+    const nowFav = state.toggleFavorite(fav);
+    updateFavoriteButton();
+    showToast(nowFav ? '已加入收藏 ⭐' : '已取消收藏', 'success');
+}
+
+export function showFavoritesPanel() {
+    historyManager.add({
+        id: 'favoritesPanel',
+        apply: () => {
+            $('#favoritesOverlay').style.display = 'block';
+            $('#favoritesPanel').style.display = 'flex';
+            renderFavorites();
+            const c = $('#favoritesContainer');
+            c.addEventListener('wheel', (e) => e.stopPropagation(), { passive: false });
+            c.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: false });
+        },
+        revert: hideFavoritesPanel,
+    });
+}
+
+export function hideFavoritesPanel() {
+    const panel = $('#favoritesPanel');
+    const overlay = $('#favoritesOverlay');
+    if (!panel || !overlay) return;
+    overlay.style.display = 'none';
+    panel.classList.add('closing');
+    const onEnd = () => {
+        panel.style.display = 'none';
+        panel.classList.remove('closing');
+        panel.removeEventListener('animationend', onEnd);
+    };
+    panel.addEventListener('animationend', onEnd);
+    historyManager.remove('favoritesPanel');
+}
+
+function renderFavorites() {
+    const container = $('#favoritesContainer');
+    container.innerHTML = '';
+    if (!state.favorites || state.favorites.length === 0) {
+        container.innerHTML = '<p class="no-history">還沒有收藏 — 在播放頁點右上角的 ⭐ 加入</p>';
+        return;
+    }
+    state.favorites.forEach(fav => {
+        const card = document.createElement('div');
+        card.className = 'history-item';
+        const pic = fav.videoPic && fav.videoPic.trim()
+            ? fav.videoPic
+            : `https://placehold.co/300x400/666666/ffffff.png?text=${encodeURIComponent((fav.videoName || '').replace(/[^\w\s]/g, '').substring(0, 10) || 'No Image')}`;
+        const siteName = fav.siteName || state.sites.find(s => s.url === fav.siteUrl)?.name || '未知站台';
+        card.innerHTML = `
+            <div class="history-pic-wrapper">
+                <img class="history-pic" src="${pic}" alt="${fav.videoName}" loading="lazy" onerror="this.onerror=null;this.src='https://placehold.co/300x400/666666/ffffff.png?text=No+Image';">
+            </div>
+            <div class="history-content">
+                <div class="history-header">
+                    <div class="history-title" title="${fav.videoName}">${fav.videoName}</div>
+                    <button class="btn btn-ghost btn-icon btn-sm unfav-btn" title="取消收藏">
+                        <svg class="icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    </button>
+                </div>
+                <div class="history-details">
+                    <span class="history-site">${siteName}</span>
+                </div>
+                <div class="history-bottom">
+                    <div class="history-actions-btns">
+                        <button class="btn btn-primary btn-sm fav-play-btn">播放</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        const open = () => {
+            hideFavoritesPanel();
+            const site = state.sites.find(s => s.url === fav.siteUrl);
+            openModal({ vod_id: fav.videoId, vod_name: fav.videoName, vod_pic: fav.videoPic, from_site_id: site?.id });
+        };
+        card.querySelector('.fav-play-btn').addEventListener('click', open);
+        card.querySelector('.history-pic-wrapper').addEventListener('click', open);
+        card.querySelector('.unfav-btn').addEventListener('click', () => {
+            state.toggleFavorite(fav);
+            renderFavorites();
+            updateFavoriteButton();
+            showToast('已取消收藏');
+        });
+        container.appendChild(card);
+    });
+}
+
 
 // 檢查歷史記錄更新
 async function performHistoryUpdateCheck() {

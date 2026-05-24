@@ -548,6 +548,12 @@
     color: var(--text-color);
 }
 
+/* 收藏星號:已收藏 → 金色實心 */
+.favorite-toggle.favorited .icon {
+    fill: var(--warning-color);
+    stroke: var(--warning-color);
+}
+
 .close-btn {
     background: none;
     border: none;

@@ -118,6 +118,13 @@ function setupEventListeners() {
     armConfirmDelete($('#clearHistoryBtn'), ui.clearAllHistory);
     $('#historyOverlay').addEventListener('click', ui.hideHistoryPanel);
 
+    // Favorites
+    $('#favoritesBtn').addEventListener('click', ui.showFavoritesPanel);
+    $('#favoritesCloseBtn').addEventListener('click', ui.hideFavoritesPanel);
+    $('#favoritesOverlay').addEventListener('click', ui.hideFavoritesPanel);
+    $('#favoriteToggleBtn').addEventListener('click', ui.toggleCurrentFavorite);
+    state.onPlaybackChange = ui.updateFavoriteButton; // 播放開始更新標題列星號
+
     // 添加 ESC 鍵處理邏輯
     document.addEventListener('keydown', handleEscKey);
     // ← / → 翻上一頁 / 下一頁
@@ -257,8 +264,9 @@ async function loadSitesAndAutoLoadLast() {
         // 載入多選站台設定
         state.loadMultiSiteSelection();
 
-        // 載入觀看歷史(從伺服器,綁帳號)
+        // 載入觀看歷史 + 收藏(從伺服器,綁帳號,跟 kazi 共用)
         await state.loadWatchHistory();
+        await state.loadFavorites();
 
         // 載入搜尋關鍵字歷史記錄
         state.loadSearchHistory();

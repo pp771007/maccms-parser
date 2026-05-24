@@ -12,6 +12,10 @@
             <span class="brand-name">{{ site_title }}</span>
         </div>
         <div class="topbar-actions">
+            <button id="favoritesBtn" class="btn btn-ghost btn-sm" title="我的收藏">
+                <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <span class="label-text">收藏</span>
+            </button>
             <button id="historyBtn" class="btn btn-ghost btn-sm" title="觀看歷史">
                 <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 3"/></svg>
                 <span class="label-text">歷史</span>
@@ -78,6 +82,9 @@
                 <button id="copyTitleBtn" class="copy-title-btn" title="複製標題">
                     <svg class="icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                 </button>
+                <button id="favoriteToggleBtn" class="copy-title-btn favorite-toggle" title="收藏 / 取消收藏">
+                    <svg class="icon" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                </button>
             </h3>
             <button class="close-btn" title="關閉">
                 <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -127,6 +134,19 @@
     <div class="history-footer">
         <button id="closeHistoryBtn" class="btn btn-secondary history-close-btn">關閉歷史面板</button>
     </div>
+</div>
+
+<div id="favoritesOverlay" class="history-overlay" style="display: none;"></div>
+<div id="favoritesPanel" class="history-panel" style="display: none;">
+    <div class="history-header">
+        <h3>我的收藏</h3>
+        <div class="history-actions">
+            <button id="favoritesCloseBtn" class="btn btn-ghost btn-icon btn-sm" title="關閉">
+                <svg class="icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+    </div>
+    <div id="favoritesContainer" class="history-container"></div>
 </div>
 
 <div id="loader" class="loader" style="display: none;">載入中…</div>
