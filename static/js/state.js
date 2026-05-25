@@ -306,7 +306,9 @@ export default {
         const item = this.watchHistory.find(i => i.videoId === videoId && i.siteUrl === siteUrl);
         if (item) {
             item.deletedAt = Date.now();
-            this.saveWatchHistory();
+            // 刪除立即上傳,不等 2.5 秒 debounce,否則另一台馬上同步會抓到舊資料(刪了還在)
+            this._historyDirty = true;
+            this.flushWatchHistory();
         }
     },
 
@@ -342,7 +344,9 @@ export default {
     clearHistory() {
         const now = Date.now();
         this.watchHistory.forEach(i => { if (!i.deletedAt) i.deletedAt = now; });
-        this.saveWatchHistory();
+        // 清空立即上傳,理由同 removeHistory
+        this._historyDirty = true;
+        this.flushWatchHistory();
     },
 
     // 保存當前播放進度（用於播放器銷毀時）
