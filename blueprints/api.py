@@ -134,6 +134,9 @@ def add_or_get_sites():
         if not name:
             name = derive_site_name(cleaned_url)
         
+        # id 只是「站台管理」的本地主鍵:REST 路由 /api/sites/<id>、排序、編輯時用來指涉這個站台。
+        # ⚠️ 不要拿 id 當「影片來源識別」——它是本地序號,跨裝置 / 跟 kazi 同步時根本對不上。
+        # 歷史 / 收藏認站台一律用 siteUrl(那才是站台本質、跨裝置一致、又能直接打 API)。
         new_site = {
             'id': int(time.time() * 1000),
             'name': name.capitalize(),
@@ -658,34 +661,31 @@ def check_history_updates():
         for item in history_items:
             try:
                 video_id = item.get('videoId')
-                site_id = item.get('siteId')
+                site_url = item.get('siteUrl')
                 site_name = item.get('siteName')
                 old_total_episodes = item.get('totalEpisodes', 0)
                 video_name = item.get('videoName', '未知影片')
                 
-                # 查找對應的站點
-                site = next((s for s in all_sites if s['id'] == site_id), None)
-                if not site and site_name:
-                    site = next((s for s in all_sites if s['name'] == site_name), None)
-                
-                # 跳過不存在、無URL或已停用的站點
-                if not site or not site.get('url') or not site.get('enabled', True):
+                # 以 siteUrl 為準直接查;本地剛好有這站台就沿用其 ssl_verify / 名稱,沒有也照樣能查
+                site = next((s for s in all_sites if s['url'] == site_url), None)
+                if not site_url or (site and not site.get('enabled', True)):
                     results.append({
                         'videoId': video_id,
-                        'siteId': site_id,
+                        'siteUrl': site_url,
                         'status': 'skipped',
-                        'reason': '站台不存在、無URL或已停用'
+                        'reason': '歷史無站台網址,或本地對應站台已停用'
                     })
                     continue
-                
+
                 # 獲取影片詳情
-                ssl_verify = site.get('ssl_verify', True)
-                detail_result = get_details_from_api(site['url'], video_id, logger, ssl_verify=ssl_verify, site_name=site['name'])
+                ssl_verify = site.get('ssl_verify', True) if site else True
+                check_name = site['name'] if site else (site_name or site_url)
+                detail_result = get_details_from_api(site_url, video_id, logger, ssl_verify=ssl_verify, site_name=check_name)
                 
                 if detail_result.get('status') != 'success' or not detail_result.get('data'):
                     results.append({
                         'videoId': video_id,
-                        'siteId': site_id,
+                        'siteUrl': site_url,
                         'status': 'failed',
                         'reason': detail_result.get('message', '獲取詳情失敗')
                     })
@@ -708,7 +708,7 @@ def check_history_updates():
                     # 首次記錄集數
                     results.append({
                         'videoId': video_id,
-                        'siteId': site_id,
+                        'siteUrl': site_url,
                         'status': 'success',
                         'totalEpisodes': total_episodes,
                         'hasUpdate': False
@@ -721,7 +721,7 @@ def check_history_updates():
                     
                     results.append({
                         'videoId': video_id,
-                        'siteId': site_id,
+                        'siteUrl': site_url,
                         'status': 'success',
                         'totalEpisodes': total_episodes,
                         'hasUpdate': True,
@@ -733,7 +733,7 @@ def check_history_updates():
                     # 無變化
                     results.append({
                         'videoId': video_id,
-                        'siteId': site_id,
+                        'siteUrl': site_url,
                         'status': 'success',
                         'totalEpisodes': total_episodes,
                         'hasUpdate': False
@@ -743,7 +743,7 @@ def check_history_updates():
                 logger.error(f"檢查影片 {item.get('videoName', '未知')} 更新失敗: {e}")
                 results.append({
                     'videoId': item.get('videoId'),
-                    'siteId': item.get('siteId'),
+                    'siteUrl': item.get('siteUrl'),
                     'status': 'error',
                     'reason': str(e)
                 })

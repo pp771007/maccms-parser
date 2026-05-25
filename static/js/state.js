@@ -25,7 +25,7 @@ export default {
     currentVideo: null, // 當前選擇的影片資訊
     onHistoryUpdate: null, // 歷史記錄更新回調函數
     onPlaybackChange: null, // 播放開始時的回調(更新收藏星號)
-    historyUpdateInfo: {}, // 存儲歷史記錄的更新信息 {videoId_siteId: {hasUpdate: bool, newEpisodesCount: number}}
+    historyUpdateInfo: {}, // 存儲歷史記錄的更新信息 {videoId_siteUrl: {hasUpdate: bool, newEpisodesCount: number}}
 
     // 檢查是否需要檢查歷史記錄更新（10分鐘內不重複檢查）
     shouldCheckHistoryUpdates() {
@@ -72,7 +72,7 @@ export default {
     _historyToCanonical(item) {
         return {
             videoId: item.videoId,
-            siteUrl: (this.sites.find(s => s.id === item.siteId)?.url) || item.siteUrl || '',
+            siteUrl: item.siteUrl || '',
             siteName: item.siteName || '',
             videoName: item.videoName || '',
             videoPic: item.videoPic || '',
@@ -91,7 +91,6 @@ export default {
     _historyFromCanonical(c) {
         return {
             videoId: c.videoId,
-            siteId: (this.sites.find(s => s.url === c.siteUrl)?.id) ?? null,
             siteUrl: c.siteUrl || '',
             siteName: c.siteName || '',
             videoName: c.videoName || '',
@@ -252,10 +251,10 @@ export default {
     // 添加觀看歷史紀錄
     addToHistory(videoInfo) {
 
-        // 查找是否已存在同一部影片的記錄（使用 videoId + siteId）
+        // 查找是否已存在同一部影片的記錄（鍵=videoId+siteUrl，跟收藏 / kazi 同步一致）
         const existingIndex = this.watchHistory.findIndex(item =>
             item.videoId === videoInfo.videoId &&
-            item.siteId === videoInfo.siteId
+            item.siteUrl === videoInfo.siteUrl
         );
 
         if (existingIndex !== -1) {
@@ -303,8 +302,8 @@ export default {
     },
 
     // 軟刪一筆觀看歷史(標記 deletedAt,留著跟著同步,而非直接移除)
-    removeHistory(videoId, siteId) {
-        const item = this.watchHistory.find(i => i.videoId === videoId && i.siteId === siteId);
+    removeHistory(videoId, siteUrl) {
+        const item = this.watchHistory.find(i => i.videoId === videoId && i.siteUrl === siteUrl);
         if (item) {
             item.deletedAt = Date.now();
             this.saveWatchHistory();
@@ -312,10 +311,10 @@ export default {
     },
 
     // 更新播放進度
-    updateProgress(videoId, episodeUrl, siteId, currentTime, duration) {
+    updateProgress(videoId, episodeUrl, siteUrl, currentTime, duration) {
         const historyItem = this.watchHistory.find(item =>
             item.videoId === videoId &&
-            item.siteId === siteId
+            item.siteUrl === siteUrl
         );
 
         if (historyItem) {
@@ -355,7 +354,7 @@ export default {
                 this.updateProgress(
                     this.currentVideoInfo.videoId,
                     this.currentVideoInfo.episodeUrl,
-                    this.currentVideoInfo.siteId,
+                    this.currentVideoInfo.siteUrl,
                     currentTime,
                     duration
                 );

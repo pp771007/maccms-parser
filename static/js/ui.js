@@ -455,6 +455,21 @@ export async function openMultiSourceModal(videoName, videoList) {
     }
 }
 
+// 從目前播放情境推出「這集屬於哪個站台」:多來源用該來源的站台,否則用目前單站,
+// 再不行退用第一個可用站台。回傳 { siteUrl, siteName }——歷史 / 收藏一律以 siteUrl 為識別,
+// siteUrl 跟 siteName 綁同一個站台、永遠一致。
+function resolvePlaybackSite(sourceIndex) {
+    if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
+        const v = state.multiSourceVideos[sourceIndex];
+        const site = v && state.sites.find(s => s.id === v.from_site_id);
+        if (site) return { siteUrl: site.url, siteName: v.from_site || site.name };
+    }
+    if (state.currentSite) return { siteUrl: state.currentSite.url, siteName: state.currentSite.name };
+    const valid = state.sites.find(s => s && s.id && s.name && s.url);
+    if (valid) return { siteUrl: valid.url, siteName: valid.name };
+    return { siteUrl: '', siteName: '未知站台' };
+}
+
 // 新增只渲染劇集的函數，不清空來源按鈕
 function renderEpisodesOnly() {
     if (!state.modalData || state.modalData.length === 0) {
@@ -475,40 +490,12 @@ function renderEpisodesOnly() {
             item.className = 'episode-item';
             item.textContent = epi.name;
             item.onclick = () => {
-                // 改進站台信息獲取邏輯
-                let siteId = null;
-                let siteName = null;
-
-                // 在多站點模式下，優先使用多來源影片的站台信息
-                if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-                    const currentVideo = state.multiSourceVideos[state.currentSourceIndex];
-                    if (currentVideo) {
-                        siteId = currentVideo.from_site_id;
-                        siteName = currentVideo.from_site;
-                    }
-                }
-
-                // 如果沒有多來源信息，使用當前站台
-                if (!siteId && state.currentSite) {
-                    siteId = state.currentSite.id;
-                    siteName = state.currentSite.name;
-
-                }
-
-                // 如果還是沒有，嘗試從站台列表中查找
-                if (!siteId && state.sites.length > 0) {
-                    const validSites = state.sites.filter(s => s && s.id && s.name && s.url);
-                    if (validSites.length > 0) {
-                        siteId = validSites[0].id;
-                        siteName = validSites[0].name;
-
-                    }
-                }
+                const { siteUrl, siteName } = resolvePlaybackSite(sourceIndex);
 
                 // 獲取純影片名稱
                 let pureVideoName = state.currentVideo?.vod_name;
                 if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-                    const currentVideo = state.multiSourceVideos[state.currentSourceIndex];
+                    const currentVideo = state.multiSourceVideos[sourceIndex];
                     if (currentVideo) {
                         pureVideoName = currentVideo.vod_name;
                     }
@@ -519,8 +506,8 @@ function renderEpisodesOnly() {
                     videoName: pureVideoName || $('#modalTitle').textContent,
                     episodeName: epi.name,
                     episodeUrl: epi.url,
-                    siteId: siteId,
-                    siteName: siteName || '未知站台'
+                    siteUrl: siteUrl,
+                    siteName: siteName
                 };
 
 
@@ -533,37 +520,7 @@ function renderEpisodesOnly() {
         // 只在首次載入時自動播放第一個劇集，切換資源時不自動播放
         const firstEpisode = episodeList.firstElementChild;
         if (firstEpisode && !state.artplayer) {
-            // 使用相同的站台信息獲取邏輯
-            let siteId = null;
-            let siteName = null;
-
-            // 在多站點模式下，優先使用多來源影片的站台信息
-            if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-                const currentVideo = state.multiSourceVideos[state.currentSourceIndex];
-
-                if (currentVideo) {
-                    siteId = currentVideo.from_site_id;
-                    siteName = currentVideo.from_site;
-
-                }
-            }
-
-            // 如果沒有多來源信息，使用當前站台
-            if (!siteId && state.currentSite) {
-                siteId = state.currentSite.id;
-                siteName = state.currentSite.name;
-
-            }
-
-            // 如果還是沒有，嘗試從站台列表中查找
-            if (!siteId && state.sites.length > 0) {
-                const validSites = state.sites.filter(s => s && s.id && s.name && s.url);
-                if (validSites.length > 0) {
-                    siteId = validSites[0].id;
-                    siteName = validSites[0].name;
-
-                }
-            }
+            const { siteUrl, siteName } = resolvePlaybackSite(sourceIndex);
 
             // 獲取純影片名稱（不包含來源數量信息）
             let pureVideoName = $('#modalTitle').textContent;
@@ -580,8 +537,8 @@ function renderEpisodesOnly() {
                 videoName: pureVideoName,
                 episodeName: currentSource.episodes[0].name,
                 episodeUrl: currentSource.episodes[0].url,
-                siteId: siteId,
-                siteName: siteName || '未知站台'
+                siteUrl: siteUrl,
+                siteName: siteName
             };
 
             playVideo(currentSource.episodes[0].url, firstEpisode, videoInfo);
@@ -656,38 +613,7 @@ function renderPlaylist(sourceIndex = 0) {
             item.className = 'episode-item';
             item.textContent = epi.name;
             item.onclick = () => {
-                // 改進站台信息獲取邏輯
-                let siteId = null;
-                let siteName = null;
-
-                // 在多站點模式下，優先使用多來源影片的站台信息
-                if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-                    // 使用傳入的 sourceIndex 而不是 state.currentSourceIndex
-                    const currentVideo = state.multiSourceVideos[sourceIndex];
-
-                    if (currentVideo) {
-                        siteId = currentVideo.from_site_id;
-                        siteName = currentVideo.from_site;
-
-                    }
-                }
-
-                // 如果沒有多來源信息，使用當前站台
-                if (!siteId && state.currentSite) {
-                    siteId = state.currentSite.id;
-                    siteName = state.currentSite.name;
-
-                }
-
-                // 如果還是沒有，嘗試從站台列表中查找
-                if (!siteId && state.sites.length > 0) {
-                    const validSites = state.sites.filter(s => s && s.id && s.name && s.url);
-                    if (validSites.length > 0) {
-                        siteId = validSites[0].id;
-                        siteName = validSites[0].name;
-
-                    }
-                }
+                const { siteUrl, siteName } = resolvePlaybackSite(sourceIndex);
 
                 // 在多站點模式下，優先使用多來源影片的影片ID
                 let videoId = state.currentVideo?.vod_id;
@@ -723,8 +649,8 @@ function renderPlaylist(sourceIndex = 0) {
                     videoName: pureVideoName || $('#modalTitle').textContent,
                     episodeName: epi.name,
                     episodeUrl: epi.url,
-                    siteId: siteId,
-                    siteName: siteName || '未知站台',
+                    siteUrl: siteUrl,
+                    siteName: siteName,
                     videoPic: videoPic
                 };
 
@@ -738,36 +664,7 @@ function renderPlaylist(sourceIndex = 0) {
         // 只在首次載入時自動播放第一個劇集，切換資源時不自動播放
         const firstEpisode = episodeList.firstElementChild;
         if (firstEpisode && !state.artplayer) {
-            // 使用相同的站台信息獲取邏輯
-            let siteId = null;
-            let siteName = null;
-
-            // 在多站點模式下，優先使用多來源影片的站台信息
-            if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-                // 使用傳入的 sourceIndex 而不是 state.currentSourceIndex
-                const currentVideo = state.multiSourceVideos[sourceIndex];
-                if (currentVideo) {
-                    siteId = currentVideo.from_site_id;
-                    siteName = currentVideo.from_site;
-                }
-            }
-
-            // 如果沒有多來源信息，使用當前站台
-            if (!siteId && state.currentSite) {
-                siteId = state.currentSite.id;
-                siteName = state.currentSite.name;
-
-            }
-
-            // 如果還是沒有，嘗試從站台列表中查找
-            if (!siteId && state.sites.length > 0) {
-                const validSites = state.sites.filter(s => s && s.id && s.name && s.url);
-                if (validSites.length > 0) {
-                    siteId = validSites[0].id;
-                    siteName = validSites[0].name;
-
-                }
-            }
+            const { siteUrl, siteName } = resolvePlaybackSite(sourceIndex);
 
             // 在多站點模式下，優先使用多來源影片的影片ID
             let videoId = state.currentVideo?.vod_id;
@@ -804,8 +701,8 @@ function renderPlaylist(sourceIndex = 0) {
                 videoName: pureVideoName,
                 episodeName: currentSource.episodes[0].name,
                 episodeUrl: currentSource.episodes[0].url,
-                siteId: siteId,
-                siteName: siteName || '未知站台',
+                siteUrl: siteUrl,
+                siteName: siteName,
                 videoPic: videoPic
             };
 
@@ -972,52 +869,16 @@ export function renderWatchHistory() {
             ? `最後同步:${formatSyncTime(state.historySyncedAt)}` : '';
     }
 
-    // 清理無效的歷史紀錄（站台不存在的記錄）
+    // 補齊缺少的站台名稱(以 siteUrl 對應本地站台;對不上就維持原樣,不影響顯示與播放)。
+    // 不再因「本地沒有對應站台」清掉歷史——歷史以 siteUrl 為識別,跨裝置 / 跟 kazi 同步時
+    // 本地站台清單常對不上,但只要 siteUrl 還在就是有效歷史,不該被誤刪。
     if (state.sites && state.sites.length > 0) {
-        const originalLength = state.watchHistory.length;
-        state.watchHistory = state.watchHistory.filter(item => {
-            // 保留有站台名稱的記錄，或者站台ID在當前站台列表中的記錄
-            // 或者有站台ID但站台名稱為null的記錄（可能是舊的歷史紀錄格式）
-            const hasValidSite = item.deletedAt ||  // 墓碑一律保留(同步用),不因站台檢查被清掉
-                item.siteName ||
-                state.sites.some(s => s.id === item.siteId || s.name === item.siteName) ||
-                (item.siteId && item.siteName === null); // 允許siteName為null但有siteId的記錄
-
-
-
-            return hasValidSite;
-        });
-        if (originalLength !== state.watchHistory.length) {
-
-            state.saveWatchHistory();
-        }
-
-        // 修復歷史紀錄中的站台信息
         state.watchHistory.forEach(item => {
             if (!item.siteName || item.siteName === '未知站台') {
-                // 嘗試根據 siteId 找到對應的站台名稱
-                const site = state.sites.find(s => s.id === item.siteId);
-                if (site) {
-                    item.siteName = site.name;
-
-                }
+                const site = state.sites.find(s => s.url === item.siteUrl);
+                if (site) item.siteName = site.name;
             }
         });
-
-        // 標記無效的歷史紀錄（站台已不存在）
-        const invalidHistoryItems = [];
-        state.watchHistory.forEach((item, index) => {
-            const site = state.sites.find(s => s.id === item.siteId);
-            if (!site) {
-                invalidHistoryItems.push({
-                    index,
-                    item,
-                    reason: '站台已不存在'
-                });
-            }
-        });
-
-
     }
 
     const activeList = state.activeHistory();
@@ -1078,7 +939,7 @@ export function renderWatchHistory() {
                 </div>
                 <div class="history-details">
                     <span class="history-episode">${item.episodeName || '未知劇集'}</span>
-                    <span class="history-site">${item.siteName || (item.siteId ? (state.sites.find(s => s.id === item.siteId)?.name || state.sites.find(s => s.name === item.siteName)?.name || '未知站台') : (state.sites.find(s => s.name === item.siteName)?.name || '未知站台'))}</span>
+                    <span class="history-site">${item.siteName || state.sites.find(s => s.url === item.siteUrl)?.name || '未知站台'}</span>
                     ${item.totalEpisodes ? `<span class="history-total-episodes" title="目前共有${item.totalEpisodes}集">共 ${item.totalEpisodes} 集</span>` : ''}
                     <span class="history-time">${formatDate(item.lastWatched || item.timestamp)}</span>
                 </div>
@@ -1098,7 +959,7 @@ export function renderWatchHistory() {
         `;
 
         // 檢查是否有更新並添加標記
-        const key = `${item.videoId}_${item.siteId}`;
+        const key = `${item.videoId}_${item.siteUrl}`;
         if (state.historyUpdateInfo[key]?.hasUpdate) {
             const updateBadge = document.createElement('div');
             updateBadge.className = 'update-badge';
@@ -1115,7 +976,7 @@ export function renderWatchHistory() {
 
         // 移除紀錄(兩段式:第一下變「確認」,再按一次才刪)
         armConfirmDelete(historyItem.querySelector('.remove-btn'), () => {
-            state.removeHistory(item.videoId, item.siteId);  // 軟刪(標記墓碑,跟著同步)
+            state.removeHistory(item.videoId, item.siteUrl);  // 軟刪(標記墓碑,跟著同步)
             renderWatchHistory();
             showToast('已移除觀看紀錄');
         });
@@ -1141,17 +1002,12 @@ async function playFromHistory(item, next) {
     // 先收起歷史面板,否則它的層級會蓋在播放器上、看起來像沒收起來
     hideHistoryPanel();
     try {
-        // 找站台(ID → 名稱 → 第一個可用)
-        let site = state.sites.find(s => s.id === item.siteId);
-        if (!site && item.siteName) site = state.sites.find(s => s.name === item.siteName);
-        if (!site && state.sites.length > 0) {
-            const validSites = state.sites.filter(s => s && s.id && s.name && s.url);
-            if (validSites.length > 0) site = validSites[0];
-        }
-        if (!site) { showModal('找不到可用的站台資訊，請檢查站台設定', 'error'); return; }
-        if (!site.url || site.url.trim() === '') { showModal(`站台 "${site.name}" 的URL無效，請檢查站台設定`, 'error'); return; }
+        // 歷史以 siteUrl 為識別,直接用它打 API:即使本地沒把這個站台加進清單,
+        // 只要原站還活著就能續看(跨裝置 / 跟 kazi 同步時,本地站台清單常對不上)。
+        const siteUrl = item.siteUrl;
+        if (!siteUrl || siteUrl.trim() === '') { showModal('這筆歷史沒有站台網址，無法播放', 'error'); return; }
 
-        const result = await fetchVideoDetails(site.url, item.videoId);
+        const result = await fetchVideoDetails(siteUrl, item.videoId);
         state.modalData = result.data;
         state.currentVideo = { vod_id: item.videoId, vod_name: item.videoName, vod_pic: item.videoPic };
 
@@ -1253,8 +1109,8 @@ function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
                     videoName: historyItem.videoName,
                     episodeName: epi.name,
                     episodeUrl: epi.url,
-                    siteId: historyItem.siteId,
-                    siteName: historyItem.siteName || (historyItem.siteId ? state.sites.find(s => s.id === historyItem.siteId)?.name : '未知站台')
+                    siteUrl: historyItem.siteUrl,
+                    siteName: historyItem.siteName || state.sites.find(s => s.url === historyItem.siteUrl)?.name || '未知站台'
                 };
 
                 // 如果是目標劇集且有播放進度，傳遞 historyItem 給 playVideo
@@ -1388,8 +1244,11 @@ function currentFavItem() {
     const info = state.currentVideoInfo;
     const cv = state.currentVideo;
     const videoId = info?.videoId || cv?.vod_id;
-    const siteId = info?.siteId ?? cv?.from_site_id ?? state.currentSite?.id;
-    const siteUrl = state.sites.find(s => s.id === siteId)?.url || '';
+    // 已播放的用 currentVideoInfo.siteUrl;還沒播放(從搜尋結果收藏)的用 from_site_id 查回 url
+    const siteUrl = info?.siteUrl
+        || (cv?.from_site_id != null ? state.sites.find(s => s.id === cv.from_site_id)?.url : null)
+        || state.currentSite?.url
+        || '';
     if (!videoId || !siteUrl) return null;
     return {
         videoId,
@@ -1468,7 +1327,7 @@ function renderFavorites() {
         const hist = state.watchHistory.find(h =>
             !h.deletedAt &&
             String(h.videoId) === String(fav.videoId) &&
-            (h.siteId === site?.id || h.siteName === fav.siteName));
+            h.siteUrl === fav.siteUrl);
         const progressPercent = hist && hist.duration > 0
             ? Math.round((hist.currentTime / hist.duration) * 100) : 0;
         const progressBlock = hist ? `
@@ -1559,7 +1418,7 @@ async function performHistoryUpdateCheck() {
         const itemsToCheck = state.activeHistory().slice(0, 5).map(item => ({
             videoId: item.videoId,
             videoName: item.videoName,
-            siteId: item.siteId,
+            siteUrl: item.siteUrl,
             siteName: item.siteName,
             totalEpisodes: item.totalEpisodes || 0
         }));
@@ -1575,9 +1434,9 @@ async function performHistoryUpdateCheck() {
             result.results.forEach(checkResult => {
                 if (checkResult.status === 'success') {
                     // 找到對應的歷史記錄項目
-                    const historyItem = state.watchHistory.find(item => 
-                        item.videoId === checkResult.videoId && 
-                        item.siteId === checkResult.siteId
+                    const historyItem = state.watchHistory.find(item =>
+                        item.videoId === checkResult.videoId &&
+                        item.siteUrl === checkResult.siteUrl
                     );
 
                     if (historyItem) {
@@ -1589,7 +1448,7 @@ async function performHistoryUpdateCheck() {
 
                         // 如果有更新，記錄更新信息
                         if (checkResult.hasUpdate) {
-                            const key = `${checkResult.videoId}_${checkResult.siteId}`;
+                            const key = `${checkResult.videoId}_${checkResult.siteUrl}`;
                             state.historyUpdateInfo[key] = {
                                 hasUpdate: true,
                                 newEpisodesCount: checkResult.newEpisodesCount

@@ -54,7 +54,7 @@ class PlayerStateManager {
                 state.updateProgress(
                     state.currentVideoInfo.videoId,
                     state.currentVideoInfo.episodeUrl,
-                    state.currentVideoInfo.siteId,
+                    state.currentVideoInfo.siteUrl,
                     currentTime,
                     duration
                 );
@@ -589,7 +589,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     const historyItemToUse = historyItem || state.watchHistory.find(item =>
         item.videoId === state.currentVideoInfo?.videoId &&
         item.episodeUrl === state.currentVideoInfo?.episodeUrl &&
-        item.siteId === state.currentVideoInfo?.siteId
+        item.siteUrl === state.currentVideoInfo?.siteUrl
     );
 
     // 決定是否自動播放
@@ -1005,7 +1005,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                     state.updateProgress(
                         state.currentVideoInfo.videoId,
                         state.currentVideoInfo.episodeUrl,
-                        state.currentVideoInfo.siteId,
+                        state.currentVideoInfo.siteUrl,
                         currentTime,
                         duration
                     );
@@ -1023,7 +1023,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 state.updateProgress(
                     state.currentVideoInfo.videoId,
                     state.currentVideoInfo.episodeUrl,
-                    state.currentVideoInfo.siteId,
+                    state.currentVideoInfo.siteUrl,
                     currentTime,
                     duration
                 );
@@ -1047,7 +1047,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 state.updateProgress(
                     state.currentVideoInfo.videoId,
                     state.currentVideoInfo.episodeUrl,
-                    state.currentVideoInfo.siteId,
+                    state.currentVideoInfo.siteUrl,
                     currentTime,
                     duration
                 );
@@ -1178,7 +1178,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 state.updateProgress(
                     state.currentVideoInfo.videoId,
                     state.currentVideoInfo.episodeUrl,
-                    state.currentVideoInfo.siteId,
+                    state.currentVideoInfo.siteUrl,
                     currentTime,
                     duration
                 );
@@ -1221,7 +1221,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 state.updateProgress(
                     state.currentVideoInfo.videoId,
                     state.currentVideoInfo.episodeUrl,
-                    state.currentVideoInfo.siteId,
+                    state.currentVideoInfo.siteUrl,
                     currentTime,
                     duration
                 );
@@ -1238,7 +1238,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                 state.updateProgress(
                     state.currentVideoInfo.videoId,
                     state.currentVideoInfo.episodeUrl,
-                    state.currentVideoInfo.siteId,
+                    state.currentVideoInfo.siteUrl,
                     currentTime,
                     duration
                 );
