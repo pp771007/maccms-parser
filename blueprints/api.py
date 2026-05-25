@@ -16,6 +16,23 @@ MAX_FAVORITE_ITEMS = 600
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 logger = setup_logger()
 
+# 站台搜尋 / 探測的併發上限。針對 Docker 小機器(512MB / 0.5 CPU)壓在 6,
+# 避免一次開太多執行緒吃爆記憶體。
+_FILE_BACKEND_MAX_WORKERS = 6
+
+
+def _search_concurrency(task_count):
+    """併發 worker 數:serverless(連了 KV)不限批次,Docker / 本機維持小機器上限。
+
+    站台搜尋是 I/O bound(都在等遠端回應),執行緒在等待時不佔 CPU。serverless
+    function 資源獨立、且有執行時間上限,若沿用 6 會讓 ceil(站台數 / 6) 變多批、
+    把總耗時推過 Vercel 的 function timeout;放開讓所有站台同批打,總耗時就鎖在
+    單站 timeout,不隨站台數增加。
+    """
+    if storage.USE_KV:
+        return task_count
+    return min(task_count, _FILE_BACKEND_MAX_WORKERS)
+
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """健康檢查端點 - 檢查應用程式和依賴服務狀態"""
@@ -304,7 +321,7 @@ def probe_batch():
 
     results = []
     if candidates:
-        max_workers = min(len(candidates), 6)
+        max_workers = _search_concurrency(len(candidates))
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(probe, c) for c in candidates]
             for future in concurrent.futures.as_completed(futures):
@@ -547,8 +564,7 @@ def multi_site_search():
             logger.error(f"站台 {site['name']} 搜尋異常: {type(e).__name__}: {str(e)}")
             return [], 0
 
-    # 限制最大併發數，防止資源耗盡 - 針對小型伺服器 (512MB RAM + 0.5 CPU)
-    max_workers = min(len(sites_to_search), 6)  # 最多同時 6 個請求（適中配置）
+    max_workers = _search_concurrency(len(sites_to_search))
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_site = {executor.submit(search_site, site): site for site in sites_to_search}
         for future in concurrent.futures.as_completed(future_to_site):
