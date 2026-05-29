@@ -13,6 +13,43 @@ import storage
 MAX_HISTORY_ITEMS = 300
 MAX_FAVORITE_ITEMS = 600
 
+
+def _num(item, field):
+    """安全取數字時間戳;缺值 / 非數字 → 0,才能跟其他筆比大小不炸。"""
+    v = item.get(field, 0) if isinstance(item, dict) else 0
+    return v if isinstance(v, (int, float)) else 0
+
+
+def _load_list(key):
+    """讀回 storage 裡的 list;空 / 壞 JSON → []。"""
+    raw = storage.get_text(key)
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, list) else []
+    except ValueError:
+        return []
+
+
+def _merge_sync_items(stored, incoming, time_of):
+    """逐筆 merge:鍵=videoId|siteUrl,同鍵取 time_of 較大(較新)者。
+
+    incoming 接在 stored 後面 → 同分時用新送上來的,符合 last-write-wins。
+    跳過沒有 videoId 的畸形項。這是同步不丟資料的關鍵:client 端是整包 POST,
+    若伺服器直接覆寫,帶舊資料的裝置會蓋掉另一台剛存的新進度。
+    """
+    merged = {}
+    for item in list(stored) + list(incoming):
+        if not isinstance(item, dict) or 'videoId' not in item:
+            continue
+        k = f"{item.get('videoId')}|{item.get('siteUrl', '')}"
+        existing = merged.get(k)
+        if existing is None or time_of(item) >= time_of(existing):
+            merged[k] = item
+    return list(merged.values())
+
+
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 logger = setup_logger()
 
@@ -458,11 +495,15 @@ def account_history():
         except ValueError:
             return jsonify([])
 
-    # POST:整包覆寫(前端維護順序與上限)
+    # POST:跟伺服器現有資料逐筆 merge(鍵=videoId|siteUrl,較新者贏),不再整包覆寫。
+    # 避免「帶著舊資料的裝置推一次,把另一台剛存的新進度整包蓋掉」。
     data = request.get_json(silent=True)
     if not isinstance(data, list):
         return jsonify({'status': 'error', 'message': '格式錯誤:預期陣列'}), 400
-    storage.set_text(key, json.dumps(data[:MAX_HISTORY_ITEMS], ensure_ascii=False))
+    merged = _merge_sync_items(_load_list(key), data,
+                               lambda x: max(_num(x, 'updatedAt'), _num(x, 'deletedAt')))
+    merged.sort(key=lambda x: _num(x, 'updatedAt'), reverse=True)
+    storage.set_text(key, json.dumps(merged[:MAX_HISTORY_ITEMS], ensure_ascii=False))
     return jsonify({'status': 'success'})
 
 
@@ -485,10 +526,14 @@ def account_favorites():
         except ValueError:
             return jsonify([])
 
+    # POST:逐筆 merge(鍵=videoId|siteUrl,較新者贏),理由同 history,不整包覆寫
     data = request.get_json(silent=True)
     if not isinstance(data, list):
         return jsonify({'status': 'error', 'message': '格式錯誤:預期陣列'}), 400
-    storage.set_text(key, json.dumps(data[:MAX_FAVORITE_ITEMS], ensure_ascii=False))
+    merged = _merge_sync_items(_load_list(key), data,
+                               lambda x: max(_num(x, 'addedAt'), _num(x, 'deletedAt')))
+    merged.sort(key=lambda x: _num(x, 'addedAt'), reverse=True)
+    storage.set_text(key, json.dumps(merged[:MAX_FAVORITE_ITEMS], ensure_ascii=False))
     return jsonify({'status': 'success'})
 
 
