@@ -13,6 +13,11 @@ import storage
 MAX_HISTORY_ITEMS = 300
 MAX_FAVORITE_ITEMS = 600
 
+# 墓碑(軟刪 tombstone)保留 30 天後永久清掉:夠久讓所有裝置都同步到「這筆刪了」,
+# 之後不必再佔 MAX_*_ITEMS 額度。代價:離線超過 30 天的裝置帶舊 active 版本回來會讓該筆復活
+# (tombstone 已 GC、沒得壓制)——這是 tombstone 同步的標準取捨。
+_TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
+
 
 def _num(item, field):
     """安全取數字時間戳;缺值 / 非數字 → 0,才能跟其他筆比大小不炸。"""
@@ -20,9 +25,8 @@ def _num(item, field):
     return v if isinstance(v, (int, float)) else 0
 
 
-def _load_list(key):
-    """讀回 storage 裡的 list;空 / 壞 JSON → []。"""
-    raw = storage.get_text(key)
+def _parse_list(raw):
+    """把 storage 的原始文字 parse 成 list;空 / 壞 JSON / 非 list → []。"""
     if not raw:
         return []
     try:
@@ -30,6 +34,22 @@ def _load_list(key):
         return data if isinstance(data, list) else []
     except ValueError:
         return []
+
+
+def _load_list(key):
+    """讀回 storage 裡的 list;空 / 壞 JSON → []。"""
+    return _parse_list(storage.get_text(key))
+
+
+def _gc_tombstones(items, now_ms):
+    """丟掉超過 _TOMBSTONE_TTL_MS 的墓碑(deletedAt 太舊),讓刪除不會永久佔額度。active 項全保留。"""
+    out = []
+    for it in items:
+        d = _num(it, 'deletedAt')
+        if d and now_ms - d > _TOMBSTONE_TTL_MS:
+            continue
+        out.append(it)
+    return out
 
 
 def _merge_sync_items(stored, incoming, time_of):
@@ -497,13 +517,22 @@ def account_history():
 
     # POST:跟伺服器現有資料逐筆 merge(鍵=videoId|siteUrl,較新者贏),不再整包覆寫。
     # 避免「帶著舊資料的裝置推一次,把另一台剛存的新進度整包蓋掉」。
+    # 讀+merge+寫包進 storage.update_text 的鎖內 → 兩台同時 POST 也不會 lost update。
     data = request.get_json(silent=True)
     if not isinstance(data, list):
         return jsonify({'status': 'error', 'message': '格式錯誤:預期陣列'}), 400
-    merged = _merge_sync_items(_load_list(key), data,
-                               lambda x: max(_num(x, 'updatedAt'), _num(x, 'deletedAt')))
-    merged.sort(key=lambda x: _num(x, 'updatedAt'), reverse=True)
-    storage.set_text(key, json.dumps(merged[:MAX_HISTORY_ITEMS], ensure_ascii=False))
+    now_ms = int(time.time() * 1000)
+
+    def _merge(raw):
+        eff = lambda x: max(_num(x, 'updatedAt'), _num(x, 'deletedAt'))
+        merged = _merge_sync_items(_parse_list(raw), data, eff)
+        merged = _gc_tombstones(merged, now_ms)
+        # 截斷排序用「有效時間」(含 deletedAt),跟 merge 一致 → 超量時不會把最近的刪除墓碑先丟掉、
+        # 害刪除被舊裝置復活。
+        merged.sort(key=eff, reverse=True)
+        return json.dumps(merged[:MAX_HISTORY_ITEMS], ensure_ascii=False)
+
+    storage.update_text(key, _merge)
     return jsonify({'status': 'success'})
 
 
@@ -526,14 +555,20 @@ def account_favorites():
         except ValueError:
             return jsonify([])
 
-    # POST:逐筆 merge(鍵=videoId|siteUrl,較新者贏),理由同 history,不整包覆寫
+    # POST:逐筆 merge(鍵=videoId|siteUrl,較新者贏),理由同 history,不整包覆寫;同樣包進鎖內。
     data = request.get_json(silent=True)
     if not isinstance(data, list):
         return jsonify({'status': 'error', 'message': '格式錯誤:預期陣列'}), 400
-    merged = _merge_sync_items(_load_list(key), data,
-                               lambda x: max(_num(x, 'addedAt'), _num(x, 'deletedAt')))
-    merged.sort(key=lambda x: _num(x, 'addedAt'), reverse=True)
-    storage.set_text(key, json.dumps(merged[:MAX_FAVORITE_ITEMS], ensure_ascii=False))
+    now_ms = int(time.time() * 1000)
+
+    def _merge(raw):
+        eff = lambda x: max(_num(x, 'addedAt'), _num(x, 'deletedAt'))
+        merged = _merge_sync_items(_parse_list(raw), data, eff)
+        merged = _gc_tombstones(merged, now_ms)
+        merged.sort(key=eff, reverse=True)
+        return json.dumps(merged[:MAX_FAVORITE_ITEMS], ensure_ascii=False)
+
+    storage.update_text(key, _merge)
     return jsonify({'status': 'success'})
 
 

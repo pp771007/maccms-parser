@@ -8,7 +8,9 @@
 # 不需要知道目前用的是哪種後端。
 
 import os
+import time
 import base64
+import secrets
 import threading
 import tempfile
 import shutil
@@ -25,8 +27,15 @@ USE_KV = bool(_KV_URL and _KV_TOKEN)
 _KV_PREFIX = 'maccms:'
 _KV_TIMEOUT = 10
 
-# 檔案後端用：防止併發寫入衝突（原本散在 config.py / site_manager.py 的鎖集中到這）
-_file_lock = threading.Lock()
+# 檔案後端用：防止併發寫入衝突（原本散在 config.py / site_manager.py 的鎖集中到這）。
+# 用 RLock：update_text 會在持鎖時再呼叫 set_text→_write_file（也拿這把鎖），可重入才不會自我死鎖。
+_file_lock = threading.RLock()
+
+# update_text 的 KV 分散式鎖參數：critical section 只是一次 GET+SET，5 秒 TTL 綽綽有餘；
+# 搶不到就每 50ms 重試,最多等 5 秒。TTL 是防呆（持鎖端崩了讓鎖自動過期,不會永久卡住）。
+_KV_LOCK_TTL_MS = 5000
+_KV_LOCK_WAIT_S = 5.0
+_KV_LOCK_RETRY_S = 0.05
 
 
 _writable_cache = None
@@ -114,6 +123,54 @@ def set_text(key, value):
         _kv_command('SET', _KV_PREFIX + key, value)
         return
     _write_file(key, value.encode('utf-8'))
+
+
+def _kv_acquire_lock(lock_key, token):
+    """搶 KV 分散式鎖（SET NX PX）。搶到回 True;等超過 _KV_LOCK_WAIT_S 仍搶不到回 False。"""
+    deadline = time.time() + _KV_LOCK_WAIT_S
+    while True:
+        res = _kv_command('SET', lock_key, token, 'NX', 'PX', _KV_LOCK_TTL_MS)
+        if res == 'OK':
+            return True
+        if time.time() >= deadline:
+            return False
+        time.sleep(_KV_LOCK_RETRY_S)
+
+
+def _kv_release_lock(lock_key, token):
+    """放鎖:compare-and-delete(只刪自己這把)。避免 TTL 過期後被別人接手、又被我們誤刪。"""
+    script = ("if redis.call('get', KEYS[1]) == ARGV[1] "
+              "then return redis.call('del', KEYS[1]) else return 0 end")
+    try:
+        _kv_command('EVAL', script, 1, lock_key, token)
+    except Exception:
+        pass  # 放鎖失敗不致命:TTL 到了鎖會自己消失
+
+
+def update_text(key, fn):
+    """原子的「讀→改→寫」:fn(目前文字 or None) 回傳新文字,整段序列化避免併發 lost update。
+
+    這是同步資料(history / favorites / sync_tokens)的關鍵:client 端整包 POST,伺服器要先
+    讀現有再 merge 寫回。若讀-改-寫沒包在同一把鎖內,兩個請求交錯時後寫的會蓋掉先寫的 merge 結果。
+      - 檔案後端:整段持 _file_lock(RLock)。
+      - KV 後端:用 SET NX 分散式鎖序列化跨 serverless invocation 的併發。搶不到鎖就退化成
+        無鎖讀改寫(等同舊行為,不比現在差),記一筆 warning。
+    回傳寫入後的新文字。"""
+    if USE_KV:
+        lock_key = _KV_PREFIX + 'lock:' + key
+        token = secrets.token_urlsafe(16)
+        locked = _kv_acquire_lock(lock_key, token)
+        try:
+            new_val = fn(get_text(key))
+            set_text(key, new_val)
+            return new_val
+        finally:
+            if locked:
+                _kv_release_lock(lock_key, token)
+    with _file_lock:
+        new_val = fn(get_text(key))
+        set_text(key, new_val)
+        return new_val
 
 
 def get_blob(key):

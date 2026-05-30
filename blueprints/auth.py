@@ -203,12 +203,28 @@ def save_sync_tokens(d):
     storage.set_text(_SYNC_TOKENS_KEY, json.dumps(d, ensure_ascii=False))
 
 
+def _parse_tokens(raw):
+    """把 storage 原始文字 parse 成 dict;空 / 壞 JSON / 非 dict → {}。"""
+    if not raw:
+        return {}
+    try:
+        d = json.loads(raw)
+        return d if isinstance(d, dict) else {}
+    except ValueError:
+        return {}
+
+
 def mint_sync_token(account_id, label=''):
-    """發一組新 token 綁定到 account_id,回傳 token 字串。"""
+    """發一組新 token 綁定到 account_id,回傳 token 字串。
+    讀-改-寫走 update_text 的鎖,避免跟並行的 mint/revoke 互相覆蓋(同一個 sync_tokens key)。"""
     token = secrets.token_urlsafe(32)
-    d = get_sync_tokens()
-    d[token] = {'account_id': account_id, 'label': label, 'created_at': int(time.time() * 1000)}
-    save_sync_tokens(d)
+
+    def _add(raw):
+        d = _parse_tokens(raw)
+        d[token] = {'account_id': account_id, 'label': label, 'created_at': int(time.time() * 1000)}
+        return json.dumps(d, ensure_ascii=False)
+
+    storage.update_text(_SYNC_TOKENS_KEY, _add)
     return token
 
 
@@ -223,18 +239,17 @@ def account_for_token(token):
 def revoke_sync_token(token):
     if not token:
         return
-    d = get_sync_tokens()
-    if token in d:
-        d.pop(token, None)
-        save_sync_tokens(d)
+    storage.update_text(_SYNC_TOKENS_KEY,
+                        lambda raw: json.dumps({t: r for t, r in _parse_tokens(raw).items() if t != token},
+                                               ensure_ascii=False))
 
 
 def revoke_account_tokens(account_id):
     """撤銷某帳號的所有裝置 token(刪會員時順手清掉,避免孤兒 token)。"""
-    d = get_sync_tokens()
-    remaining = {t: r for t, r in d.items() if r.get('account_id') != account_id}
-    if len(remaining) != len(d):
-        save_sync_tokens(remaining)
+    storage.update_text(_SYNC_TOKENS_KEY,
+                        lambda raw: json.dumps({t: r for t, r in _parse_tokens(raw).items()
+                                                if r.get('account_id') != account_id},
+                                               ensure_ascii=False))
 
 
 def list_account_tokens(account_id):
