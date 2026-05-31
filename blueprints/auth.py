@@ -182,6 +182,42 @@ def role_for_account_id(account_id):
     return 'admin' if account_id == 'admin' else 'member'
 
 
+# --- 多帳號:同一個 session 同時記住多個「已解鎖」帳號,可自由切換(切換免再輸密碼) ---
+# session['accounts'] = [{'account_id','role'}, ...](已解鎖清單)
+# session['account_id'] / session['role'] = 目前使用中的那個 —— 其餘程式(歷史/收藏/守門)都讀這兩個,不必動。
+def _account_exists(account_id):
+    """帳號是否還存在(會員可能被管理員刪掉)。admin 只要密碼設過就算存在。"""
+    if account_id == 'admin':
+        return is_password_set()
+    if account_id and account_id.startswith('m'):
+        return any(str(m.get('id')) == account_id[1:] for m in get_members())
+    return False
+
+
+def set_active_account(account_id, role):
+    session['account_id'] = account_id
+    session['role'] = role
+
+
+def add_logged_in_account(account_id, role):
+    """把剛解鎖的帳號加進 session 清單並切為使用中(已在清單就只切換)。"""
+    accts = [a for a in session.get('accounts', []) if a.get('account_id') != account_id]
+    accts.append({'account_id': account_id, 'role': role})
+    session['accounts'] = accts
+    session['logged_in'] = True
+    set_active_account(account_id, role)
+    session.permanent = True
+
+
+def ensure_accounts_list():
+    """舊 session(改版前沒有 accounts 清單)補上:用目前 account_id/role 當第一個。"""
+    if 'logged_in' in session and 'accounts' not in session:
+        session['accounts'] = [{
+            'account_id': session.get('account_id', 'admin'),
+            'role': session.get('role', 'admin'),
+        }]
+
+
 # --- 同步裝置 token(kazi 等裝置用密碼換一次 token,之後只帶 token,不再傳密碼)---
 # 存 storage:`sync_tokens` = { token: {account_id, label, created_at} }。
 # 換密碼不影響既發 token(token 綁的是 account_id,不是密碼)→ 改密碼不會斷裝置同步。
@@ -270,10 +306,7 @@ def setup_password():
     if request.method == 'POST':
         password = request.form['password']
         set_password(password)
-        session['logged_in'] = True
-        session['role'] = 'admin'
-        session['account_id'] = 'admin'
-        session.permanent = True  # 設定session為永久性
+        add_logged_in_account('admin', 'admin')
         return redirect(url_for('main.index'))
     site_title = get_config_value('site_title', '資源站點管理器')
     favicon_ext = get_config_value('favicon_ext', 'svg')
@@ -298,10 +331,7 @@ def login():
         role, account_id = authenticate(request.form.get('password', ''))
         if role:
             _clear_login_failures(ip)
-            session['logged_in'] = True
-            session['role'] = role
-            session['account_id'] = account_id
-            session.permanent = True
+            add_logged_in_account(account_id, role)
             return redirect(url_for('main.index'))
 
         attempts_left, just_locked = _record_login_failure(ip)
@@ -313,10 +343,74 @@ def login():
 
 @auth_bp.route('/logout')
 def logout():
+    # 帶 account_id → 只登出那一個(其餘保留,若登出的是使用中就自動切到別的);不帶 → 全部登出
+    target = request.args.get('account_id')
+    accts = session.get('accounts', [])
+    if target and any(a.get('account_id') == target for a in accts):
+        accts = [a for a in accts if a.get('account_id') != target]
+        session['accounts'] = accts
+        if accts:
+            if session.get('account_id') == target:
+                set_active_account(accts[0]['account_id'], accts[0]['role'])
+            return redirect(url_for('main.index'))
+    # 全部登出
     session.pop('logged_in', None)
     session.pop('role', None)
     session.pop('account_id', None)
+    session.pop('accounts', None)
     return redirect(url_for('auth.login'))
+
+
+@auth_bp.route('/account/add', methods=['POST'])
+def account_add():
+    """用另一組密碼解鎖並加入 session(之後可自由切換)。沿用登入的 IP 防暴力破解。"""
+    ip = _client_ip()
+    locked = _login_lock_remaining(ip)
+    if locked > 0:
+        return jsonify({'status': 'error', 'message': f'嘗試次數過多，請 {locked} 秒後再試'}), 429
+    data = request.get_json(silent=True) or {}
+    password = data.get('password') or request.form.get('password', '')
+    role, account_id = authenticate(password)
+    if not role:
+        attempts_left, just_locked = _record_login_failure(ip)
+        msg = (f'嘗試次數過多，已鎖定 {LOGIN_LOCKOUT_MINUTES} 分鐘'
+               if just_locked else f'密碼錯誤，還剩 {attempts_left} 次嘗試')
+        return jsonify({'status': 'error', 'message': msg}), 401
+    if any(a.get('account_id') == account_id for a in session.get('accounts', [])):
+        set_active_account(account_id, role)  # 已登入過 → 直接切過去
+        return jsonify({'status': 'success', 'account_id': account_id, 'already': True})
+    _clear_login_failures(ip)
+    add_logged_in_account(account_id, role)
+    return jsonify({'status': 'success', 'account_id': account_id})
+
+
+@auth_bp.route('/account/switch', methods=['POST'])
+def account_switch():
+    """切換到已解鎖的帳號(免再輸密碼)。"""
+    data = request.get_json(silent=True) or {}
+    target = data.get('account_id') or request.form.get('account_id', '')
+    match = next((a for a in session.get('accounts', []) if a.get('account_id') == target), None)
+    if not match or not _account_exists(target):
+        return jsonify({'status': 'error', 'message': '此帳號未登入或已不存在'}), 400
+    set_active_account(match['account_id'], match['role'])
+    return jsonify({'status': 'success'})
+
+
+@auth_bp.route('/account/list')
+def account_list():
+    """給前端切換選單:已解鎖帳號 + 暱稱 + 是否使用中(過濾掉已被刪的會員)。"""
+    ensure_accounts_list()
+    active = session.get('account_id')
+    out = [
+        {
+            'account_id': a.get('account_id'),
+            'role': a.get('role'),
+            'nickname': account_nickname(a.get('role'), a.get('account_id')),
+            'active': a.get('account_id') == active,
+        }
+        for a in session.get('accounts', []) if _account_exists(a.get('account_id'))
+    ]
+    return jsonify({'accounts': out, 'active': active})
 
 def init_auth_check(app):
     # 設定session過期時間為30天
@@ -367,6 +461,8 @@ def init_auth_check(app):
         if 'logged_in' in session and 'role' not in session:
             session['role'] = 'admin'
             session['account_id'] = 'admin'
+        # 舊 session 補上多帳號清單(用目前帳號當第一個),讓切換/登出一致運作
+        ensure_accounts_list()
 
         # 已登入但非管理員 → 擋掉「設定 / 掃描匯入 / 會員管理」頁與站台 / 會員管理 API
         if 'logged_in' in session and session.get('role') != 'admin':

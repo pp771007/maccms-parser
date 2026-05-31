@@ -20,6 +20,23 @@
                 <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l3 3"/></svg>
                 <span class="label-text">歷史</span>
             </button>
+            <div class="acct-switch" id="acctSwitch">
+                <button type="button" class="btn btn-ghost btn-sm" id="acctBtn" title="切換帳號" aria-haspopup="true" aria-expanded="false">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span class="label-text acct-name" id="acctBtnName">帳號</span>
+                    <svg class="icon acct-caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="acct-menu" id="acctMenu" hidden>
+                    <div class="acct-menu-title">切換帳號（免再輸密碼）</div>
+                    <div class="acct-list" id="acctList"></div>
+                    <div class="acct-add">
+                        <input type="password" id="acctAddPw" placeholder="輸入另一組密碼新增帳號" autocomplete="off">
+                        <button type="button" class="btn btn-sm acct-add-btn" id="acctAddBtn">新增帳號</button>
+                        <div class="acct-add-msg" id="acctAddMsg" hidden></div>
+                    </div>
+                    <a class="acct-logoutall" href="/logout">全部登出</a>
+                </div>
+            </div>
             <a href="/profile" class="btn btn-ghost btn-sm" title="個人中心">
                 <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <span class="label-text">個人</span>
@@ -164,4 +181,5 @@
 <script src="{{ url_for('static', filename='js/hls.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/artplayer-plugin-chromecast.js') }}"></script>
 <script type="module" src="{{ url_for('static', filename='js/index.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/accountSwitcher.js') }}"></script>
 {% endblock %}
