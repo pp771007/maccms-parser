@@ -87,6 +87,12 @@ function setupEventListeners() {
     });
     $('#searchBtn').addEventListener('click', handleSearch);
     $('#toSimpBtn').addEventListener('click', handleToSimp);
+    // 左上角站名 / logo 點一下回首頁(清搜尋、回預設站台)
+    const brand = $('.brand');
+    if (brand) {
+        brand.setAttribute('title', '回首頁');
+        brand.addEventListener('click', goHome);
+    }
     $('#searchInput').addEventListener('keyup', (e) => {
         if (e.key === 'Enter') {
             handleSearch();
@@ -479,6 +485,17 @@ function syncListUrl(urlMode) {
         writeListParams(opts, true);
     }
     currentListKey = listParamString();
+}
+
+// 回首頁:清掉搜尋 / 分類,回到預設站台(等同剛進站)。當作一次清單導航 → 返回鍵可回到原本的頁。
+function goHome() {
+    state.searchSiteIds = [];
+    state.saveMultiSiteSelection();
+    state.currentKeyword = null;
+    state.currentTypeId = null;
+    ui.updateSearchBox(null);
+    ui.updateSelectedSitesDisplay();
+    loadDefaultSite();
 }
 
 // 自動載入「上次選的站台」,沒有的話載第一個站台(對齊 kazi,畫面不空白)。

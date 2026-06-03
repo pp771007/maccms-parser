@@ -1153,6 +1153,8 @@ function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
                 const videoInfo = {
                     videoId: historyItem.videoId,
                     videoName: historyItem.videoName,
+                    // 帶上海報:第一次從網址 / 歷史開沒看過的片時,新建的歷史才不會變成無圖
+                    videoPic: historyItem.videoPic || state.currentVideo?.vod_pic || '',
                     episodeName: epi.name,
                     episodeUrl: epi.url,
                     siteUrl: historyItem.siteUrl,

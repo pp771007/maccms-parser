@@ -596,6 +596,7 @@ input[type="radio"] {
     gap: var(--sp-3);
     min-width: 0;
     text-decoration: none;
+    cursor: pointer;
 }
 
 .brand-logo {

@@ -1,5 +1,10 @@
 # maccms-parser 開發筆記
 
+## Commit 規則
+
+**每次 commit 都要改版號**(`web_app.py` 的 `VERSION`)。版號顯示在頁尾,也是判斷使用者拿到哪一版的依據。
+功能性變更 bump minor(v7.14 → v7.15),小修 bump patch(v7.14.0 → v7.14.1)。改完版號再 commit。
+
 ## 本機自動化測試（免真實密碼、免真實站台）
 
 整站是會員制、所有頁面與 `/api/*` 都要登入(`blueprints/auth.py` 的 `require_login`)。
