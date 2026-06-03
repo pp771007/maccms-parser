@@ -15,7 +15,8 @@ def index():
     favicon_version = get_config_value('favicon_version', '')
     favicon_url = f"/favicon?v={favicon_version}"
     return render_template('index.html', site_title=site_title, favicon_url=favicon_url, version=VERSION,
-                           is_admin=(session.get('role') == 'admin'))
+                           is_admin=(session.get('role') == 'admin'),
+                           account_id=session.get('account_id', ''))
 
 @main_bp.route('/profile')
 def profile():

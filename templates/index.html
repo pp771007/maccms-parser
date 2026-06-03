@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{% block head_extra %}
+<meta name="account-id" content="{{ account_id }}">
+{% endblock %}
+
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 {% endblock %}

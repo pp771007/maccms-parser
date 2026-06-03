@@ -1,3 +1,14 @@
+// 搜尋紀錄存 localStorage,但 localStorage 是整站共用、跟登入帳號無關。
+// 不按帳號分 key 的話,換帳號後前一個帳號的搜尋 tag 會殘留。用 account_id 當後綴隔離。
+const SEARCH_HISTORY_KEY_PREFIX = 'searchHistory:';
+const LEGACY_SEARCH_HISTORY_KEY = 'searchHistory'; // 舊版未分帳號的 key,載入時清掉避免殘留
+
+function searchHistoryKey() {
+    const meta = document.querySelector('meta[name="account-id"]');
+    const acct = (meta && meta.content) || 'anon';
+    return SEARCH_HISTORY_KEY_PREFIX + acct;
+}
+
 export default {
     sites: [],
     currentSite: null,
@@ -136,7 +147,8 @@ export default {
 
     // 載入搜尋關鍵字歷史記錄
     loadSearchHistory() {
-        const saved = localStorage.getItem('searchHistory');
+        localStorage.removeItem(LEGACY_SEARCH_HISTORY_KEY);
+        const saved = localStorage.getItem(searchHistoryKey());
         if (saved) {
             try {
                 this.searchHistory = JSON.parse(saved);
@@ -151,7 +163,7 @@ export default {
 
     // 儲存搜尋關鍵字歷史記錄
     saveSearchHistory() {
-        localStorage.setItem('searchHistory', JSON.stringify(this.searchHistory));
+        localStorage.setItem(searchHistoryKey(), JSON.stringify(this.searchHistory));
     },
 
     // 添加搜尋關鍵字到歷史記錄
