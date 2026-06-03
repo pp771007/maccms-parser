@@ -5,7 +5,7 @@
 // 寫網址一律用 replaceState:開影片本身已經由 historyStateManager 推一筆歷史,這裡只更新該筆的網址。
 
 // 影片深連結參數
-export const PARAM_VIDEO_SITE = 'vsite'; // 影片所在站台(站名,較好讀;解析端站名優先、找不到再試 id)
+export const PARAM_VIDEO_SITE = 'vsite'; // 影片所在站台(站名)
 export const PARAM_VIDEO_ID = 'v';       // vod_id
 export const PARAM_SOURCE = 'src';       // 來源(線路)索引
 export const PARAM_EPISODE = 'ep';       // 集數索引
@@ -21,8 +21,7 @@ export const PARAM_SITES = 'sites';  // 多站搜尋:站名逗號清單
 
 const LIST_PARAMS = [PARAM_SITE, PARAM_CATEGORY, PARAM_PAGE, PARAM_QUERY, PARAM_SITES];
 
-// 讀網址的清單狀態。無任何清單參數回 null(交給預設「上次站台」邏輯)。
-// site / sites 放的是「站名」(較好讀);解析端站名優先、找不到再試 id(舊數字網址仍可開)。
+// 讀網址的清單狀態。無任何清單參數回 null(交給預設「上次站台」邏輯)。site / sites 放的是站名。
 export function readListParams() {
     const p = new URLSearchParams(window.location.search);
     if (!LIST_PARAMS.some(k => p.has(k))) return null;
@@ -65,7 +64,7 @@ function parsePage(raw) {
     return Number.isInteger(n) && n >= 1 ? n : 1;
 }
 
-// 讀網址裡的影片深連結;沒有 vsite/v 就回 null。src/ep 預設 0。site 放站名。
+// 讀網址裡的影片深連結;沒有 vsite/v 就回 null。src/ep 預設 0。site 放站名(解析端用站名比對)。
 export function readVideoParams() {
     const p = new URLSearchParams(window.location.search);
     const site = p.get(PARAM_VIDEO_SITE);

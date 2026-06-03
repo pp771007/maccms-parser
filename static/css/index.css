@@ -1194,6 +1194,13 @@
     border-color: #f87171;
 }
 
+.acct-version {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted-color, #6b7280);
+    margin-top: 8px;
+}
+
 /* 帳號選單裡的導覽連結:桌機用不到(頂列已有按鈕),只在手機把擠掉的按鈕收進來 */
 .acct-nav {
     display: none;
