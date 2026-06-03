@@ -473,8 +473,8 @@ function syncListUrl(urlMode) {
     if (urlMode === 'none') { currentListKey = listParamString(); return; }
     const opts = {
         keyword: state.currentKeyword,
-        siteIds: state.searchSiteIds,
-        siteId: state.currentSite?.id,
+        sites: state.searchSiteIds.map(id => state.sites.find(s => s.id === id)?.name).filter(Boolean),
+        site: state.currentSite?.name,
         cat: state.currentTypeId,
         page: state.currentPage,
     };
@@ -520,8 +520,9 @@ function handleListPopState() {
 // 依網址清單參數還原狀態並抓資料。站台 / 影片在清單裡找不到就回 false,交回預設邏輯。
 function restoreListFromUrl(lp, urlMode = 'auto') {
     if (lp.q) {
-        const matched = lp.siteIds
-            .map(id => state.sites.find(s => String(s.id) === id))
+        // 站名優先比對,找不到再試 id(相容舊的數字網址)
+        const matched = lp.sites
+            .map(key => state.sites.find(s => s.name === key) || state.sites.find(s => String(s.id) === key))
             .filter(Boolean);
         if (matched.length === 0) return false;
         state.searchSiteIds = matched.map(s => s.id);
@@ -536,8 +537,9 @@ function restoreListFromUrl(lp, urlMode = 'auto') {
         fetchAndRender(urlMode);
         return true;
     }
-    if (lp.siteId) {
-        const site = state.sites.find(s => String(s.id) === String(lp.siteId));
+    if (lp.site) {
+        const site = state.sites.find(s => s.name === lp.site)
+            || state.sites.find(s => String(s.id) === String(lp.site));
         if (!site) return false;
         state.searchSiteIds = [];
         state.saveMultiSiteSelection();

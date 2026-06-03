@@ -1036,8 +1036,10 @@ async function playFromHistory(item, next) {
 
 // 從網址參數開片(分享 / 書籤):站台id + vod_id + 來源索引 + 集索引。
 // 把索引換算成該集的網址 / 集名後,重用「從歷史開片」流程(會自動選來源、自動播到該集)。
-export async function openVideoFromUrl({ siteId, vodId, src, ep }) {
-    const site = state.sites.find(s => String(s.id) === String(siteId));
+export async function openVideoFromUrl({ site: siteKey, vodId, src, ep }) {
+    // 站名優先比對,找不到再試 id(相容舊的數字網址)
+    const site = state.sites.find(s => s.name === siteKey)
+        || state.sites.find(s => String(s.id) === String(siteKey));
     if (!site) {
         showModal('這個分享連結指向的站台目前不在清單裡,可能已被移除或停用。', 'warning');
         return;
