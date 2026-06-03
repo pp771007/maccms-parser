@@ -51,4 +51,6 @@
 - 影片深連結:`vsite`(站台id) `v`(vod_id) `src`(來源索引) `ep`(集索引)
 - 瀏覽清單:`site`(站台id) `cat`(分類) `page`(資料頁) `q`(關鍵字) `sites`(多站搜尋,逗號清單)
 
-寫網址一律 `replaceState`(`urlState.js` 的 `replaceQuery`);影片參數與清單參數互不覆蓋(各自只動自己那組 key)。
+影片參數與清單參數互不覆蓋(各自只動自己那組 key)。寫網址:影片參數一律 `replaceState`;清單變動(切站/搜尋/分類/翻頁)用 `pushState` 建立瀏覽器歷史,讓返回/前進鍵能在清單狀態間導航(`index.js` 的 `syncListUrl` urlMode:首次 replace、之後 push、popstate 還原用 none)。
+
+返回鍵協作:彈窗/面板(影片、歷史、收藏、多站選擇)的 popstate 由 `historyStateManager` 處理(關閉);`index.js` 的 `handleListPopState` 只在「沒有彈窗層 + 網址清單參數真的變了」時重抓還原清單,所以「返回關彈窗」不會誤觸清單重抓。

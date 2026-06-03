@@ -36,7 +36,8 @@ export function readListParams() {
 }
 
 // 把目前清單狀態寫進網址(保留影片參數)。搜尋模式寫 q+sites;瀏覽模式寫 site(+cat)。
-export function writeListParams({ keyword, siteIds, siteId, cat, page }) {
+// push=true 推一筆新瀏覽器歷史(讓返回鍵能回上一個清單狀態);否則原地取代。
+export function writeListParams({ keyword, siteIds, siteId, cat, page }, push = false) {
     const p = new URLSearchParams(window.location.search);
     for (const k of LIST_PARAMS) p.delete(k);
 
@@ -49,7 +50,13 @@ export function writeListParams({ keyword, siteIds, siteId, cat, page }) {
     }
     if (page && page > 1) p.set(PARAM_PAGE, String(page));
 
-    replaceQuery(p);
+    if (push) pushQuery(p); else replaceQuery(p);
+}
+
+// 目前網址的「清單參數」字串(順序固定 → 可拿來比對清單狀態是否變了)。
+export function listParamString() {
+    const p = new URLSearchParams(window.location.search);
+    return LIST_PARAMS.filter(k => p.has(k)).map(k => `${k}=${p.get(k)}`).join('&');
 }
 
 function parsePage(raw) {
@@ -97,8 +104,16 @@ function parseIndex(raw) {
     return Number.isInteger(n) && n >= 0 ? n : 0;
 }
 
-function replaceQuery(params) {
+function buildUrl(params) {
     const qs = params.toString();
-    const url = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
-    window.history.replaceState(window.history.state, '', url);
+    return window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
+}
+
+function replaceQuery(params) {
+    window.history.replaceState(window.history.state, '', buildUrl(params));
+}
+
+// 推一筆帶標記的歷史(標記讓 historyStateManager 的 popstate 處理器知道這不是它管的彈窗層)
+function pushQuery(params) {
+    window.history.pushState({ listNav: true }, '', buildUrl(params));
 }

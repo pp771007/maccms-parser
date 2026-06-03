@@ -8,7 +8,7 @@ import { showModal, showToast } from './modal.js';
 import historyManager from './historyStateManager.js';
 import { attachSwipePager } from './swipePager.js';
 import { armConfirmDelete } from './confirmDelete.js';
-import { readVideoParams, readListParams, writeListParams } from './urlState.js';
+import { readVideoParams, readListParams, writeListParams, listParamString } from './urlState.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
@@ -130,6 +130,8 @@ function setupEventListeners() {
     document.addEventListener('keydown', handleEscKey);
     // ← / → 翻上一頁 / 下一頁
     document.addEventListener('keydown', handleArrowPaging);
+    // 返回 / 前進鍵在清單狀態間導航(historyManager 已先處理彈窗層)
+    window.addEventListener('popstate', handleListPopState);
 }
 
 // 某個彈窗 / 面板開著時(尤其影片播放器),不要讓左右鍵翻頁 → 交給播放器快進快退
@@ -285,12 +287,7 @@ async function loadSitesAndAutoLoadLast() {
             // 有多站搜尋設定 → 維持多站模式
             ui.updateSelectedSitesDisplay();
         } else {
-            // 否則自動載入「上次選的站台」，沒有的話就載入第一個站台（對齊 kazi，畫面不再空白）
-            const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
-            const target = (lastSelectedId && state.sites.some(s => s.id == lastSelectedId))
-                ? lastSelectedId
-                : (state.sites[0] && String(state.sites[0].id));
-            if (target) handleSiteSelection(String(target));
+            loadDefaultSite();
         }
 
         // 網址帶影片深連結(分享 / 書籤)→ 在背景清單之上直接開那部片、跳到指定來源與集
@@ -310,7 +307,7 @@ async function loadSitesAndAutoLoadLast() {
 }
 
 
-function handleSiteSelection(siteId) {
+function handleSiteSelection(siteId, urlMode = 'auto') {
     if (!siteId) return;
     const site = state.sites.find(s => s.id == siteId);
     if (!site) return;
@@ -328,7 +325,7 @@ function handleSiteSelection(siteId) {
     state.categories = [];
     ui.setActiveSiteChip(siteId);
     ui.updateSearchBox(null);
-    fetchAndRender();
+    fetchAndRender(urlMode);
 }
 
 function handleConfirmSiteSelection() {
@@ -385,7 +382,7 @@ function handleCategorySelection(rawTypeId) {
     }
 }
 
-async function fetchAndRender() {
+async function fetchAndRender(urlMode = 'auto') {
     const isMultiSiteSearch = state.searchSiteIds.length > 0;
 
     if (!state.currentSite && !isMultiSiteSearch) return;
@@ -444,7 +441,7 @@ async function fetchAndRender() {
 
         refreshView();
         ui.updateSearchBox(state.currentKeyword);
-        syncListUrl();
+        syncListUrl(urlMode);
 
     } catch (err) {
         if (err.action === 'setup_password') {
@@ -459,19 +456,52 @@ async function fetchAndRender() {
     }
 }
 
+// 第一次渲染清單時用 replace 建立「基準」歷史,之後的清單變動 push 新歷史(讓返回鍵可回上一個清單)。
+let listUrlInitialized = false;
+// 目前顯示中的清單對應的網址清單參數;popstate 時拿來判斷「清單真的變了才重抓」。
+let currentListKey = '';
+
 // 把目前清單狀態(搜尋 / 站台 / 分類 / 頁碼)同步到網址。影片參數由 urlState 保留不動。
-function syncListUrl() {
-    writeListParams({
+// urlMode: 'auto' 首次 replace、之後 push;'replace' 一律取代;'none' 不寫(popstate 還原時網址已是目標)。
+function syncListUrl(urlMode) {
+    if (urlMode === 'none') { currentListKey = listParamString(); return; }
+    const opts = {
         keyword: state.currentKeyword,
         siteIds: state.searchSiteIds,
         siteId: state.currentSite?.id,
         cat: state.currentTypeId,
         page: state.currentPage,
-    });
+    };
+    if (urlMode === 'replace' || !listUrlInitialized) {
+        writeListParams(opts, false);
+        listUrlInitialized = true;
+    } else {
+        writeListParams(opts, true);
+    }
+    currentListKey = listParamString();
+}
+
+// 自動載入「上次選的站台」,沒有的話載第一個站台(對齊 kazi,畫面不空白)。
+function loadDefaultSite(urlMode = 'auto') {
+    const lastSelectedId = localStorage.getItem('lastSelectedSiteId');
+    const target = (lastSelectedId && state.sites.some(s => s.id == lastSelectedId))
+        ? lastSelectedId
+        : (state.sites[0] && String(state.sites[0].id));
+    if (target) handleSiteSelection(String(target), urlMode);
+}
+
+// 返回 / 前進鍵:彈窗還開著就交給 historyManager 關彈窗;否則清單參數變了才重抓還原。
+function handleListPopState() {
+    if (historyManager.getCurrentState()) return; // 彈窗 / 面板層,不是清單導航
+    const newKey = listParamString();
+    if (newKey === currentListKey) return; // 清單沒變(例如剛關掉影片彈窗)
+    const lp = readListParams();
+    if (lp) restoreListFromUrl(lp, 'none');
+    else loadDefaultSite('none');
 }
 
 // 依網址清單參數還原狀態並抓資料。站台 / 影片在清單裡找不到就回 false,交回預設邏輯。
-function restoreListFromUrl(lp) {
+function restoreListFromUrl(lp, urlMode = 'auto') {
     if (lp.q) {
         const matched = lp.siteIds
             .map(id => state.sites.find(s => String(s.id) === id))
@@ -486,7 +516,7 @@ function restoreListFromUrl(lp) {
         ui.setActiveSiteChip(state.currentSite ? state.currentSite.id : null);
         ui.updateSearchBox(lp.q);
         ui.updateSelectedSitesDisplay();
-        fetchAndRender();
+        fetchAndRender(urlMode);
         return true;
     }
     if (lp.siteId) {
@@ -502,7 +532,7 @@ function restoreListFromUrl(lp) {
         ui.setActiveSiteChip(site.id);
         ui.updateSearchBox(null);
         ui.updateSelectedSitesDisplay();
-        fetchAndRender();
+        fetchAndRender(urlMode);
         return true;
     }
     return false;
