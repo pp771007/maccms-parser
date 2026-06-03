@@ -95,13 +95,21 @@ def _clear_login_failures(ip):
             _save_attempts(d)
 
 
-def _render_login(error=None):
+def _render_login(error=None, next_url=None):
     return render_template(
         'login.html',
         error=error,
+        next_url=next_url,
         site_title=get_config_value('site_title', '資源站點管理器'),
         favicon_url=f"/favicon?v={get_config_value('favicon_version', '')}",
     )
+
+# 只接受站內相對路徑當登入後跳轉目標,擋掉 //evil.com、/\evil.com 這類開放轉址
+def _safe_next():
+    nxt = request.values.get('next', '')
+    if nxt.startswith('/') and not nxt.startswith('//') and '\\' not in nxt:
+        return nxt
+    return None
 
 def is_password_set():
     return 'password_hash' in load_config()
@@ -320,26 +328,27 @@ def login():
         return redirect(url_for('main.index'))
 
     ip = _client_ip()
+    next_url = _safe_next()  # 登入成功後跳回原本要去的頁(分享 / 書籤連結)
 
     # 鎖定中:不管帶不帶 cookie 都擋(以 IP 計)
     locked = _login_lock_remaining(ip)
     if locked > 0:
         minutes, seconds = divmod(locked, 60)
-        return _render_login(f'嘗試次數過多，請在 {minutes} 分 {seconds} 秒後再試。')
+        return _render_login(f'嘗試次數過多，請在 {minutes} 分 {seconds} 秒後再試。', next_url)
 
     if request.method == 'POST':
         role, account_id = authenticate(request.form.get('password', ''))
         if role:
             _clear_login_failures(ip)
             add_logged_in_account(account_id, role)
-            return redirect(url_for('main.index'))
+            return redirect(next_url or url_for('main.index'))
 
         attempts_left, just_locked = _record_login_failure(ip)
         if just_locked:
-            return _render_login(f'嘗試次數過多，帳戶已鎖定 {LOGIN_LOCKOUT_MINUTES} 分鐘。')
-        return _render_login(f'密碼錯誤，還剩下 {attempts_left} 次嘗試機會。')
+            return _render_login(f'嘗試次數過多，帳戶已鎖定 {LOGIN_LOCKOUT_MINUTES} 分鐘。', next_url)
+        return _render_login(f'密碼錯誤，還剩下 {attempts_left} 次嘗試機會。', next_url)
 
-    return _render_login()
+    return _render_login(None, next_url)
 
 @auth_bp.route('/logout')
 def logout():
@@ -455,7 +464,9 @@ def init_auth_check(app):
         if 'logged_in' not in session and request.endpoint not in allowed_when_logged_out:
             if request.path.startswith('/api/'):
                 return jsonify({'status': 'error', 'message': '需要登入', 'action': 'login'}), 401
-            return redirect(url_for('auth.login'))
+            # 把原本要去的頁(含 query)帶給登入頁,登入後跳回(分享 / 書籤連結能直達)
+            nxt = request.full_path.rstrip('?')
+            return redirect(url_for('auth.login', next=nxt))
 
         # 舊 session(改版前只有單一密碼)補上身分欄位,視為管理員
         if 'logged_in' in session and 'role' not in session:

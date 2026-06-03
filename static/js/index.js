@@ -8,6 +8,7 @@ import { showModal, showToast } from './modal.js';
 import historyManager from './historyStateManager.js';
 import { attachSwipePager } from './swipePager.js';
 import { armConfirmDelete } from './confirmDelete.js';
+import { readVideoParams, readListParams, writeListParams } from './urlState.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
@@ -276,7 +277,11 @@ async function loadSitesAndAutoLoadLast() {
 
         sessionStorage.removeItem('fromOtherPage');
 
-        if (state.searchSiteIds.length > 0) {
+        // 網址帶清單狀態(分享 / 重新整理)→ 優先照網址還原;還原不了再走預設
+        const listParams = readListParams();
+        if (listParams && restoreListFromUrl(listParams)) {
+            // 已照網址還原清單
+        } else if (state.searchSiteIds.length > 0) {
             // 有多站搜尋設定 → 維持多站模式
             ui.updateSelectedSitesDisplay();
         } else {
@@ -287,11 +292,17 @@ async function loadSitesAndAutoLoadLast() {
                 : (state.sites[0] && String(state.sites[0].id));
             if (target) handleSiteSelection(String(target));
         }
+
+        // 網址帶影片深連結(分享 / 書籤)→ 在背景清單之上直接開那部片、跳到指定來源與集
+        const videoParams = readVideoParams();
+        if (videoParams) {
+            ui.openVideoFromUrl(videoParams);
+        }
     } catch (err) {
         if (err.action === 'setup_password') {
             window.location.href = '/setup-password';
         } else if (err.action === 'login') {
-            window.location.href = '/login';
+            window.location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search);
         } else {
             ui.showError(err.message || '發生未知錯誤');
         }
@@ -433,16 +444,66 @@ async function fetchAndRender() {
 
         refreshView();
         ui.updateSearchBox(state.currentKeyword);
+        syncListUrl();
 
     } catch (err) {
         if (err.action === 'setup_password') {
             window.location.href = '/setup-password';
         } else if (err.action === 'login') {
-            window.location.href = '/login';
+            window.location.href = '/login?next=' + encodeURIComponent(location.pathname + location.search);
         } else {
             ui.showError(err.message || '發生未知錯誤');
         }
     } finally {
         ui.showLoader(false);
     }
+}
+
+// 把目前清單狀態(搜尋 / 站台 / 分類 / 頁碼)同步到網址。影片參數由 urlState 保留不動。
+function syncListUrl() {
+    writeListParams({
+        keyword: state.currentKeyword,
+        siteIds: state.searchSiteIds,
+        siteId: state.currentSite?.id,
+        cat: state.currentTypeId,
+        page: state.currentPage,
+    });
+}
+
+// 依網址清單參數還原狀態並抓資料。站台 / 影片在清單裡找不到就回 false,交回預設邏輯。
+function restoreListFromUrl(lp) {
+    if (lp.q) {
+        const matched = lp.siteIds
+            .map(id => state.sites.find(s => String(s.id) === id))
+            .filter(Boolean);
+        if (matched.length === 0) return false;
+        state.searchSiteIds = matched.map(s => s.id);
+        state.saveMultiSiteSelection();
+        state.currentSite = matched.length === 1 ? matched[0] : null;
+        state.currentKeyword = lp.q;
+        state.currentTypeId = null;
+        state.currentPage = lp.page;
+        ui.setActiveSiteChip(state.currentSite ? state.currentSite.id : null);
+        ui.updateSearchBox(lp.q);
+        ui.updateSelectedSitesDisplay();
+        fetchAndRender();
+        return true;
+    }
+    if (lp.siteId) {
+        const site = state.sites.find(s => String(s.id) === String(lp.siteId));
+        if (!site) return false;
+        state.searchSiteIds = [];
+        state.saveMultiSiteSelection();
+        state.currentSite = site;
+        state.currentKeyword = null;
+        state.currentTypeId = lp.cat || null;
+        state.currentPage = lp.page;
+        localStorage.setItem('lastSelectedSiteId', site.id);
+        ui.setActiveSiteChip(site.id);
+        ui.updateSearchBox(null);
+        ui.updateSelectedSitesDisplay();
+        fetchAndRender();
+        return true;
+    }
+    return false;
 }

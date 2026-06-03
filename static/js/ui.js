@@ -5,6 +5,7 @@ import { $, $$, matchEpisodeIndex } from './utils.js';
 import { showModal, showConfirm, showToast } from './modal.js';
 import historyManager from './historyStateManager.js';
 import { armConfirmDelete } from './confirmDelete.js';
+import { clearVideoParams } from './urlState.js';
 
 // 站台改成 kazi 風格的橫向 chip 列：一眼看到有哪些站、點一下就切。點擊由 index.js 的事件委派處理。
 export function renderSites(sites) {
@@ -570,7 +571,7 @@ function renderEpisodesOnly() {
 }
 
 function renderPlaylist(sourceIndex = 0) {
-
+    state.currentSourceIndex = sourceIndex; // 給網址同步用,記住目前在哪個來源
 
     if (!state.modalData || state.modalData.length === 0) {
         $('#episodeList').innerHTML = '<p>沒有可用的播放源。</p>';
@@ -719,6 +720,7 @@ function appendCrossSiteButton(container) {
 export function closeModal() {
     // 標記 modal 已關 → 攔住還在載入詳情、之後才會建立的播放器(避免背景播放、沒地方關)
     state.modalOpen = false;
+    clearVideoParams(); // 影片關了,網址不再指向某部片
     // 從導覽堆疊移除,避免殘留 id 害下次開不了(以關閉按鈕直接關時)
     historyManager.remove('videoModal');
     // 在關閉前保存當前進度
@@ -1032,6 +1034,53 @@ async function playFromHistory(item, next) {
     }
 }
 
+// 從網址參數開片(分享 / 書籤):站台id + vod_id + 來源索引 + 集索引。
+// 把索引換算成該集的網址 / 集名後,重用「從歷史開片」流程(會自動選來源、自動播到該集)。
+export async function openVideoFromUrl({ siteId, vodId, src, ep }) {
+    const site = state.sites.find(s => String(s.id) === String(siteId));
+    if (!site) {
+        showModal('這個分享連結指向的站台目前不在清單裡,可能已被移除或停用。', 'warning');
+        return;
+    }
+    try {
+        const result = await fetchVideoDetails(site.url, vodId);
+        const modalData = result.data;
+        if (!modalData || modalData.length === 0) {
+            showModal('找不到這部影片的播放內容,可能已從站台移除。', 'warning');
+            return;
+        }
+
+        state.currentSite = site;
+        state.currentVideo = {
+            vod_id: vodId,
+            vod_name: result.vod_name || '',
+            vod_pic: result.vod_pic || '',
+            from_site_id: site.id,
+        };
+
+        const safeSrc = (src >= 0 && src < modalData.length) ? src : 0;
+        const epList = modalData[safeSrc].episodes || [];
+        const safeEp = (ep >= 0 && ep < epList.length) ? ep : 0;
+        const targetEp = epList[safeEp];
+
+        openHistoryVideoModal({
+            videoId: vodId,
+            videoName: result.vod_name || '',
+            videoPic: result.vod_pic || '',
+            siteUrl: site.url,
+            siteName: site.name,
+            sourceIndex: safeSrc,
+            episodeIndex: safeEp,
+            episodeUrl: targetEp?.url || '',
+            episodeName: targetEp?.name || '',
+            currentTime: 0,
+        }, modalData);
+    } catch (err) {
+        console.error('從網址開片失敗:', err);
+        showModal('開啟分享的影片失敗,站台可能已失效。', 'error');
+    }
+}
+
 export function openHistoryVideoModal(historyItem, modalData) {
     historyManager.add({
         id: 'videoModal',
@@ -1074,6 +1123,7 @@ export function openHistoryVideoModal(historyItem, modalData) {
 
 // 渲染歷史紀錄的劇集列表
 function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
+    state.currentSourceIndex = sourceIndex; // 給網址同步用,記住目前在哪個來源
     // 更新按鈕狀態
     $$('.source-btn').forEach(b => b.classList.remove('active'));
     // 找到對應的按鈕並設置為active
@@ -1099,6 +1149,7 @@ function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
             }
 
             item.onclick = () => {
+                state.currentEpisodeIndex = epiIndex; // 給網址同步用,記住目前在第幾集
                 const videoInfo = {
                     videoId: historyItem.videoId,
                     videoName: historyItem.videoName,

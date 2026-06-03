@@ -219,7 +219,12 @@ def get_details_from_api(base_url, vod_id, logger, ssl_verify=True, site_name=No
                 dl.append(source)
                 
             logger.info(f"成功解析影片ID {vod_id} 的播放列表。")
-            return {'status': 'success', 'data': dl}
+            return {
+                'status': 'success',
+                'data': dl,
+                'vod_name': item.get('vod_name', ''),
+                'vod_pic': item.get('vod_pic', ''),
+            }
         else:
             logger.error(f"{site_info}詳情API返回的JSON格式不符合預期，缺少有效的 'list' 數據。收到的數據: {result_data}")
             raise ValueError("詳情API未返回有效的 'list' 數據")

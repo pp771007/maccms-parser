@@ -1,6 +1,22 @@
 import state from './state.js';
 import { $$ } from './utils.js';
 import { showModal } from './modal.js';
+import { writeVideoParams } from './urlState.js';
+
+// 把目前播放的「站台 + 影片 + 來源 + 集」寫進網址。站台 id 依序找:多來源/跨站來源帶的、
+// 目前單站、再不然用 siteUrl 反查清單。本地沒有這個站台(歷史跨站)就不寫,免得寫出開不了的網址。
+function syncVideoUrl(videoInfo) {
+    const siteId = state.currentVideo?.from_site_id
+        ?? state.currentSite?.id
+        ?? state.sites.find(s => s.url === videoInfo.siteUrl)?.id;
+    if (siteId == null) return;
+    writeVideoParams({
+        siteId,
+        vodId: videoInfo.videoId,
+        src: state.currentSourceIndex || 0,
+        ep: state.currentEpisodeIndex || 0,
+    });
+}
 
 // 播放器配置常量
 const PLAYER_CONFIG = {
@@ -511,6 +527,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
     // 如果有影片資訊，記錄到歷史紀錄
     if (videoInfo) {
         state.currentVideoInfo = videoInfo;
+        syncVideoUrl(videoInfo);
         if (state.onPlaybackChange) state.onPlaybackChange();  // 更新收藏星號
 
         // 計算總集數 - 取各來源最大值避免重複計數
