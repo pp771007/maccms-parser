@@ -27,7 +27,7 @@
             <div class="acct-switch" id="acctSwitch">
                 <button type="button" class="btn btn-ghost btn-sm" id="acctBtn" title="切換帳號" aria-haspopup="true" aria-expanded="false">
                     <svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    <span class="label-text acct-name" id="acctBtnName">帳號</span>
+                    <span class="label-text acct-name" id="acctBtnName">{{ account_name or '帳號' }}</span>
                     <svg class="icon acct-caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
                 <div class="acct-menu" id="acctMenu" hidden>
@@ -46,6 +46,7 @@
                         {% endif %}
                     </nav>
                     <a class="acct-logoutall" href="/logout">全部登出</a>
+                    <button type="button" class="btn btn-secondary acct-close-btn" id="acctCloseBtn">關閉</button>
                     <div class="acct-version">版本 {{ version }}</div>
                 </div>
             </div>
@@ -162,6 +163,7 @@
     </div>
 </div>
 
+<div id="acctOverlay" class="acct-overlay" hidden></div>
 <div id="historyOverlay" class="history-overlay" style="display: none;"></div>
 <div id="historyPanel" class="history-panel" style="display: none;">
     <div class="history-header">

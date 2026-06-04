@@ -10,13 +10,17 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/')
 def index():
     from web_app import VERSION
+    from blueprints.auth import account_nickname
     site_title = get_config_value('site_title', '資源站點管理器')
     favicon_ext = get_config_value('favicon_ext', 'svg')
     favicon_version = get_config_value('favicon_version', '')
     favicon_url = f"/favicon?v={favicon_version}"
+    # 先把目前帳號暱稱 server-render 進按鈕,首屏就正確,不會先閃「帳號」再換成暱稱
+    account_name = account_nickname(session.get('role'), session.get('account_id', ''))
     return render_template('index.html', site_title=site_title, favicon_url=favicon_url, version=VERSION,
                            is_admin=(session.get('role') == 'admin'),
-                           account_id=session.get('account_id', ''))
+                           account_id=session.get('account_id', ''),
+                           account_name=account_name)
 
 @main_bp.route('/profile')
 def profile():

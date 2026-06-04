@@ -9,6 +9,9 @@
     const addPw = document.getElementById('acctAddPw');
     const addBtn = document.getElementById('acctAddBtn');
     const addMsg = document.getElementById('acctAddMsg');
+    const overlay = document.getElementById('acctOverlay');
+    const closeBtn = document.getElementById('acctCloseBtn');
+    const topbar = document.querySelector('.topbar');
     if (!btn || !menu || !listEl) return;
 
     const roleLabel = (r) => (r === 'admin' ? '管理員' : '會員');
@@ -82,10 +85,25 @@
       }
     }
 
-    function openMenu() { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); loadAccounts(); }
-    function closeMenu() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    // 打開時一併亮出攔截層,並把 topbar 疊到攔截層之上(下拉掛在 topbar 底下、才不會被遮)。
+    function openMenu() {
+      menu.hidden = false;
+      if (overlay) overlay.hidden = false;
+      if (topbar) topbar.classList.add('acct-menu-open');
+      btn.setAttribute('aria-expanded', 'true');
+      loadAccounts();
+    }
+    function closeMenu() {
+      menu.hidden = true;
+      if (overlay) overlay.hidden = true;
+      if (topbar) topbar.classList.remove('acct-menu-open');
+      btn.setAttribute('aria-expanded', 'false');
+    }
 
     btn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden ? openMenu() : closeMenu(); });
+    // 點攔截層 / 關閉鈕都關;攔截層蓋住內容區 → 點外面不會誤觸底下的卡片或連結
+    if (overlay) overlay.addEventListener('click', closeMenu);
+    if (closeBtn) closeBtn.addEventListener('click', closeMenu);
     document.addEventListener('click', (e) => {
       if (!menu.hidden && !menu.contains(e.target) && !btn.contains(e.target)) closeMenu();
     });

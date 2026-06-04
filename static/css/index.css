@@ -697,6 +697,7 @@
 .episode-list {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: var(--sp-2);
     max-height: 320px;
     overflow-y: auto;
 }
@@ -1098,6 +1099,27 @@
     opacity: .65;
 }
 
+/* 帳號選單打開時的全頁攔截層:點外面只關選單、不會誤觸底下的卡片 / 連結。
+   桌面透明(下拉感),手機加一層淡淡的半透明背景,明確提示「點任意處關閉」。 */
+.acct-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    background: transparent;
+}
+.acct-overlay[hidden] {
+    display: none;
+}
+/* 選單開著時把整條 topbar 疊到攔截層之上,下拉(掛在 topbar 底下)才不會被遮住、仍可點 */
+.topbar.acct-menu-open {
+    z-index: 1051;
+}
+@media (max-width: 640px) {
+    .acct-overlay {
+        background: rgba(0, 0, 0, 0.4);
+    }
+}
+
 .acct-menu {
     position: absolute;
     right: 0;
@@ -1235,6 +1257,11 @@
 .acct-logoutall:hover {
     color: #f87171;
     border-color: #f87171;
+}
+
+.acct-close-btn {
+    width: 100%;
+    margin-top: 8px;
 }
 
 .acct-version {
