@@ -493,6 +493,8 @@ function buildInfo(epi) {
         siteUrl: opt.siteUrl,
         siteName: opt.siteName,
         videoPic: opt.videoPic || '',
+        // 目前線路名,給歷史「各線路獨立進度」用(多線路續看)
+        sourceFlag: state.modalData?.[state.currentSourceIndex]?.flag || '',
     };
 }
 
@@ -536,10 +538,22 @@ function switchSite(idx) {
     loadActiveSite();
 }
 
-// 切線路:同一站不同線,帶著同一集 + 目前秒數。
+// 切線路:這條線路自己看過 → 接它自己存的進度(集 + 秒);沒看過 → 帶著目前這集 + 秒數對齊。
 function switchLine(i) {
     if (i === state.currentSourceIndex && state.artplayer) return;
-    carryResumeFromPlayer();
+    const targetFlag = state.modalData?.[i]?.flag || '';
+    const opt = state.siteOptions[state.activeSiteIdx];
+    const hist = opt && state.watchHistory.find(h =>
+        String(h.videoId) === String(opt.vodId) && h.siteUrl === opt.siteUrl && !h.deletedAt);
+    const lp = targetFlag && hist?.lines?.[targetFlag];
+    if (lp && (lp.currentTime || 0) > 2) {
+        pendingResume = {
+            item: { episodeName: lp.episodeName || '', episodeIndex: lp.episodeIndex >= 0 ? lp.episodeIndex : 0, currentTime: lp.currentTime || 0 },
+            seconds: lp.currentTime || 0,
+        };
+    } else {
+        carryResumeFromPlayer();
+    }
     state.currentSourceIndex = i;
     renderLineRow();
     playActiveLine({ autoPlay: true });
@@ -782,6 +796,10 @@ export function renderWatchHistory() {
         const progressPercent = item.duration > 0 ?
             Math.round((item.currentTime / item.duration) * 100) : 0;
 
+        // 此站台「目前線路以外」還看過幾條線路(各線路進度獨立)
+        const otherLineCount = item.lines
+            ? Object.keys(item.lines).filter(f => f && f !== item.sourceFlag).length : 0;
+
         // 格式化時間戳
         const formatDate = (timestamp) => {
             const date = new Date(timestamp);
@@ -823,6 +841,8 @@ export function renderWatchHistory() {
                 <div class="history-details">
                     <span class="history-episode">${item.episodeName || '未知劇集'}</span>
                     <span class="history-site">${item.siteName || state.sites.find(s => s.url === item.siteUrl)?.name || '未知站台'}</span>
+                    ${item.sourceFlag ? `<span class="history-line" title="目前顯示的線路">線路:${item.sourceFlag}</span>` : ''}
+                    ${otherLineCount > 0 ? `<span class="history-line-more" title="此站台其他線路也看過,各自記進度">另有 ${otherLineCount} 條線路</span>` : ''}
                     ${item.totalEpisodes ? `<span class="history-total-episodes" title="目前共有${item.totalEpisodes}集">共 ${item.totalEpisodes} 集</span>` : ''}
                     <span class="history-time">${formatDate(item.lastWatched || item.timestamp)}</span>
                 </div>

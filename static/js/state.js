@@ -87,6 +87,20 @@ export default {
     // ---- 共通歷史格式(與 kazi 共用):鍵=videoId+siteUrl;續看錨點用 episodeName(兩邊都存)----
     // 網頁內部沿用原本的欄位,只在「跟伺服器來回」時轉換。
     _historyToCanonical(item) {
+        // 多線路進度(線路名→各自進度)轉成 canonical:秒數欄位用 positionSec/durationSec(跟 kazi 一致)
+        const lines = {};
+        if (item.lines) {
+            for (const [flag, lp] of Object.entries(item.lines)) {
+                lines[flag] = {
+                    episodeName: lp.episodeName || '',
+                    episodeIndex: typeof lp.episodeIndex === 'number' ? lp.episodeIndex : -1,
+                    positionSec: lp.currentTime || 0,
+                    durationSec: lp.duration || 0,
+                    totalEpisodes: lp.totalEpisodes || 0,
+                    updatedAt: lp.updatedAt || 0,
+                };
+            }
+        }
         return {
             videoId: item.videoId,
             siteUrl: item.siteUrl || '',
@@ -102,10 +116,25 @@ export default {
             totalEpisodes: item.totalEpisodes || 0,
             updatedAt: item.lastWatched || item.timestamp || Date.now(),
             deletedAt: item.deletedAt || 0,
+            sourceFlag: item.sourceFlag || '',
+            lines,
         };
     },
 
     _historyFromCanonical(c) {
+        const lines = {};
+        if (c.lines && typeof c.lines === 'object') {
+            for (const [flag, lp] of Object.entries(c.lines)) {
+                lines[flag] = {
+                    episodeName: lp.episodeName || '',
+                    episodeIndex: typeof lp.episodeIndex === 'number' ? lp.episodeIndex : -1,
+                    currentTime: lp.positionSec || 0,
+                    duration: lp.durationSec || 0,
+                    totalEpisodes: lp.totalEpisodes || 0,
+                    updatedAt: lp.updatedAt || 0,
+                };
+            }
+        }
         return {
             videoId: c.videoId,
             siteUrl: c.siteUrl || '',
@@ -122,6 +151,8 @@ export default {
             lastWatched: c.updatedAt || Date.now(),
             timestamp: c.updatedAt || Date.now(),
             deletedAt: c.deletedAt || 0,
+            sourceFlag: c.sourceFlag || '',
+            lines,
         };
     },
 
@@ -266,6 +297,25 @@ export default {
         return true;
     },
 
+    // 把 videoInfo 對應的「目前線路」進度寫進 item.lines(鍵=線路名);換集才把該線路秒數歸零。
+    // 同一站台下各線路各記一份 → 切線路不互相覆蓋。
+    _touchLine(item, videoInfo) {
+        const flag = videoInfo.sourceFlag || '';
+        item.sourceFlag = flag;
+        if (!flag) return;
+        if (!item.lines) item.lines = {};
+        const prev = item.lines[flag];
+        const lineNewEp = !prev || prev.episodeName !== (videoInfo.episodeName || '');
+        item.lines[flag] = {
+            episodeName: videoInfo.episodeName || '',
+            episodeIndex: typeof this.currentEpisodeIndex === 'number' ? this.currentEpisodeIndex : (prev?.episodeIndex ?? -1),
+            currentTime: lineNewEp ? 0 : (prev.currentTime || 0),
+            duration: lineNewEp ? 0 : (prev.duration || 0),
+            totalEpisodes: videoInfo.totalEpisodes || prev?.totalEpisodes || 0,
+            updatedAt: Date.now(),
+        };
+    },
+
     // 添加觀看歷史紀錄
     addToHistory(videoInfo) {
 
@@ -299,16 +349,18 @@ export default {
             existingItem.lastWatched = Date.now();
             existingItem.timestamp = Date.now(); // 更新時間戳，讓它排在最前面
 
+            // 維護「目前線路」的獨立進度(多線路續看):各線路各記一份,切線路不互相覆蓋。
+            this._touchLine(existingItem, videoInfo);
+
             // 將更新後的記錄移到開頭
             this.watchHistory.splice(existingIndex, 1);
             this.watchHistory.unshift(existingItem);
 
         } else {
             // 如果不存在，添加新記錄
-            this.watchHistory.unshift({
-                ...videoInfo,
-                timestamp: Date.now()
-            });
+            const fresh = { ...videoInfo, timestamp: Date.now() };
+            this._touchLine(fresh, videoInfo);
+            this.watchHistory.unshift(fresh);
         }
 
         // 限制「未刪」最多 200 筆(跟 kazi 一致;墓碑另外保留,給同步用)
@@ -347,6 +399,21 @@ export default {
             historyItem.currentTime = currentTime;
             historyItem.duration = duration;
             historyItem.lastWatched = Date.now();
+
+            // 同步更新「目前線路」的獨立進度(線路名取自正在播的 currentVideoInfo)
+            const flag = this.currentVideoInfo?.sourceFlag;
+            if (flag) {
+                if (!historyItem.lines) historyItem.lines = {};
+                const prev = historyItem.lines[flag] || {};
+                historyItem.lines[flag] = {
+                    episodeName: prev.episodeName || this.currentVideoInfo?.episodeName || '',
+                    episodeIndex: typeof this.currentEpisodeIndex === 'number' ? this.currentEpisodeIndex : (prev.episodeIndex ?? -1),
+                    currentTime,
+                    duration,
+                    totalEpisodes: prev.totalEpisodes || historyItem.totalEpisodes || 0,
+                    updatedAt: Date.now(),
+                };
+            }
             // 進度每幾秒更新一次:只標記 dirty、更新記憶體,不立即打伺服器。
             // 實際寫回交給「關閉播放器 / 每分鐘保險 / 關分頁」,避免播放中狂寫。
             this._historyDirty = true;
