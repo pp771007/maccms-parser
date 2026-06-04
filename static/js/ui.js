@@ -1049,8 +1049,8 @@ export async function openVideoFromUrl({ siteUrl, vodId, src, ep }) {
 
         // 顯示用站名:本地清單有這站就用清單的名字;沒有(跨裝置 / 跨 app 的歷史)就退用站台網域,
         // 網域取不到才用整串 url。siteUrl 由同步來的歷史帶入,可能非合法 url,故包 try。
+        // 不改 state.currentSite:深連結是疊在背景清單之上,動了清單站台會跟網址 / chip 不一致。
         const localSite = state.sites.find(s => s.url === siteUrl);
-        if (localSite) state.currentSite = localSite;
         let siteName = localSite?.name;
         if (!siteName) {
             try { siteName = new URL(siteUrl).hostname; } catch { /* siteUrl 非合法 url */ }
