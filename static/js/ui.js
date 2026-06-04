@@ -363,10 +363,11 @@ async function loadActiveSite() {
     if (!state.modalOpen) return; // 載入途中被關了
     state.modalData = data;
 
-    // 沒帶續看點(非切站帶過來的)→ 自動撈這個站台的觀看歷史當續看點
+    // 沒帶續看點(非切站帶過來的)→ 撈這個站台「最近看的那條線路」當續看點(各線路獨立,取最新)
     if (!pendingResume) {
-        const saved = state.watchHistory.find(i =>
+        const cands = state.watchHistory.filter(i =>
             String(i.videoId) === String(opt.vodId) && i.siteUrl === opt.siteUrl && !i.deletedAt);
+        const saved = cands.reduce((a, b) => (!a || (b.lastWatched || 0) > (a.lastWatched || 0)) ? b : a, null);
         if (saved && (saved.currentTime || 0) > 0) pendingResume = { item: saved, seconds: saved.currentTime };
     }
 
@@ -543,13 +544,14 @@ function switchLine(i) {
     if (i === state.currentSourceIndex && state.artplayer) return;
     const targetFlag = state.modalData?.[i]?.flag || '';
     const opt = state.siteOptions[state.activeSiteIdx];
-    const hist = opt && state.watchHistory.find(h =>
-        String(h.videoId) === String(opt.vodId) && h.siteUrl === opt.siteUrl && !h.deletedAt);
-    const lp = targetFlag && hist?.lines?.[targetFlag];
-    if (lp && (lp.currentTime || 0) > 2) {
+    // 這條線路自己的歷史那一筆(各線路獨立)
+    const rec = opt && state.watchHistory.find(h =>
+        String(h.videoId) === String(opt.vodId) && h.siteUrl === opt.siteUrl
+        && (h.sourceFlag || '') === targetFlag && !h.deletedAt);
+    if (rec && (rec.currentTime || 0) > 2) {
         pendingResume = {
-            item: { episodeName: lp.episodeName || '', episodeIndex: lp.episodeIndex >= 0 ? lp.episodeIndex : 0, currentTime: lp.currentTime || 0 },
-            seconds: lp.currentTime || 0,
+            item: { episodeName: rec.episodeName || '', episodeIndex: rec.episodeIndex >= 0 ? rec.episodeIndex : 0, currentTime: rec.currentTime || 0 },
+            seconds: rec.currentTime || 0,
         };
     } else {
         carryResumeFromPlayer();
@@ -796,9 +798,6 @@ export function renderWatchHistory() {
         const progressPercent = item.duration > 0 ?
             Math.round((item.currentTime / item.duration) * 100) : 0;
 
-        // 此站台「目前線路以外」還看過幾條線路(各線路進度獨立)
-        const otherLineCount = item.lines
-            ? Object.keys(item.lines).filter(f => f && f !== item.sourceFlag).length : 0;
 
         // 格式化時間戳
         const formatDate = (timestamp) => {
@@ -841,8 +840,7 @@ export function renderWatchHistory() {
                 <div class="history-details">
                     <span class="history-episode">${item.episodeName || '未知劇集'}</span>
                     <span class="history-site">${item.siteName || state.sites.find(s => s.url === item.siteUrl)?.name || '未知站台'}</span>
-                    ${item.sourceFlag ? `<span class="history-line" title="目前顯示的線路">線路:${item.sourceFlag}</span>` : ''}
-                    ${otherLineCount > 0 ? `<span class="history-line-more" title="此站台其他線路也看過,各自記進度">另有 ${otherLineCount} 條線路</span>` : ''}
+                    ${item.sourceFlag ? `<span class="history-line" title="這筆是哪條線路的進度">線路:${item.sourceFlag}</span>` : ''}
                     ${item.totalEpisodes ? `<span class="history-total-episodes" title="目前共有${item.totalEpisodes}集">共 ${item.totalEpisodes} 集</span>` : ''}
                     <span class="history-time">${formatDate(item.lastWatched || item.timestamp)}</span>
                 </div>
@@ -879,7 +877,7 @@ export function renderWatchHistory() {
 
         // 移除紀錄(兩段式:第一下變「確認」,再按一次才刪)
         armConfirmDelete(historyItem.querySelector('.remove-btn'), () => {
-            state.removeHistory(item.videoId, item.siteUrl);  // 軟刪(標記墓碑,跟著同步)
+            state.removeHistory(item.videoId, item.siteUrl, item.sourceFlag);  // 軟刪(標記墓碑,跟著同步)
             renderWatchHistory();
             showToast('已移除觀看紀錄');
         });
@@ -963,10 +961,12 @@ export async function openVideoFromUrl({ siteUrl, vodId, src, ep }) {
         const safeEp = (ep >= 0 && ep < epList.length) ? ep : 0;
         const targetEp = epList[safeEp];
 
-        // 網址只帶來源 / 集索引,沒帶秒數。秒數存在伺服器歷史裡(綁帳號、跨裝置),
-        // 開片前去歷史撈同一部同一集的續看點,複製連結 / 換裝置才能接續上次看到的位置。
+        // 網址只帶來源 / 集索引,沒帶秒數。秒數存在伺服器歷史裡(綁帳號、跨裝置)。
+        // 各線路獨立 → 撈「這條線路(targetFlag)」那一筆,且續看點正是這一集時才接秒數。
+        const targetFlag = data[safeSrc]?.flag || '';
         const saved = state.watchHistory.find(i =>
-            String(i.videoId) === String(vodId) && i.siteUrl === siteUrl && !i.deletedAt);
+            String(i.videoId) === String(vodId) && i.siteUrl === siteUrl
+            && (i.sourceFlag || '') === targetFlag && !i.deletedAt);
         const resumeSec = (saved && targetEp && episodeMatchesHistory(targetEp, saved)) ? (saved.currentTime || 0) : 0;
 
         openUnifiedVideoModal({
@@ -1185,11 +1185,10 @@ function renderFavorites() {
             : `https://placehold.co/300x400/666666/ffffff.png?text=${encodeURIComponent((fav.videoName || '').replace(/[^\w\s]/g, '').substring(0, 10) || 'No Image')}`;
         const site = state.sites.find(s => s.url === fav.siteUrl);
         const siteName = fav.siteName || site?.name || '未知站台';
-        // 收藏與歷史共用 videoId+siteUrl 為鍵：看過的就帶出上次的集數+進度,點播放接著看
-        const hist = state.watchHistory.find(h =>
-            !h.deletedAt &&
-            String(h.videoId) === String(fav.videoId) &&
-            h.siteUrl === fav.siteUrl);
+        // 收藏顯示進度:歷史已拆成每線路一筆,取這部片這站台「最近看的那條線路」
+        const hist = state.watchHistory
+            .filter(h => !h.deletedAt && String(h.videoId) === String(fav.videoId) && h.siteUrl === fav.siteUrl)
+            .reduce((a, b) => (!a || (b.lastWatched || 0) > (a.lastWatched || 0)) ? b : a, null);
         const progressPercent = hist && hist.duration > 0
             ? Math.round((hist.currentTime / hist.duration) * 100) : 0;
         const progressBlock = hist ? `
@@ -1284,7 +1283,14 @@ async function performHistoryUpdateCheck() {
 
     try {
         // 準備前5個歷史記錄的數據（後端會再次限制最多10個）
-        const itemsToCheck = state.activeHistory().slice(0, 5).map(item => ({
+        // 各線路獨立 → 同片同站可能多筆,檢查更新以「片+站」去重,避免重複送同一部片
+        const seenVS = new Set();
+        const itemsToCheck = state.activeHistory().filter(item => {
+            const k = `${item.videoId}|${item.siteUrl}`;
+            if (seenVS.has(k)) return false;
+            seenVS.add(k);
+            return true;
+        }).slice(0, 5).map(item => ({
             videoId: item.videoId,
             videoName: item.videoName,
             siteUrl: item.siteUrl,
@@ -1302,16 +1308,16 @@ async function performHistoryUpdateCheck() {
         if (result.results && Array.isArray(result.results)) {
             result.results.forEach(checkResult => {
                 if (checkResult.status === 'success') {
-                    // 找到對應的歷史記錄項目
-                    const historyItem = state.watchHistory.find(item =>
+                    // 各線路獨立 → 同片同站可能多筆,全部一起更新總集數
+                    const matches = state.watchHistory.filter(item =>
                         item.videoId === checkResult.videoId &&
                         item.siteUrl === checkResult.siteUrl
                     );
 
-                    if (historyItem) {
+                    if (matches.length > 0) {
                         // 更新總集數
                         if (checkResult.totalEpisodes !== undefined) {
-                            historyItem.totalEpisodes = checkResult.totalEpisodes;
+                            matches.forEach(m => { m.totalEpisodes = checkResult.totalEpisodes; });
                             historyModified = true;
                         }
 

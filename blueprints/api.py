@@ -52,18 +52,29 @@ def _gc_tombstones(items, now_ms):
     return out
 
 
-def _merge_sync_items(stored, incoming, time_of):
-    """逐筆 merge:鍵=videoId|siteUrl,同鍵取 time_of 較大(較新)者。
+def _sync_key_video_site(item):
+    """收藏用:同一部片同一站台算一筆。"""
+    return f"{item.get('videoId')}|{item.get('siteUrl', '')}"
+
+
+def _sync_key_video_site_line(item):
+    """觀看歷史用:同一部片同一站台的「每條線路」各算一筆(sourceFlag 區分),拆開記進度。"""
+    return f"{item.get('videoId')}|{item.get('siteUrl', '')}|{item.get('sourceFlag', '')}"
+
+
+def _merge_sync_items(stored, incoming, time_of, key_fn=_sync_key_video_site):
+    """逐筆 merge:同 key_fn 取 time_of 較大(較新)者。
 
     incoming 接在 stored 後面 → 同分時用新送上來的,符合 last-write-wins。
     跳過沒有 videoId 的畸形項。這是同步不丟資料的關鍵:client 端是整包 POST,
     若伺服器直接覆寫,帶舊資料的裝置會蓋掉另一台剛存的新進度。
+    觀看歷史的 key 含 sourceFlag(各線路獨立),收藏則只到 videoId|siteUrl。
     """
     merged = {}
     for item in list(stored) + list(incoming):
         if not isinstance(item, dict) or 'videoId' not in item:
             continue
-        k = f"{item.get('videoId')}|{item.get('siteUrl', '')}"
+        k = key_fn(item)
         existing = merged.get(k)
         if existing is None or time_of(item) >= time_of(existing):
             merged[k] = item
@@ -525,7 +536,8 @@ def account_history():
 
     def _merge(raw):
         eff = lambda x: max(_num(x, 'updatedAt'), _num(x, 'deletedAt'))
-        merged = _merge_sync_items(_parse_list(raw), data, eff)
+        # 觀看歷史:各線路(sourceFlag)獨立一筆,合併鍵要含線路,否則同片同站不同線路會被併成一筆
+        merged = _merge_sync_items(_parse_list(raw), data, eff, _sync_key_video_site_line)
         merged = _gc_tombstones(merged, now_ms)
         # 截斷排序用「有效時間」(含 deletedAt),跟 merge 一致 → 超量時不會把最近的刪除墓碑先丟掉、
         # 害刪除被舊裝置復活。
