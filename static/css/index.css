@@ -899,6 +899,14 @@
     padding: 0;
 }
 
+/* 上膛後圖示換成「確認」兩字,28px 方鈕會把字擠到看不清 → 放寬成自動寬度 */
+.remove-btn.confirm-armed {
+    width: auto;
+    padding: 0 10px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
 .history-details {
     display: flex;
     flex-wrap: wrap;

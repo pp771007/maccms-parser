@@ -27,6 +27,8 @@ export default {
     modalData: null,
     searchSiteIds: [], // 多來源影片列表
     currentSourceIndex: 0, // 當前選擇的來源索引
+    playbackSite: null, // 當前「播放中」的站台 {id,name,url}:跟「瀏覽中的站台」(currentSite)分開,
+                        // 因為歷史 / 分享連結開的片站台可能不在本地清單,且不該動到背景清單的站台
     currentEpisodeIndex: 0, // 當前播放第幾集(換線路/換站對齊集數時當 fallback)
     watchHistory: [], // 觀看歷史紀錄(綁帳號、存伺服器端)
     historySyncedAt: 0,        // 最後一次從伺服器抓歷史的時間(顯示「最後同步」)
