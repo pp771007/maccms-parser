@@ -1068,6 +1068,12 @@ export async function openVideoFromUrl({ siteUrl, vodId, src, ep }) {
         const safeEp = (ep >= 0 && ep < epList.length) ? ep : 0;
         const targetEp = epList[safeEp];
 
+        // 網址只帶來源 / 集索引,沒帶秒數。秒數存在伺服器歷史裡(綁帳號、跨裝置),
+        // 開片前去歷史撈同一部同一集的續看點,複製連結 / 換裝置才能接續上次看到的位置。
+        const saved = state.watchHistory.find(i =>
+            String(i.videoId) === String(vodId) && i.siteUrl === siteUrl && !i.deletedAt);
+        const resumeFromSaved = saved && targetEp && episodeMatchesHistory(targetEp, saved);
+
         openHistoryVideoModal({
             videoId: vodId,
             videoName: result.vod_name || '',
@@ -1078,7 +1084,8 @@ export async function openVideoFromUrl({ siteUrl, vodId, src, ep }) {
             episodeIndex: safeEp,
             episodeUrl: targetEp?.url || '',
             episodeName: targetEp?.name || '',
-            currentTime: 0,
+            currentTime: resumeFromSaved ? (saved.currentTime || 0) : 0,
+            duration: resumeFromSaved ? (saved.duration || 0) : 0,
         }, modalData);
     } catch (err) {
         console.error('從網址開片失敗:', err);
@@ -1118,7 +1125,14 @@ export function openHistoryVideoModal(historyItem, modalData) {
             if (targetSourceIndex >= 0) {
                 playlistSources.children[targetSourceIndex].click();
             } else if (modalData.length > 0) {
-                playlistSources.firstElementChild.click();
+                // 原本看的來源 / 集數在站台已經不存在(來源掛掉)。
+                // 有續看進度時不要自動改播別的來源第一集 —— 那會被當成換新集、把秒數歸零。
+                // 改成保留進度、只渲染來源讓使用者自己挑;沒進度的(剛分享的新片)維持自動播。
+                const hadProgress = historyItem.currentTime > 0;
+                renderHistoryEpisodes(historyItem, modalData, 0, !hadProgress);
+                if (hadProgress) {
+                    showToast('原本觀看的來源已失效，已保留上次進度。請手動選擇其他來源或集數。', 'warning');
+                }
             }
         },
         revert: closeModal,
@@ -1127,7 +1141,7 @@ export function openHistoryVideoModal(historyItem, modalData) {
 }
 
 // 渲染歷史紀錄的劇集列表
-function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
+function renderHistoryEpisodes(historyItem, modalData, sourceIndex, autoPlay = true) {
     state.currentSourceIndex = sourceIndex; // 給網址同步用,記住目前在哪個來源
     // 更新按鈕狀態
     $$('.source-btn').forEach(b => b.classList.remove('active'));
@@ -1188,8 +1202,9 @@ function renderHistoryEpisodes(historyItem, modalData, sourceIndex) {
             }
         }
 
-        // 如果找到目標劇集，播放目標劇集；否則播放第一個劇集
-        const episodeToPlay = targetEpisode || episodeList.firstElementChild;
+        // 找到目標劇集就續看;沒找到時只有 autoPlay 才退而播第一集。
+        // autoPlay=false 用在「原本看的來源已失效」:不自動改播別集,避免 addToHistory 洗掉續看秒數。
+        const episodeToPlay = targetEpisode || (autoPlay ? episodeList.firstElementChild : null);
         if (episodeToPlay) {
             episodeToPlay.click();
         }
