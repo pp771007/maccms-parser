@@ -1,16 +1,18 @@
 "use strict";
 
 // 把「目前在看哪部片 / 哪個來源 / 第幾集」反映到網址,讓使用者複製網址當書籤、貼上接著看。
-// 影片用獨立參數 (vsite/v/src/ep),跟瀏覽清單的 site 參數分開,避免同一部片來源在別站時撞名。
+// 影片用獨立參數 (vurl/v/src/ep),跟瀏覽清單的 site 參數分開,避免同一部片來源在別站時撞名。
+// 站台以 siteUrl 入網址(跟觀看歷史 / 收藏同一套識別):還原端直接拿 url 打 API,不需該站在本地清單,
+// 跨裝置 / 跨 app(kazi)寫的歷史也能分享、還原。寫入直接吃播放資訊(videoInfo)帶的 siteUrl,不再反查站台。
 // 寫網址一律用 replaceState:開影片本身已經由 historyStateManager 推一筆歷史,這裡只更新該筆的網址。
 
 // 影片深連結參數
-export const PARAM_VIDEO_SITE = 'vsite'; // 影片所在站台(站名)
-export const PARAM_VIDEO_ID = 'v';       // vod_id
-export const PARAM_SOURCE = 'src';       // 來源(線路)索引
-export const PARAM_EPISODE = 'ep';       // 集數索引
+export const PARAM_VIDEO_SITE_URL = 'vurl'; // 影片所在站台(siteUrl)
+export const PARAM_VIDEO_ID = 'v';          // vod_id
+export const PARAM_SOURCE = 'src';          // 來源(線路)索引
+export const PARAM_EPISODE = 'ep';          // 集數索引
 
-const VIDEO_PARAMS = [PARAM_VIDEO_SITE, PARAM_VIDEO_ID, PARAM_SOURCE, PARAM_EPISODE];
+const VIDEO_PARAMS = [PARAM_VIDEO_SITE_URL, PARAM_VIDEO_ID, PARAM_SOURCE, PARAM_EPISODE];
 
 // 瀏覽清單參數
 export const PARAM_SITE = 'site';   // 單站瀏覽:站名
@@ -64,25 +66,25 @@ function parsePage(raw) {
     return Number.isInteger(n) && n >= 1 ? n : 1;
 }
 
-// 讀網址裡的影片深連結;沒有 vsite/v 就回 null。src/ep 預設 0。site 放站名(解析端用站名比對)。
+// 讀網址裡的影片深連結;沒有 vurl/v 就回 null。src/ep 預設 0。siteUrl 是站台 API 網址(還原端直接拿來打 API)。
 export function readVideoParams() {
     const p = new URLSearchParams(window.location.search);
-    const site = p.get(PARAM_VIDEO_SITE);
+    const siteUrl = p.get(PARAM_VIDEO_SITE_URL);
     const vodId = p.get(PARAM_VIDEO_ID);
-    if (!site || !vodId) return null;
+    if (!siteUrl || !vodId) return null;
     return {
-        site,
+        siteUrl,
         vodId,
         src: parseIndex(p.get(PARAM_SOURCE)),
         ep: parseIndex(p.get(PARAM_EPISODE)),
     };
 }
 
-// 把目前看的影片寫進網址(保留其他既有參數)。site 傳站名。
-export function writeVideoParams({ site, vodId, src, ep }) {
-    if (site == null || vodId == null) return;
+// 把目前看的影片寫進網址(保留其他既有參數)。siteUrl 傳站台 API 網址。
+export function writeVideoParams({ siteUrl, vodId, src, ep }) {
+    if (siteUrl == null || vodId == null) return;
     const p = new URLSearchParams(window.location.search);
-    p.set(PARAM_VIDEO_SITE, String(site));
+    p.set(PARAM_VIDEO_SITE_URL, String(siteUrl));
     p.set(PARAM_VIDEO_ID, String(vodId));
     p.set(PARAM_SOURCE, String(src ?? 0));
     p.set(PARAM_EPISODE, String(ep ?? 0));

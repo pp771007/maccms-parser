@@ -3,15 +3,12 @@ import { $$ } from './utils.js';
 import { showModal } from './modal.js';
 import { writeVideoParams } from './urlState.js';
 
-// 把目前播放的「站台 + 影片 + 來源 + 集」寫進網址(站台用站名,較好讀)。站台依序找:
-// 多來源/跨站來源帶的、目前單站、再不然用 siteUrl 反查清單。本地沒有這個站台(歷史跨站)就不寫,免得寫出開不了的網址。
+// 把目前播放的「站台 + 影片 + 來源 + 集」寫進網址。站台直接用 videoInfo 帶的 siteUrl
+// (跟歷史 / 收藏同一套識別,一律可靠):不論一般瀏覽、多來源、分享連結還是歷史續看都走同一條。
 function syncVideoUrl(videoInfo) {
-    const site = state.sites.find(s => s.id === state.currentVideo?.from_site_id)
-        || state.currentSite
-        || state.sites.find(s => s.url === videoInfo.siteUrl);
-    if (!site) return;
+    if (!videoInfo.siteUrl) return;
     writeVideoParams({
-        site: site.name,
+        siteUrl: videoInfo.siteUrl,
         vodId: videoInfo.videoId,
         src: state.currentSourceIndex || 0,
         ep: state.currentEpisodeIndex || 0,

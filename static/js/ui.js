@@ -1034,28 +1034,33 @@ async function playFromHistory(item, next) {
     }
 }
 
-// 從網址參數開片(分享 / 書籤):站台id + vod_id + 來源索引 + 集索引。
+// 從網址參數開片(分享 / 書籤):siteUrl + vod_id + 來源索引 + 集索引。
+// 站台以 siteUrl 識別,直接拿 url 打 API,不要求該站在本地清單(跨裝置 / 跨 app 寫的歷史也能還原)。
 // 把索引換算成該集的網址 / 集名後,重用「從歷史開片」流程(會自動選來源、自動播到該集)。
-export async function openVideoFromUrl({ site: siteName, vodId, src, ep }) {
-    const site = state.sites.find(s => s.name === siteName);
-    if (!site) {
-        showModal('這個分享連結指向的站台目前不在清單裡,可能已被移除或停用。', 'warning');
-        return;
-    }
+export async function openVideoFromUrl({ siteUrl, vodId, src, ep }) {
+    if (!siteUrl) return;
     try {
-        const result = await fetchVideoDetails(site.url, vodId);
+        const result = await fetchVideoDetails(siteUrl, vodId);
         const modalData = result.data;
         if (!modalData || modalData.length === 0) {
             showModal('找不到這部影片的播放內容,可能已從站台移除。', 'warning');
             return;
         }
 
-        state.currentSite = site;
+        // 顯示用站名:本地清單有這站就用清單的名字;沒有(跨裝置 / 跨 app 的歷史)就退用站台網域,
+        // 網域取不到才用整串 url。siteUrl 由同步來的歷史帶入,可能非合法 url,故包 try。
+        const localSite = state.sites.find(s => s.url === siteUrl);
+        if (localSite) state.currentSite = localSite;
+        let siteName = localSite?.name;
+        if (!siteName) {
+            try { siteName = new URL(siteUrl).hostname; } catch { /* siteUrl 非合法 url */ }
+            if (!siteName) siteName = siteUrl;
+        }
         state.currentVideo = {
             vod_id: vodId,
             vod_name: result.vod_name || '',
             vod_pic: result.vod_pic || '',
-            from_site_id: site.id,
+            from_site_id: localSite?.id,
         };
 
         const safeSrc = (src >= 0 && src < modalData.length) ? src : 0;
@@ -1067,8 +1072,8 @@ export async function openVideoFromUrl({ site: siteName, vodId, src, ep }) {
             videoId: vodId,
             videoName: result.vod_name || '',
             videoPic: result.vod_pic || '',
-            siteUrl: site.url,
-            siteName: site.name,
+            siteUrl: siteUrl,
+            siteName,
             sourceIndex: safeSrc,
             episodeIndex: safeEp,
             episodeUrl: targetEp?.url || '',
