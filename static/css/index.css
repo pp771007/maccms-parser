@@ -619,11 +619,46 @@
     gap: var(--sp-4);
 }
 
-.playlist-sources,
-.episode-list {
+/* 三層各自一塊:左邊一個小標籤(站台/線路/劇集),右邊是該層的選項列 */
+.playlist-section {
+    display: grid;
+    grid-template-columns: 3em 1fr;
+    align-items: start;
+    gap: var(--sp-3);
+}
+
+.playlist-label {
+    font-size: var(--fs-sm, 12px);
+    font-weight: 600;
+    color: var(--text-muted-color);
+    line-height: 32px;
+    white-space: nowrap;
+}
+
+.playlist-row {
     display: flex;
     flex-wrap: wrap;
     gap: var(--sp-2);
+    min-width: 0;
+}
+
+/* 「其他站」鈕:虛線外框,跟實際站台 chip 區隔開,一看就知道是「去搜更多」的動作 */
+.source-btn.cross-site-trigger {
+    border-style: dashed;
+    border-color: var(--border-strong);
+    color: var(--text-secondary-color);
+    background: transparent;
+}
+
+/* 手機:標籤改成放在選項列上方一行,選項列佔滿寬度 */
+@media (max-width: 640px) {
+    .playlist-section {
+        grid-template-columns: 1fr;
+        gap: var(--sp-1);
+    }
+    .playlist-label {
+        line-height: 1.4;
+    }
 }
 
 .source-btn,

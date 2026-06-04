@@ -26,9 +26,12 @@ export default {
     modalOpen: false, // 播放器 modal 是否開著;關掉後攔住「載入詳情時就關了、之後才建播放器」造成的背景播放
     modalData: null,
     searchSiteIds: [], // 多來源影片列表
-    currentSourceIndex: 0, // 當前選擇的來源索引
+    currentSourceIndex: 0, // 當前選擇的「線路」索引(modalData 內第幾條線路)
     playbackSite: null, // 當前「播放中」的站台 {id,name,url}:跟「瀏覽中的站台」(currentSite)分開,
                         // 因為歷史 / 分享連結開的片站台可能不在本地清單,且不該動到背景清單的站台
+    siteOptions: [],    // 播放器「站台列」:同一部片可播的各站台 [{siteUrl,siteName,siteId,vodId,videoName,videoPic}]
+    activeSiteIdx: 0,   // 站台列中目前播放的是哪一個站台
+    crossSiteSearched: false, // 是否已按過「其他站」搜尋(搜過就不再顯示該鈕)
     currentEpisodeIndex: 0, // 當前播放第幾集(換線路/換站對齊集數時當 fallback)
     watchHistory: [], // 觀看歷史紀錄(綁帳號、存伺服器端)
     historySyncedAt: 0,        // 最後一次從伺服器抓歷史的時間(顯示「最後同步」)
@@ -387,23 +390,8 @@ export default {
     autoPlayNext() {
         console.log('嘗試自動播放下一集...');
 
-        // 獲取當前的播放列表
-        let currentPlaylist = null;
-
-        // 在多來源模式下
-        if (this.multiSourceModalData && Object.keys(this.multiSourceModalData).length > 0) {
-            console.log('處於多來源模式，使用 multiSourceModalData');
-            // 使用當前來源的播放列表
-            const sourceData = this.multiSourceModalData[this.currentSourceIndex];
-            if (sourceData && sourceData.length > 0 && sourceData[0].episodes) {
-                currentPlaylist = sourceData[0].episodes;
-            }
-        }
-        // 在單一來源模式下
-        else if (this.modalData && this.modalData.length > 0 && this.modalData[0].episodes) {
-            console.log('處於單一來源模式，使用 modalData');
-            currentPlaylist = this.modalData[0].episodes;
-        }
+        // 目前線路的集數清單(modalData 內第 currentSourceIndex 條線路)
+        const currentPlaylist = this.modalData?.[this.currentSourceIndex]?.episodes || null;
 
         console.log('播放列表狀態:', {
             hasPlaylist: !!currentPlaylist,

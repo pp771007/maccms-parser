@@ -8,7 +8,7 @@ import { armConfirmDelete } from './confirmDelete.js';
 import { clearVideoParams } from './urlState.js';
 
 // 續看意圖:從歷史 / 分享連結開片時,記住「要對齊到哪一集、從幾秒接續」。
-// renderPlaylist 首次播放時消化它;之後換線路 / 換站改用播放器當前秒數。null = 無(全新開片)。
+// playActiveLine 首次播放時消化它;之後換線路 / 換站改用播放器當前秒數。null = 無(全新開片)。
 let pendingResume = null; // { item: historyItem, seconds: number } | null
 
 // 站台改成 kazi 風格的橫向 chip 列：一眼看到有哪些站、點一下就切。點擊由 index.js 的事件委派處理。
@@ -282,461 +282,321 @@ export function renderSearchTags() {
     searchTagsContainer.appendChild(tagsWrapper);
 }
 
-export async function openModal(video) {
-    historyManager.add({
-        id: 'videoModal',
-        apply: async () => {
-            state.modalOpen = true;
-            document.body.classList.add('modal-open');
-            $('.title-text').textContent = video.vod_name;
-            $('#videoModal').style.display = 'flex';
-            $('#playlistSources').innerHTML = '';
-            $('#episodeList').innerHTML = '正在加載播放列表...';
+// ===== 播放器 modal:三層(站台 / 線路 / 劇集)=====
+// 一部片可在多個「站台」播,每個站台底下有多條「線路」,每條線路有自己的「劇集」。三層各自獨立切換:
+// 切站 / 切線路都帶著「同一集 + 目前秒數」續播;「🔍 其他站」只把更多站台加進站台列,不打斷正在播的。
 
-            // 使用統一方法隱藏來源數量標籤（單站點模式）
-            updateSourceCountDisplay();
-        },
-        revert: closeModal,
-        context: video
-    });
+// 同次開啟期間快取各站詳情(線路清單),切站切回來不必重抓。closeModal 清掉。
+const detailsCache = new Map();
+const detailsKey = (siteUrl, vodId) => `${siteUrl}||${vodId}`;
+function cacheDetails(siteUrl, vodId, data) { detailsCache.set(detailsKey(siteUrl, vodId), data); }
 
-    try {
-        let siteUrl;
-        // Check if it's from a multi-site search
-        if (video.from_site_id) {
-            const site = state.sites.find(s => s.id === video.from_site_id);
-            if (site) {
-                siteUrl = site.url;
-            } else {
-                // Fallback or error
-                throw new Error(`在站台列表中找不到 ID 為 ${video.from_site_id} 的站台。`);
-            }
-        } else if (state.currentSite) {
-            // Single site mode
-            siteUrl = state.currentSite.url;
-        } else {
-            throw new Error('無法確定要從哪個站台獲取詳細資訊。');
-        }
-
-        const result = await fetchVideoDetails(siteUrl, video.vod_id);
-        state.modalData = result.data;
-        // 保存原始影片資訊，包含影片ID
-        state.currentVideo = video;
-        // 記住這部片是從哪個站台播的(播放站台,跟瀏覽站台分開)
-        const playSite = state.sites.find(s => s.url === siteUrl);
-        state.playbackSite = { id: playSite?.id, name: playSite?.name || siteUrl, url: siteUrl };
-        state.multiSourceVideos = [];
-        renderPlaylist();
-    } catch (err) {
-        console.error('獲取播放列表失敗:', err);
-        console.error('錯誤詳情:', {
-            videoId: video.vod_id,
-            videoName: video.vod_name,
-            fromSiteId: video.from_site_id,
-            currentSite: state.currentSite?.name,
-            availableSites: state.sites.map(s => ({ id: s.id, name: s.name, url: s.url }))
-        });
-
-        let errorMessage = `獲取播放列表失敗: ${err.message}`;
-        if (err.message.includes('網絡') || err.message.includes('連接')) {
-            errorMessage += '\n\n可能的原因：\n• 站台已失效或無法訪問\n• 網絡連接問題\n• 站台API格式已變更';
-        } else if (err.message.includes('JSON') || err.message.includes('格式')) {
-            errorMessage += '\n\n可能的原因：\n• 站台API返回無效數據\n• 站台已失效或需要登錄\n• 站台API格式已變更';
-        }
-
-        $('#episodeList').innerHTML = `<p style="color:red;">${errorMessage}</p>`;
-    }
+// 把影片資訊正規化成「站台列的一個選項」
+function siteOptionFrom({ siteUrl, siteName, siteId, vodId, videoName, videoPic }) {
+    return { siteUrl, siteName, siteId, vodId, videoName: videoName || '', videoPic: videoPic || '' };
 }
 
-// 新增多來源影片的modal。autoSelectIndex:開啟後自動點哪一個來源(換站時帶入「目前所在站」的 index,
-// 點它時因 artplayer 還在,renderPlaylist 會走切換分支對齊集數+續播)。
-export async function openMultiSourceModal(videoName, videoList, autoSelectIndex = 0) {
+function makeChip(text, active) {
+    const btn = document.createElement('button');
+    btn.className = 'source-btn' + (active ? ' active' : '');
+    btn.textContent = text;
+    return btn;
+}
+
+function setSectionVisible(id, visible) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? '' : 'none';
+}
+
+function activeEpisodes() {
+    return state.modalData?.[state.currentSourceIndex]?.episodes || [];
+}
+
+// 所有開啟播放器的入口共用。siteOptions:站台列(至少 1 個);activeIdx:先播哪個站;resumeItem:續看點。
+function openVideoModal({ siteOptions, activeIdx = 0, resumeItem = null }) {
+    if (!siteOptions || siteOptions.length === 0) return;
     historyManager.add({
         id: 'videoModal',
         apply: () => {
             state.modalOpen = true;
             document.body.classList.add('modal-open');
-            $('.title-text').textContent = videoName;
             $('#videoModal').style.display = 'flex';
+            $('#playlistSites').innerHTML = '';
             $('#playlistSources').innerHTML = '';
-            $('#episodeList').innerHTML = '請選擇來源...';
+            $('#episodeList').innerHTML = '正在加載播放列表...';
+            updateSourceCountDisplay();
 
-            // 使用統一方法顯示來源數量標籤（多來源模式）
-            updateSourceCountDisplay(videoList);
+            state.siteOptions = siteOptions;
+            state.activeSiteIdx = Math.min(Math.max(activeIdx, 0), siteOptions.length - 1);
+            state.crossSiteSearched = false;
+            pendingResume = resumeItem ? { item: resumeItem, seconds: resumeItem.currentTime || 0 } : null;
+            loadActiveSite();
         },
         revert: closeModal,
-        context: { videoName, videoList }
+        context: { siteOptions, activeIdx },
     });
+}
 
-    // 創建來源選擇按鈕
-    const playlistSources = $('#playlistSources');
-    playlistSources.innerHTML = '';
+// 載入「目前站台」的線路清單,渲染三層,並依續看意圖播放。
+async function loadActiveSite() {
+    const opt = state.siteOptions[state.activeSiteIdx];
+    if (!opt) return;
+    state.playbackSite = { id: opt.siteId, name: opt.siteName, url: opt.siteUrl };
+    state.currentVideo = { vod_id: opt.vodId, vod_name: opt.videoName, vod_pic: opt.videoPic, from_site_id: opt.siteId };
+    $('.title-text').textContent = opt.videoName || '';
+    renderSiteRow();
+    $('#playlistSources').innerHTML = '';
+    $('#episodeList').innerHTML = '載入中...';
 
-    // 儲存影片列表到state中，方便切換
-    state.multiSourceVideos = videoList;
-    // 初始化多來源的 modalData 存儲
-    state.multiSourceModalData = {};
+    let data = detailsCache.get(detailsKey(opt.siteUrl, opt.vodId));
+    if (!data) {
+        try {
+            const result = await fetchVideoDetails(opt.siteUrl, opt.vodId);
+            data = result.data || [];
+            cacheDetails(opt.siteUrl, opt.vodId, data);
+        } catch (err) {
+            if (!state.modalOpen) return;
+            $('#episodeList').innerHTML = `<p style="color:var(--danger-color)">載入失敗:${err.message}。可改選其他站台。</p>`;
+            return;
+        }
+    }
+    if (!state.modalOpen) return; // 載入途中被關了
+    state.modalData = data;
 
+    // 沒帶續看點(非切站帶過來的)→ 自動撈這個站台的觀看歷史當續看點
+    if (!pendingResume) {
+        const saved = state.watchHistory.find(i =>
+            String(i.videoId) === String(opt.vodId) && i.siteUrl === opt.siteUrl && !i.deletedAt);
+        if (saved && (saved.currentTime || 0) > 0) pendingResume = { item: saved, seconds: saved.currentTime };
+    }
 
+    // 選線路:有續看點就找它所在的線路;找不到(原線路掛了)或沒續看點 → 第一條有集數的線路
+    const firstNonEmpty = data.findIndex(s => s.episodes && s.episodes.length > 0);
+    let lineIdx = Math.max(0, firstNonEmpty);
+    let lineMissing = false;
+    if (pendingResume?.item) {
+        const ti = findTargetSourceIndex(pendingResume.item, data);
+        if (ti >= 0) lineIdx = ti; else lineMissing = true;
+    }
+    state.currentSourceIndex = lineIdx;
+    renderSiteRow();
+    renderLineRow();
 
-    videoList.forEach((video, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'source-btn';
-        btn.textContent = video.from_site || `來源 ${index + 1}`;
-        btn.dataset.index = index;
-        btn.onclick = async () => {
-            try {
-                // 更新按鈕狀態
-                $$('.source-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
+    if (lineMissing && (pendingResume?.seconds || 0) > 0) {
+        // 原本看的那條線路在這個站台已不存在:不自動改播別條(會把續看歸零),保留續看點,
+        // 只渲染劇集讓使用者自己挑線路 / 集數(或切到別站),挑了會帶著集數 + 秒數續看。
+        renderEpisodeRow();
+        showToast('原本觀看的線路已失效,已保留進度。可改選其他線路或站台續看。', 'warning');
+    } else {
+        playActiveLine({ autoPlay: true });
+    }
+}
 
-                let siteUrl;
-                if (video.from_site_id) {
-                    const site = state.sites.find(s => s.id === video.from_site_id);
-                    if (site) {
-                        siteUrl = site.url;
-                    } else {
-                        throw new Error(`找不到站台 ID ${video.from_site_id}`);
-                    }
-                } else if (state.currentSite) {
-                    siteUrl = state.currentSite.url;
-                } else {
-                    throw new Error('無法確定站台來源');
-                }
+export async function openModal(video) {
+    // 從清單 / 收藏點開的單一影片。站台:有 from_site_id 用它,否則用目前瀏覽的站台。
+    let site;
+    if (video.from_site_id) {
+        site = state.sites.find(s => s.id === video.from_site_id);
+        if (!site) { showModal('在站台列表中找不到對應站台。', 'error'); return; }
+    } else if (state.currentSite) {
+        site = state.currentSite;
+    } else { showModal('無法確定要從哪個站台播放。', 'error'); return; }
 
-                const result = await fetchVideoDetails(siteUrl, video.vod_id);
-
-                // 在多來源模式下，為每個來源分別存儲 modalData
-                if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-                    state.multiSourceModalData[index] = result.data;
-                    state.modalData = result.data; // 設置當前來源的 modalData
-                } else {
-                    state.modalData = result.data;
-                }
-
-                state.currentSourceIndex = index;
-                // 保存當前選擇的影片資訊
-                state.currentVideo = video;
-
-
-
-                // 檢查 modalData 是否有效
-                if (!result.data || result.data.length === 0) {
-                    console.error('modalData 為空或無效:', result);
-                    $('#episodeList').innerHTML = '<p style="color:red;">獲取播放列表失敗：返回的數據為空</p>';
-                    return;
-                }
-
-                // 使用renderPlaylist來顯示播放列表，傳遞正確的來源索引
-                renderPlaylist(index);
-            } catch (err) {
-                console.error('多來源獲取播放列表失敗:', err);
-                console.error('錯誤詳情:', {
-                    videoId: video.vod_id,
-                    videoName: video.vod_name,
-                    fromSiteId: video.from_site_id,
-                    fromSite: video.from_site,
-                    currentSite: state.currentSite?.name,
-                    availableSites: state.sites.map(s => ({ id: s.id, name: s.name, url: s.url }))
-                });
-
-                let errorMessage = `獲取播放列表失敗: ${err.message}`;
-                if (err.message.includes('網絡') || err.message.includes('連接')) {
-                    errorMessage += '\n\n可能的原因：\n• 站台已失效或無法訪問\n• 網絡連接問題\n• 站台API格式已變更';
-                } else if (err.message.includes('JSON') || err.message.includes('格式')) {
-                    errorMessage += '\n\n可能的原因：\n• 站台API返回無效數據\n• 站台已失效或需要登錄\n• 站台API格式已變更';
-                }
-
-                $('#episodeList').innerHTML = `<p style="color:red;">${errorMessage}</p>`;
-            }
-        };
-        playlistSources.appendChild(btn);
+    openVideoModal({
+        siteOptions: [siteOptionFrom({
+            siteUrl: site.url, siteName: site.name, siteId: site.id,
+            vodId: video.vod_id, videoName: video.vod_name, videoPic: video.vod_pic,
+        })],
     });
+}
 
-    // 自動選擇來源(預設第一個;換站時帶入目前所在站的 index)。用 requestAnimationFrame 確保 DOM 更新後再點。
-    if (videoList.length > 0) {
-        requestAnimationFrame(() => {
-            const idx = Math.min(Math.max(autoSelectIndex, 0), videoList.length - 1);
-            const target = playlistSources.children[idx] || playlistSources.firstElementChild;
-            if (target) target.click();
+// 首頁清單點到「同一片名在多個站台都有」時用:把那些站台變成站台列。autoSelectIndex 先播哪個站。
+export async function openMultiSourceModal(videoName, videoList, autoSelectIndex = 0) {
+    const seen = new Set();
+    const siteOptions = videoList.map(v => {
+        const site = state.sites.find(s => s.id === v.from_site_id);
+        if (!site || seen.has(site.url)) return null;
+        seen.add(site.url);
+        return siteOptionFrom({
+            siteUrl: site.url, siteName: v.from_site || site.name, siteId: site.id,
+            vodId: v.vod_id, videoName: v.vod_name || videoName, videoPic: v.vod_pic,
         });
-    }
+    }).filter(Boolean);
+    if (siteOptions.length === 0) { showModal('找不到可播放的站台。', 'error'); return; }
+    openVideoModal({ siteOptions, activeIdx: autoSelectIndex });
 }
 
-// 從目前播放情境推出「這集屬於哪個站台」:多來源用該來源的站台,否則用目前單站,
-// 再不行退用第一個可用站台。回傳 { siteUrl, siteName }——歷史 / 收藏一律以 siteUrl 為識別,
-// siteUrl 跟 siteName 綁同一個站台、永遠一致。
-function resolvePlaybackSite(sourceIndex) {
-    if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-        const v = state.multiSourceVideos[sourceIndex];
-        const site = v && state.sites.find(s => s.id === v.from_site_id);
-        if (site) return { siteUrl: site.url, siteName: v.from_site || site.name };
-        // 多來源裡的「目前站」項可能不在本地清單(來自歷史 / 分享)→ 落到 playbackSite
+// 站台列:目前片可播的各站台 + 「🔍 其他站」鈕(只搜尋、把更多站台加進這列,不打斷正在播的)。
+function renderSiteRow() {
+    const row = $('#playlistSites');
+    row.innerHTML = '';
+    state.siteOptions.forEach((opt, idx) => {
+        const btn = makeChip(opt.siteName || `站台${idx + 1}`, idx === state.activeSiteIdx);
+        btn.onclick = () => switchSite(idx);
+        row.appendChild(btn);
+    });
+    if (!state.crossSiteSearched) {
+        const btn = document.createElement('button');
+        btn.className = 'source-btn cross-site-trigger';
+        btn.textContent = '🔍 其他站';
+        btn.onclick = () => searchOtherSites(btn);
+        row.appendChild(btn);
     }
-    // playbackSite 是「播放中站台」的權威來源(以 siteUrl 識別,歷史 / 分享開的片也可靠)
-    if (state.playbackSite) return { siteUrl: state.playbackSite.url, siteName: state.playbackSite.name };
-    if (state.currentSite) return { siteUrl: state.currentSite.url, siteName: state.currentSite.name };
-    const valid = state.sites.find(s => s && s.id && s.name && s.url);
-    if (valid) return { siteUrl: valid.url, siteName: valid.name };
-    return { siteUrl: '', siteName: '未知站台' };
+    setSectionVisible('sitesSection', true);
 }
 
-// 組一集的播放資訊(歷史 / 收藏 / 續播都靠這包):多來源模式片源資訊取該來源的影片,否則取單站的 currentVideo。
-function buildVideoInfo(sourceIndex, epi) {
-    const isMulti = state.multiSourceVideos && state.multiSourceVideos.length > 0;
-    const srcVideo = (isMulti ? state.multiSourceVideos[sourceIndex] : state.currentVideo) || state.currentVideo;
-    const { siteUrl, siteName } = resolvePlaybackSite(sourceIndex);
+// 線路列:目前站台底下的各條線路(同一部戲不同播放源)。只有 1 條就不顯示這列。
+function renderLineRow() {
+    const row = $('#playlistSources');
+    row.innerHTML = '';
+    const lines = state.modalData || [];
+    lines.forEach((src, i) => {
+        const btn = makeChip(src.flag || `線路${i + 1}`, i === state.currentSourceIndex);
+        btn.onclick = () => switchLine(i);
+        row.appendChild(btn);
+    });
+    setSectionVisible('sourcesSection', lines.length > 1);
+}
+
+// 劇集列:目前線路的集數。點某一集 = 從頭播該集。
+function renderEpisodeRow() {
+    const list = $('#episodeList');
+    list.innerHTML = '';
+    const eps = activeEpisodes();
+    if (eps.length === 0) { list.innerHTML = '<p>此線路下沒有劇集。</p>'; return; }
+    eps.forEach((epi, i) => {
+        const el = document.createElement('div');
+        el.className = 'episode-item' + (i === state.currentEpisodeIndex ? ' playing' : '');
+        el.textContent = epi.name;
+        el.onclick = () => {
+            state.currentEpisodeIndex = i;
+            pendingResume = null; // 手動點某集 = 從頭播該集
+            markPlaying(i);
+            playVideo(epi.url, el, buildInfo(epi));
+        };
+        list.appendChild(el);
+    });
+}
+
+function markPlaying(i) {
+    $$('#episodeList .episode-item').forEach((el, idx) => el.classList.toggle('playing', idx === i));
+}
+
+// 組一集的播放資訊(歷史 / 收藏 / 續播都靠這包):站台一律取自目前選中的站台選項(以 siteUrl 為識別)。
+function buildInfo(epi) {
+    const opt = state.siteOptions[state.activeSiteIdx] || {};
     return {
-        videoId: srcVideo?.vod_id || state.currentVideo?.vod_id,
-        videoName: srcVideo?.vod_name || state.currentVideo?.vod_name || $('#modalTitle').textContent,
+        videoId: opt.vodId,
+        videoName: opt.videoName,
         episodeName: epi.name,
         episodeUrl: epi.url,
-        siteUrl,
-        siteName,
-        videoPic: srcVideo?.vod_pic || state.currentVideo?.vod_pic || '',
+        siteUrl: opt.siteUrl,
+        siteName: opt.siteName,
+        videoPic: opt.videoPic || '',
     };
 }
 
-// 新增只渲染劇集的函數，不清空來源按鈕
-function renderEpisodesOnly() {
-    if (!state.modalData || state.modalData.length === 0) {
-        $('#episodeList').innerHTML = '<p>沒有可用的播放源。</p>';
-        return;
-    }
+// 播放「目前站台 + 目前線路」:渲染劇集,再依續看意圖(歷史 / 切站 / 切線路)對齊集數 + 帶秒數;
+// 沒有續看意圖也沒在播 → 播第一集。autoPlay=false 只渲染不播(原線路掛了、保留進度時用)。
+function playActiveLine({ autoPlay = true } = {}) {
+    renderEpisodeRow();
+    if (!autoPlay) return;
+    const eps = activeEpisodes();
+    if (eps.length === 0) return;
 
-    const episodeList = $('#episodeList');
-    episodeList.innerHTML = '';
-
-    // 使用當前選擇的來源索引
-    const sourceIndex = state.currentSourceIndex || 0;
-    const currentSource = state.modalData[sourceIndex];
-
-    if (currentSource && currentSource.episodes.length > 0) {
-        currentSource.episodes.forEach(epi => {
-            const item = document.createElement('div');
-            item.className = 'episode-item';
-            item.textContent = epi.name;
-            item.onclick = () => {
-                const { siteUrl, siteName } = resolvePlaybackSite(sourceIndex);
-
-                // 獲取純影片名稱
-                let pureVideoName = state.currentVideo?.vod_name;
-                if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-                    const currentVideo = state.multiSourceVideos[sourceIndex];
-                    if (currentVideo) {
-                        pureVideoName = currentVideo.vod_name;
-                    }
-                }
-
-                const videoInfo = {
-                    videoId: state.currentVideo?.vod_id || epi.vod_id,
-                    videoName: pureVideoName || $('#modalTitle').textContent,
-                    episodeName: epi.name,
-                    episodeUrl: epi.url,
-                    siteUrl: siteUrl,
-                    siteName: siteName
-                };
-
-
-
-                playVideo(epi.url, item, videoInfo);
-            };
-            episodeList.appendChild(item);
-        });
-
-        // 只在首次載入時自動播放第一個劇集，切換資源時不自動播放
-        const firstEpisode = episodeList.firstElementChild;
-        if (firstEpisode && !state.artplayer) {
-            const { siteUrl, siteName } = resolvePlaybackSite(sourceIndex);
-
-            // 獲取純影片名稱（不包含來源數量信息）
-            let pureVideoName = $('#modalTitle').textContent;
-            if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-                // 如果是多來源模式，使用第一個影片的名稱
-                pureVideoName = state.multiSourceVideos[0].vod_name;
-            } else if (state.currentVideo) {
-                // 如果是單一影片模式，使用當前影片的名稱
-                pureVideoName = state.currentVideo.vod_name;
-            }
-
-            const videoInfo = {
-                videoId: state.currentVideo?.vod_id || currentSource.episodes[0]?.vod_id,
-                videoName: pureVideoName,
-                episodeName: currentSource.episodes[0].name,
-                episodeUrl: currentSource.episodes[0].url,
-                siteUrl: siteUrl,
-                siteName: siteName
-            };
-
-            playVideo(currentSource.episodes[0].url, firstEpisode, videoInfo);
-        }
+    const aligning = pendingResume && pendingResume.item;
+    let idx, resumeSec;
+    if (aligning) {
+        idx = matchEpisodeIndex(
+            pendingResume.item.episodeName || '',
+            pendingResume.item.episodeIndex >= 0 ? pendingResume.item.episodeIndex : 0,
+            eps,
+        );
+        resumeSec = pendingResume.seconds || 0;
+        pendingResume = null; // 續看意圖已消化
+    } else if (state.artplayer) {
+        // 換線路 / 換站(已在播):對齊同一集 + 帶當前秒數
+        idx = matchEpisodeIndex(state.currentVideoInfo?.episodeName || '', state.currentEpisodeIndex ?? 0, eps);
+        resumeSec = state.artplayer.currentTime || 0;
     } else {
-        episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
-        if (state.artplayer) {
-            // 保存進度後再銷毀
-            state.saveCurrentProgress();
-            state.artplayer.destroy();
-            state.artplayer = null;
-        }
+        idx = 0;
+        resumeSec = 0;
     }
+    state.currentEpisodeIndex = idx;
+    markPlaying(idx);
+    const epi = eps[idx];
+    playVideo(epi.url, $$('#episodeList .episode-item')[idx], buildInfo(epi), resumeSec > 2 ? { currentTime: resumeSec } : null);
 }
 
-// autoPlay:預設開了就播。給「原本來源已失效但有進度」用 false —— 只渲染清單 + 其他站鈕,
-// 不自動改播別集(會把續看秒數洗掉),保留 pendingResume 等使用者改用其他站續看。
-function renderPlaylist(sourceIndex = 0, { autoPlay = true } = {}) {
-    state.currentSourceIndex = sourceIndex; // 給網址同步用,記住目前在哪個來源
-
-    if (!state.modalData || state.modalData.length === 0) {
-        $('#episodeList').innerHTML = '<p>沒有可用的播放源。</p>';
-        return;
-    }
-
-    // 檢查是否為多來源模式
-    const isMultiSourceMode = state.multiSourceVideos && state.multiSourceVideos.length > 0;
-
-
-    // 如果 multiSourceVideos 是 undefined 但我們在模態框中，嘗試從 DOM 中獲取多來源信息
-    if (!isMultiSourceMode && state.multiSourceVideos === undefined && $('#playlistSources').children.length > 1) {
-
-        // 這裡可以嘗試從其他地方恢復多來源信息
-    }
-
-    // 只有在非多來源模式下才清空並重新創建播放源按鈕
-    if (!isMultiSourceMode) {
-        const playlistSources = $('#playlistSources');
-        playlistSources.innerHTML = '';
-        state.modalData.forEach((source, index) => {
-            const btn = document.createElement('button');
-            btn.className = 'source-btn';
-            btn.textContent = source.flag;
-            if (index === sourceIndex) btn.classList.add('active');
-            btn.onclick = () => renderPlaylist(index);
-            playlistSources.appendChild(btn);
-        });
-        // 單站開的片:補一顆「其他站」鈕,點了即時跨站搜同名片,可切到別站續播
-        appendCrossSiteButton(playlistSources);
-    } else {
-        // 在多來源模式下，確保當前選擇的來源按鈕是激活狀態
-        $$('.source-btn').forEach((btn, index) => {
-            if (index === sourceIndex) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
-    }
-
-    const episodeList = $('#episodeList');
-    episodeList.innerHTML = '';
-
-    // 多來源(跨站)模式:每個來源的 modalData 只放第一條線路 → 取 [0];
-    // 單站模式:modalData 是該片各線路 → 依 sourceIndex 取該線路(換線路才會換到正確清單)。
-    let currentSource;
-    if (state.multiSourceVideos && state.multiSourceVideos.length > 0 && state.multiSourceModalData) {
-        const dataForSource = state.multiSourceModalData[sourceIndex] || state.modalData;
-        currentSource = dataForSource?.[0];
-    } else {
-        currentSource = state.modalData?.[sourceIndex];
-    }
-
-    if (currentSource && currentSource.episodes && currentSource.episodes.length > 0) {
-        const eps = currentSource.episodes;
-        eps.forEach((epi, epiIdx) => {
-            const item = document.createElement('div');
-            item.className = 'episode-item';
-            item.textContent = epi.name;
-            item.onclick = () => {
-                state.currentEpisodeIndex = epiIdx;
-                playVideo(epi.url, item, buildVideoInfo(sourceIndex, epi));
-            };
-            episodeList.appendChild(item);
-        });
-
-        // 續看意圖(來自歷史 / 分享連結);消化前用它對齊集數 + 帶秒數,消化後改用播放器當前秒數。
-        const aligning = pendingResume && pendingResume.item;
-        if (!autoPlay) {
-            // 原本來源掛了、保留進度 → 只渲染清單,不自動播放
-        } else if (!aligning && !state.artplayer) {
-            // 全新開片、無續看目標 → 播第一集
-            state.currentEpisodeIndex = 0;
-            playVideo(eps[0].url, episodeList.firstElementChild, buildVideoInfo(sourceIndex, eps[0]));
-        } else {
-            // 有續看 / 切換目標 → 對齊到同一集(集號優先) + 帶秒數續播(不從頭、不必再手動點集)
-            const refName = aligning
-                ? (pendingResume.item.episodeName || '')
-                : (state.currentVideoInfo?.episodeName || '');
-            const refIdx = aligning
-                ? (pendingResume.item.episodeIndex >= 0 ? pendingResume.item.episodeIndex : 0)
-                : (state.currentEpisodeIndex ?? 0);
-            const resumeSec = aligning ? (pendingResume.seconds || 0) : (state.artplayer?.currentTime || 0);
-            const targetIdx = matchEpisodeIndex(refName, refIdx, eps);
-            state.currentEpisodeIndex = targetIdx;
-            const targetEp = eps[targetIdx];
-            playVideo(
-                targetEp.url,
-                episodeList.children[targetIdx],
-                buildVideoInfo(sourceIndex, targetEp),
-                resumeSec > 2 ? { currentTime: resumeSec } : null,
-            );
-            if (aligning) pendingResume = null; // 續看意圖已消化
-        }
-    } else {
-        episodeList.innerHTML = '<p>此來源下沒有劇集。</p>';
-        if (state.artplayer) {
-            // 保存進度後再銷毀
-            state.saveCurrentProgress();
-            state.artplayer.destroy();
-            state.artplayer = null;
-        }
-    }
+// 切站:換站台,帶著同一集 + 目前秒數(找不到原線路 / 集數時各自智慧對齊)。
+function switchSite(idx) {
+    if (idx === state.activeSiteIdx && state.artplayer) return;
+    carryResumeFromPlayer();
+    state.activeSiteIdx = idx;
+    loadActiveSite();
 }
 
-// 用目前片名跨站搜同名片(精確同名、排除目前所在站),回傳可切換的其他站影片清單
+// 切線路:同一站不同線,帶著同一集 + 目前秒數。
+function switchLine(i) {
+    if (i === state.currentSourceIndex && state.artplayer) return;
+    carryResumeFromPlayer();
+    state.currentSourceIndex = i;
+    renderLineRow();
+    playActiveLine({ autoPlay: true });
+}
+
+// 正在播 → 把目前集數 + 秒數記成續看點(切站 / 切線路帶著走);
+// 還沒播(例如原線路掛了、停在保留進度狀態)→ 保留既有的續看點,別覆蓋成 0。
+function carryResumeFromPlayer() {
+    if (!state.artplayer) return;
+    const pos = state.artplayer.currentTime || 0;
+    pendingResume = {
+        item: {
+            episodeName: state.currentVideoInfo?.episodeName || '',
+            episodeIndex: state.currentEpisodeIndex ?? 0,
+            currentTime: pos,
+        },
+        seconds: pos,
+    };
+}
+
+// 用目前片名跨站搜同名片(精確同名),回傳其他站的影片清單(含 from_site_id)
 async function findPeersOnOtherSites() {
-    const name = state.currentVideo?.vod_name;
+    const name = state.siteOptions[state.activeSiteIdx]?.videoName || state.currentVideo?.vod_name;
     if (!name) return [];
     const ids = state.sites.filter(s => s.enabled !== false).map(s => s.id);
-    const currentSiteId = state.playbackSite?.id ?? state.currentSite?.id;
     try {
         const res = await fetchMultiSiteVideoList(ids, 1, name);
-        return (res.list || []).filter(v =>
-            v.vod_name === name && v.from_site_id != null && v.from_site_id !== currentSiteId);
+        return (res.list || []).filter(v => v.vod_name === name && v.from_site_id != null);
     } catch (e) {
         console.error('跨站搜尋同名片失敗:', e);
         return [];
     }
 }
 
-// 在來源列尾端加「其他站」鈕(單站開的片用)。點一下跨站搜同名片 → 轉成多來源模式(各站並列),
-// 自動回到目前所在站(對齊集數+續播當前秒數),使用者再點別站即可切過去。
-function appendCrossSiteButton(container) {
-    const btn = document.createElement('button');
-    btn.className = 'source-btn cross-site-trigger';
-    btn.textContent = '🔍 其他站';
-    btn.onclick = async () => {
-        if (btn.dataset.busy === '1') return;
-        btn.dataset.busy = '1';
-        btn.textContent = '搜尋中…';
-        const peers = await findPeersOnOtherSites();
-        btn.dataset.busy = '0';
-        if (peers.length === 0) {
-            btn.textContent = '其他站無此片';
-            btn.disabled = true;
-            return;
-        }
-        // 目前這部片(目前站)放第一個,後面接其他站;自動選第一個(=目前站)續播,不中斷觀看。
-        // 播放站台用 playbackSite(歷史 / 分享開的片站台可能不在本地清單)。
-        const ps = state.playbackSite || state.currentSite;
-        const cur = {
-            vod_id: state.currentVideo.vod_id,
-            vod_name: state.currentVideo.vod_name,
-            vod_pic: state.currentVideo.vod_pic,
-            from_site_id: ps?.id,
-            from_site: ps?.name || '目前站',
-        };
-        openMultiSourceModal(state.currentVideo.vod_name, [cur, ...peers], 0);
-    };
-    container.appendChild(btn);
+// 「🔍 其他站」:只去搜同名片、把找到的站台加進站台列,完全不動正在播的畫面 / 秒數。
+async function searchOtherSites(btn) {
+    if (btn.dataset.busy === '1') return;
+    btn.dataset.busy = '1';
+    btn.textContent = '搜尋中…';
+    const peers = await findPeersOnOtherSites();
+    if (!state.modalOpen) return;
+    const existing = new Set(state.siteOptions.map(o => o.siteUrl));
+    const added = [];
+    for (const p of peers) {
+        const site = state.sites.find(s => s.id === p.from_site_id);
+        if (!site || existing.has(site.url)) continue;
+        existing.add(site.url);
+        added.push(siteOptionFrom({
+            siteUrl: site.url, siteName: p.from_site || site.name, siteId: site.id,
+            vodId: p.vod_id, videoName: p.vod_name, videoPic: p.vod_pic,
+        }));
+    }
+    state.siteOptions = state.siteOptions.concat(added);
+    state.crossSiteSearched = true; // 搜過就不再顯示「其他站」鈕
+    renderSiteRow();
+    showToast(added.length > 0 ? `已加入 ${added.length} 個其他站台` : '其他站找不到同名影片',
+        added.length > 0 ? 'success' : 'info');
 }
 
 export function closeModal() {
@@ -755,12 +615,14 @@ export function closeModal() {
         state.artplayer = null;
     }
     state.modalData = null;
-    state.multiSourceVideos = []; // 清空多來源影片列表
-    state.currentSourceIndex = 0; // 重置來源索引
+    state.currentSourceIndex = 0; // 重置線路索引
     state.currentVideo = null; // 重置當前影片資訊
-    state.multiSourceModalData = {}; // 清理多來源 modalData
+    state.siteOptions = []; // 清空站台列
+    state.activeSiteIdx = 0;
+    state.crossSiteSearched = false;
     state.playbackSite = null; // 清掉播放站台,不影響背景瀏覽清單
     pendingResume = null; // 清掉未消化的續看意圖
+    detailsCache.clear(); // 清掉本次開啟的詳情快取
 
     // 使用統一方法清理來源數量標籤
     updateSourceCountDisplay();
@@ -1105,9 +967,8 @@ export async function openVideoFromUrl({ siteUrl, vodId, src, ep }) {
     }
 }
 
-// 統一的播放器開啟流程(歷史 / 分享連結用),跟首頁 openModal 走同一套 renderPlaylist,
-// 所以「其他站」跨站續播、換來源帶秒數等功能兩邊一致,不再各自一套。
-// resumeItem:要續看的那一集(含 currentTime 秒數);null = 從第一集從頭播。
+// 統一的播放器開啟流程(歷史 / 分享連結用),跟首頁 openModal 走同一套三層 modal。
+// data:已抓好的詳情(線路清單),先塞進快取避免重抓。resumeItem:要續看的那一集(含 currentTime)。
 function openUnifiedVideoModal({ siteUrl, video, siteName, data, resumeItem = null }) {
     // 顯示用站名:本地清單有這站就用清單名;沒有(跨裝置 / 跨 app 的歷史)退用站台網域,再不行用整串 url。
     const localSite = state.sites.find(s => s.url === siteUrl);
@@ -1116,42 +977,13 @@ function openUnifiedVideoModal({ siteUrl, video, siteName, data, resumeItem = nu
         try { name = new URL(siteUrl).hostname; } catch { /* siteUrl 非合法 url */ }
         if (!name) name = siteUrl;
     }
-
-    historyManager.add({
-        id: 'videoModal',
-        apply: () => {
-            state.modalOpen = true;
-            document.body.classList.add('modal-open');
-            $('.title-text').textContent = video.vod_name || '';
-            $('#videoModal').style.display = 'flex';
-            $('#playlistSources').innerHTML = '';
-            $('#episodeList').innerHTML = '正在載入...';
-            updateSourceCountDisplay();
-
-            // 以 siteUrl 為準的播放站台(可能不在本地清單)。不動 currentSite(背景瀏覽清單)。
-            state.playbackSite = { id: localSite?.id, name, url: siteUrl };
-            state.currentVideo = { vod_id: video.vod_id, vod_name: video.vod_name, vod_pic: video.vod_pic, from_site_id: localSite?.id };
-            state.modalData = data;
-            state.multiSourceVideos = [];
-            state.multiSourceModalData = {};
-
-            pendingResume = resumeItem ? { item: resumeItem, seconds: resumeItem.currentTime || 0 } : null;
-
-            // 找原本看的那一集在哪個來源;-1 = 那條來源掛了 / 已不存在
-            const targetSourceIndex = resumeItem ? findTargetSourceIndex(resumeItem, data) : -1;
-            if (targetSourceIndex >= 0) {
-                renderPlaylist(targetSourceIndex);              // 對齊集數 + 續看交給 renderPlaylist
-            } else if (resumeItem && (resumeItem.currentTime || 0) > 0) {
-                // 原本來源掛了但有進度:渲染現有來源 + 「其他站」鈕,不自動改播別集(會洗掉續看秒數),
-                // 保留 pendingResume,使用者按「其他站」就能帶著同一集 + 秒數切到別站續看。
-                renderPlaylist(0, { autoPlay: false });
-                showToast('原本觀看的來源已失效，已保留上次進度。可用「🔍 其他站」帶著進度到別站續看。', 'warning');
-            } else {
-                renderPlaylist(0);                              // 無續看目標(分享新片 / 下一集從頭播)
-            }
-        },
-        revert: closeModal,
-        context: { siteUrl, video, data }
+    if (data) cacheDetails(siteUrl, video.vod_id, data); // 已抓好的詳情先快取,loadActiveSite 就不重抓
+    openVideoModal({
+        siteOptions: [siteOptionFrom({
+            siteUrl, siteName: name, siteId: localSite?.id,
+            vodId: video.vod_id, videoName: video.vod_name, videoPic: video.vod_pic,
+        })],
+        resumeItem,
     });
 }
 
@@ -1375,7 +1207,14 @@ function renderFavorites() {
             if (hist) {
                 playFromHistory(hist, false);
             } else {
-                openModal({ vod_id: fav.videoId, vod_name: fav.videoName, vod_pic: fav.videoPic, from_site_id: site?.id });
+                // 收藏以 siteUrl 為識別,直接用它開(站台不在本地清單也行,跨裝置 / kazi 同步的收藏一樣可播)
+                openUnifiedVideoModal({
+                    siteUrl: fav.siteUrl,
+                    siteName: fav.siteName,
+                    video: { vod_id: fav.videoId, vod_name: fav.videoName, vod_pic: fav.videoPic },
+                    data: null,
+                    resumeItem: null,
+                });
             }
         };
         card.querySelector('.fav-play-btn').addEventListener('click', open);

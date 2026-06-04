@@ -527,7 +527,7 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
         syncVideoUrl(videoInfo);
         if (state.onPlaybackChange) state.onPlaybackChange();  // 更新收藏星號
 
-        // 計算總集數 - 取各來源最大值避免重複計數
+        // 計算總集數 - 取各線路最大值避免重複計數
         let totalEpisodes = 0;
         if (state.modalData && state.modalData.length > 0) {
             state.modalData.forEach(source => {
@@ -535,15 +535,6 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                     totalEpisodes = source.episodes.length;
                 }
             });
-        } else if (state.multiSourceModalData && Object.keys(state.multiSourceModalData).length > 0) {
-            const sourceData = state.multiSourceModalData[state.currentSourceIndex];
-            if (sourceData && sourceData.length > 0) {
-                sourceData.forEach(source => {
-                    if (source.episodes && source.episodes.length > totalEpisodes) {
-                        totalEpisodes = source.episodes.length;
-                    }
-                });
-            }
         }
 
         // 將總集數添加到 videoInfo
@@ -553,40 +544,11 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
 
         state.addToHistory(videoInfo);
 
-        // 檢查 currentVideo 是否需要從 multiSourceVideos 中更新
-        if (state.multiSourceVideos && state.multiSourceVideos.length > 0) {
-            const videoFromSource = state.multiSourceVideos[state.currentSourceIndex];
-            if (videoFromSource && videoFromSource.vod_id === videoInfo.videoId) {
-                state.currentVideo = videoFromSource;
-            }
-        }
-
-        console.log('播放影片資訊:', {
-            videoInfo,
-            currentVideo: state.currentVideo,
-            modalData: state.modalData,
-            multiSourceData: state.multiSourceModalData,
-            currentSourceIndex: state.currentSourceIndex
-        });
-
         // 確保 currentVideo 中包含完整的影片資訊，包括劇集列表
         if (!state.currentVideo || state.currentVideo.vod_id !== videoInfo.videoId) {
             // 從 modalData 中找到當前播放的影片資訊
-            let episodes = [];
-            if (state.modalData && state.modalData.length > 0) {
-                // 檢查 modalData 的結構
-                if (Array.isArray(state.modalData[0].episodes)) {
-                    episodes = state.modalData[0].episodes;
-                } else if (Array.isArray(state.modalData[0]?.episodes)) {
-                    episodes = state.modalData[0].episodes;
-                }
-                console.log('找到劇集列表:', {
-                    hasModalData: !!state.modalData,
-                    modalDataLength: state.modalData.length,
-                    firstItem: state.modalData[0],
-                    episodesFound: episodes.length
-                });
-            }
+            // 目前線路(currentSourceIndex)的集數清單
+            const episodes = state.modalData?.[state.currentSourceIndex]?.episodes || [];
 
             // 更新 currentVideo，保持現有屬性
             state.currentVideo = {
@@ -1090,8 +1052,8 @@ export function playVideo(url, element, videoInfo = null, historyItem = null) {
                     const episodeElements = document.querySelectorAll('.episode-item');
                     let nextEpisodeElement = null;
 
-                    // 尋找下一集的元素
-                    const currentSource = state.modalData[0];
+                    // 尋找下一集的元素(目前線路)
+                    const currentSource = state.modalData[state.currentSourceIndex];
                     if (currentSource && currentSource.episodes) {
                         const currentIndex = currentSource.episodes.findIndex(episode => episode.url === nextEpisodeUrl);
 
