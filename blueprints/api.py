@@ -14,8 +14,8 @@ MAX_HISTORY_ITEMS = 300
 MAX_FAVORITE_ITEMS = 600
 
 # 墓碑(軟刪 tombstone)保留 30 天後永久清掉:夠久讓所有裝置都同步到「這筆刪了」,
-# 之後不必再佔 MAX_*_ITEMS 額度。代價:離線超過 30 天的裝置帶舊 active 版本回來會讓該筆復活
-# (tombstone 已 GC、沒得壓制)——這是 tombstone 同步的標準取捨。
+# 之後不必再佔 MAX_*_ITEMS 額度。墓碑 GC 後,離線很久的裝置帶舊 active 版本回來本會讓該筆復活,
+# 所以 merge 時另外擋:伺服器沒有、且時間比 TTL 還舊的上傳項一律不收(見 _merge_sync_items)。
 _TOMBSTONE_TTL_MS = 30 * 24 * 60 * 60 * 1000
 
 
@@ -62,8 +62,12 @@ def _sync_key_video_site_line(item):
     return f"{item.get('videoId')}|{item.get('siteUrl', '')}|{item.get('sourceFlag', '')}"
 
 
-def _merge_sync_items(stored, incoming, time_of, key_fn=_sync_key_video_site):
+def _merge_sync_items(stored, incoming, time_of, key_fn=_sync_key_video_site, now_ms=None):
     """逐筆 merge:同 key_fn 取 time_of 較大(較新)者。
+
+    防「刪掉的又復活」:incoming 裡伺服器沒有的項,若 time_of 比 _TOMBSTONE_TTL_MS 還舊就丟掉。
+    這種項只可能是「刪過、墓碑已 GC」或「被 MAX_*_ITEMS 截掉」的舊資料(常見於很久沒用的裝置
+    連上後整包 POST),不該再收。代價:離線超過 TTL 且期間從沒同步上來的舊項會被丟,可接受。
 
     incoming 接在 stored 後面 → 同分時用新送上來的,符合 last-write-wins。
     跳過沒有 videoId 的畸形項。這是同步不丟資料的關鍵:client 端是整包 POST,
@@ -71,10 +75,23 @@ def _merge_sync_items(stored, incoming, time_of, key_fn=_sync_key_video_site):
     觀看歷史的 key 含 sourceFlag(各線路獨立),收藏則只到 videoId|siteUrl。
     """
     merged = {}
-    for item in list(stored) + list(incoming):
+    stale_before = (now_ms - _TOMBSTONE_TTL_MS) if now_ms is not None else None
+    for item in stored:
         if not isinstance(item, dict) or 'videoId' not in item:
             continue
         k = key_fn(item)
+        existing = merged.get(k)
+        if existing is None or time_of(item) >= time_of(existing):
+            merged[k] = item
+    stored_keys = set(merged)
+    for item in incoming:
+        if not isinstance(item, dict) or 'videoId' not in item:
+            continue
+        k = key_fn(item)
+        # time_of == 0 視為「時間未知」(例如某端沒帶時間欄位),維持舊行為照收,只擋確定太舊的
+        t = time_of(item)
+        if stale_before is not None and k not in stored_keys and 0 < t < stale_before:
+            continue
         existing = merged.get(k)
         if existing is None or time_of(item) >= time_of(existing):
             merged[k] = item
@@ -537,7 +554,7 @@ def account_history():
     def _merge(raw):
         eff = lambda x: max(_num(x, 'updatedAt'), _num(x, 'deletedAt'))
         # 觀看歷史:各線路(sourceFlag)獨立一筆,合併鍵要含線路,否則同片同站不同線路會被併成一筆
-        merged = _merge_sync_items(_parse_list(raw), data, eff, _sync_key_video_site_line)
+        merged = _merge_sync_items(_parse_list(raw), data, eff, _sync_key_video_site_line, now_ms)
         merged = _gc_tombstones(merged, now_ms)
         # 截斷排序用「有效時間」(含 deletedAt),跟 merge 一致 → 超量時不會把最近的刪除墓碑先丟掉、
         # 害刪除被舊裝置復活。
@@ -575,7 +592,7 @@ def account_favorites():
 
     def _merge(raw):
         eff = lambda x: max(_num(x, 'addedAt'), _num(x, 'deletedAt'))
-        merged = _merge_sync_items(_parse_list(raw), data, eff)
+        merged = _merge_sync_items(_parse_list(raw), data, eff, now_ms=now_ms)
         merged = _gc_tombstones(merged, now_ms)
         merged.sort(key=eff, reverse=True)
         return json.dumps(merged[:MAX_FAVORITE_ITEMS], ensure_ascii=False)
